@@ -2,6 +2,13 @@ node_modules/
 .turbo/
 dist/
 coverage/
+.vite/
+.pnpm-store/
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+apps/api/src/generated/prisma/
 .env
 .env.*
 !.env.example

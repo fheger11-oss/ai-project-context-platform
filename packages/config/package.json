@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./eslint": "./eslint/index.js",
+    "./prettier": "./prettier/index.js",
     "./tsconfig/base": "./tsconfig/base.json"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "format": "prettier . --write",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist"
   }
 }
