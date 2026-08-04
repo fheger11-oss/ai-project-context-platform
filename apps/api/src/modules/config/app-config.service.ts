@@ -39,6 +39,22 @@ export class AppConfigService {
     return this.config.get("DATABASE_URL", { infer: true });
   }
 
+  get jwtAccessSecret() {
+    return this.config.get("JWT_ACCESS_SECRET", { infer: true });
+  }
+
+  get jwtRefreshSecret() {
+    return this.config.get("JWT_REFRESH_SECRET", { infer: true });
+  }
+
+  get jwtAccessTokenTtlSeconds() {
+    return this.config.get("JWT_ACCESS_TOKEN_TTL_SECONDS", { infer: true });
+  }
+
+  get jwtRefreshTokenTtlSeconds() {
+    return this.config.get("JWT_REFRESH_TOKEN_TTL_SECONDS", { infer: true });
+  }
+
   get corsOrigins() {
     const origins = this.config.get("CORS_ORIGINS", { infer: true });
 

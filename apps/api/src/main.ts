@@ -42,7 +42,10 @@ async function bootstrap() {
     .setTitle("AI Project Context Platform API")
     .setDescription("Infrastructure foundation for the AI Project Context Platform backend.")
     .setVersion(config.apiVersion)
+    .addBearerAuth()
+    .addTag("auth")
     .addTag("health")
+    .addTag("repositories")
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 

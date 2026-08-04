@@ -1,9 +1,5 @@
 import "dotenv/config";
-import { defineConfig } from "prisma/config";
-
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  "postgresql://postgres.placeholder:password@placeholder.supabase.co:5432/postgres?schema=public";
+import { defineConfig, env } from "prisma/config";
 
 export default defineConfig({
   schema: "apps/api/prisma/schema.prisma",
@@ -11,6 +7,6 @@ export default defineConfig({
     path: "apps/api/prisma/migrations"
   },
   datasource: {
-    url: databaseUrl
+    url: env("DATABASE_URL")
   }
 });

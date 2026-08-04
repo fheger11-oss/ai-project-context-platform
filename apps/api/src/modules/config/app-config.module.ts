@@ -8,6 +8,7 @@ import { validateEnvironment } from "./environment.validation.js";
   imports: [
     ConfigModule.forRoot({
       cache: true,
+      envFilePath: [".env", "../../.env"],
       isGlobal: true,
       validate: validateEnvironment
     })

@@ -9,7 +9,11 @@ const environmentSchema = z.object({
   API_VERSION: z.string().regex(/^\d+$/).default("1"),
   SWAGGER_PATH: z.string().min(1).default("docs"),
   CORS_ORIGINS: z.string().min(1).default("http://localhost:5173,http://127.0.0.1:5173"),
-  DATABASE_URL: z.string().url()
+  DATABASE_URL: z.string().url(),
+  JWT_ACCESS_SECRET: z.string().min(32),
+  JWT_REFRESH_SECRET: z.string().min(32),
+  JWT_ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
+  JWT_REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(2_592_000)
 });
 
 export type Environment = z.infer<typeof environmentSchema>;

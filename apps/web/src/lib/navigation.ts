@@ -3,6 +3,7 @@ import {
   Braces,
   Cable,
   DatabaseZap,
+  GitBranch,
   LayoutDashboard,
   LockKeyhole,
   Settings2
@@ -18,6 +19,7 @@ export type NavItem = {
 
 export const primaryNavigation: NavItem[] = [
   { title: "Foundation", href: "/", icon: LayoutDashboard, status: "ready" },
+  { title: "Repositories", href: "/repositories", icon: GitBranch, status: "ready" },
   { title: "Engines", href: "/engines", icon: Boxes, status: "soon" },
   { title: "Context Vault", href: "/context", icon: DatabaseZap, status: "soon" },
   { title: "Contracts", href: "/contracts", icon: Braces, status: "soon" },

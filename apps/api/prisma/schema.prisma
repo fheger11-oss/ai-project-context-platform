@@ -6,3 +6,76 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum RepositoryVisibility {
+  PUBLIC
+  PRIVATE
+  INTERNAL
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String         @map("password_hash")
+  role          Role           @default(USER)
+  tenantId      String?        @map("tenant_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  refreshTokens RefreshToken[]
+  repositories  Repository[]
+
+  @@index([tenantId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id                String    @id @default(cuid())
+  tokenHash         String    @unique @map("token_hash")
+  userId            String    @map("user_id")
+  userAgent         String?   @map("user_agent")
+  ipAddress         String?   @map("ip_address")
+  expiresAt         DateTime  @map("expires_at")
+  revokedAt         DateTime? @map("revoked_at")
+  replacedByTokenId String?   @map("replaced_by_token_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model Repository {
+  id              String               @id @default(cuid())
+  userId          String               @map("user_id")
+  githubId        String               @map("github_id")
+  name            String
+  fullName        String               @map("full_name")
+  owner           String
+  description     String?
+  defaultBranch   String               @map("default_branch")
+  visibility      RepositoryVisibility
+  language        String?
+  stars           Int                  @default(0)
+  forks           Int                  @default(0)
+  isArchived      Boolean              @default(false) @map("is_archived")
+  cloneUrl        String               @map("clone_url")
+  htmlUrl         String               @map("html_url")
+  githubUpdatedAt DateTime             @map("github_updated_at")
+  lastSyncedAt    DateTime             @default(now()) @map("last_synced_at")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, githubId])
+  @@index([userId])
+  @@index([fullName])
+  @@map("repositories")
+}

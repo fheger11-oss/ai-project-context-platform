@@ -14,6 +14,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@ai-context/contracts": "workspace:*",
     "@ai-context/shared": "workspace:*",
     "@ai-context/types": "workspace:*",
     "@ai-context/ui": "workspace:*",
