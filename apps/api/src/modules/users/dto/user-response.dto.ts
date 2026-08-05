@@ -3,18 +3,18 @@ import { ApiProperty } from "@nestjs/swagger";
 import { Role } from "../../../generated/prisma/enums.js";
 
 export class UserResponseDto {
-  @ApiProperty()
+  @ApiProperty({ type: String })
   id!: string;
 
-  @ApiProperty({ example: "founder@example.com" })
+  @ApiProperty({ type: String, example: "founder@example.com" })
   email!: string;
 
   @ApiProperty({ enum: Role })
   role!: Role;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   tenantId!: string | null;
 
-  @ApiProperty()
+  @ApiProperty({ type: String, format: "date-time" })
   createdAt!: Date;
 }

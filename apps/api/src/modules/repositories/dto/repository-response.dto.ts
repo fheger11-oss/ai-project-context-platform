@@ -3,56 +3,56 @@ import { ApiProperty } from "@nestjs/swagger";
 import { RepositoryVisibility } from "../../../generated/prisma/enums.js";
 
 export class RepositoryResponseDto {
-  @ApiProperty()
+  @ApiProperty({ type: String })
   id!: string;
 
-  @ApiProperty()
+  @ApiProperty({ type: String })
   githubId!: string;
 
-  @ApiProperty()
+  @ApiProperty({ type: String })
   name!: string;
 
-  @ApiProperty()
+  @ApiProperty({ type: String })
   fullName!: string;
 
-  @ApiProperty()
+  @ApiProperty({ type: String })
   owner!: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   description!: string | null;
 
-  @ApiProperty()
+  @ApiProperty({ type: String })
   defaultBranch!: string;
 
   @ApiProperty({ enum: RepositoryVisibility })
   visibility!: RepositoryVisibility;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   language!: string | null;
 
-  @ApiProperty()
+  @ApiProperty({ type: Number })
   stars!: number;
 
-  @ApiProperty()
+  @ApiProperty({ type: Number })
   forks!: number;
 
-  @ApiProperty()
+  @ApiProperty({ type: Boolean })
   isArchived!: boolean;
 
-  @ApiProperty()
+  @ApiProperty({ type: String })
   cloneUrl!: string;
 
-  @ApiProperty()
+  @ApiProperty({ type: String })
   htmlUrl!: string;
 
-  @ApiProperty()
+  @ApiProperty({ type: String, format: "date-time" })
   githubUpdatedAt!: Date;
 
-  @ApiProperty()
+  @ApiProperty({ type: String, format: "date-time" })
   lastSyncedAt!: Date;
 }
 
 export class RepositoryListResponseDto {
-  @ApiProperty({ type: RepositoryResponseDto, isArray: true })
+  @ApiProperty({ type: () => RepositoryResponseDto, isArray: true })
   repositories!: RepositoryResponseDto[];
 }
