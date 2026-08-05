@@ -110,8 +110,8 @@ export class AuthController {
   @Auth()
   @ApiBearerAuth()
   @ApiOkResponse({ type: UserResponseDto })
-  getCurrentUser(@CurrentUser() user: AuthenticatedUser): AuthenticatedUser {
-    return user;
+  getCurrentUser(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.getCurrentUser(user.id);
   }
 
   private getSessionMetadata(request: Request) {

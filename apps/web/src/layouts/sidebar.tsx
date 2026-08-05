@@ -6,6 +6,7 @@ import { StatusDot } from "@/components/shared/status-dot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { AuthUserSection } from "@/features/auth/components/auth-user-section";
 import { primaryNavigation } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import { useLayoutStore } from "@/stores/layout-store";
@@ -81,6 +82,10 @@ export function Sidebar() {
             </NavLink>
           ))}
         </nav>
+
+        <div className="border-t p-3">
+          <AuthUserSection collapsed={collapsed} />
+        </div>
 
         <div className="hidden border-t p-3 md:block">
           <Button

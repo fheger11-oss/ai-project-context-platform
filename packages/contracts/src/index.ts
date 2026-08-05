@@ -30,3 +30,18 @@ export type ListRepositoriesResponse = {
 export type ListAvailableGitHubRepositoriesResponse = {
   repositories: AvailableGitHubRepository[];
 };
+
+export type GitHubIdentity = {
+  avatarUrl: string | null;
+  displayName: string | null;
+  username: string;
+};
+
+export type AuthenticatedUser = {
+  id: string;
+  email: string;
+  github: GitHubIdentity | null;
+  role: "USER" | "ADMIN";
+  tenantId: string | null;
+  createdAt: string;
+};

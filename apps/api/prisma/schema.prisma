@@ -39,6 +39,8 @@ model GitHubAccount {
   userId               String   @unique @map("user_id")
   githubId             String   @unique @map("github_id")
   login                String
+  displayName          String?  @map("display_name")
+  avatarUrl            String?  @map("avatar_url")
   accessTokenEncrypted String   @map("access_token_encrypted")
   accessTokenIv        String   @map("access_token_iv")
   accessTokenAuthTag   String   @map("access_token_auth_tag")

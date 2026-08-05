@@ -19,6 +19,14 @@ type SessionMetadata = {
   userAgent: string | undefined;
 };
 
+type UserWithGitHubAccount = UserModel & {
+  githubAccount: {
+    avatarUrl: string | null;
+    displayName: string | null;
+    login: string;
+  } | null;
+};
+
 const PASSWORD_SALT_ROUNDS = 12;
 const GITHUB_OAUTH_STATE_TTL_SECONDS = 600;
 
@@ -79,6 +87,8 @@ export class AuthService {
 
     await this.githubAccountService.upsert({
       userId: user.id,
+      avatarUrl: profile.avatarUrl,
+      displayName: profile.displayName,
       githubId: profile.githubId,
       login: profile.login,
       scope: profile.scope,
@@ -186,6 +196,27 @@ export class AuthService {
       .catch(() => undefined);
   }
 
+  async getCurrentUser(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        githubAccount: {
+          select: {
+            avatarUrl: true,
+            displayName: true,
+            login: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      throw new UnauthorizedException("Authentication required");
+    }
+
+    return this.toUserResponse(user);
+  }
+
   private async createSession(
     user: UserModel,
     metadata: SessionMetadata
@@ -273,10 +304,18 @@ export class AuthService {
     return createHash("sha256").update(token).digest("hex");
   }
 
-  private toUserResponse(user: UserModel) {
+  private toUserResponse(user: UserModel | UserWithGitHubAccount) {
     return {
       id: user.id,
       email: user.email,
+      github:
+        "githubAccount" in user && user.githubAccount
+          ? {
+              avatarUrl: user.githubAccount.avatarUrl,
+              displayName: user.githubAccount.displayName,
+              username: user.githubAccount.login
+            }
+          : null,
       role: user.role,
       tenantId: user.tenantId,
       createdAt: user.createdAt

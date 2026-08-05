@@ -5,6 +5,8 @@ import { ProviderTokenCipherService } from "./provider-token-cipher.service.js";
 
 type GitHubAccountInput = {
   accessToken: string;
+  avatarUrl: string | null;
+  displayName: string | null;
   githubId: string;
   login: string;
   scope: string | null;
@@ -29,12 +31,16 @@ export class GitHubAccountService {
       create: {
         userId: input.userId,
         githubId: input.githubId,
+        avatarUrl: input.avatarUrl,
+        displayName: input.displayName,
         login: input.login,
         scope: input.scope,
         ...encryptedToken
       },
       update: {
         githubId: input.githubId,
+        avatarUrl: input.avatarUrl,
+        displayName: input.displayName,
         login: input.login,
         scope: input.scope,
         ...encryptedToken

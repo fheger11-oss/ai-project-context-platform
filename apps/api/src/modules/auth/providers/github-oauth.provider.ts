@@ -12,6 +12,8 @@ import { AppConfigService } from "../../config/app-config.service.js";
 
 export type GitHubOAuthProfile = {
   accessToken: string;
+  avatarUrl: string | null;
+  displayName: string | null;
   email: string;
   githubId: string;
   login: string;
@@ -26,9 +28,11 @@ const tokenSchema = z.object({
 });
 
 const userSchema = z.object({
+  avatar_url: z.string().url().nullable(),
   id: z.number().int().positive(),
   login: z.string().min(1),
-  email: z.string().email().nullable()
+  email: z.string().email().nullable(),
+  name: z.string().nullable()
 });
 
 const emailSchema = z.object({
@@ -97,6 +101,8 @@ export class GitHubOAuthProvider {
 
     return {
       accessToken: tokenPayload.data.access_token,
+      avatarUrl: userPayload.data.avatar_url,
+      displayName: userPayload.data.name,
       email: primaryEmail.toLowerCase(),
       githubId: String(userPayload.data.id),
       login: userPayload.data.login,
