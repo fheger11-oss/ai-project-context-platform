@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm db:generate && tsx watch src/main.ts",
+    "dev": "pnpm db:generate && nest start --watch",
     "start": "node dist/main.js",
     "build": "pnpm db:generate && tsc -p tsconfig.json",
     "lint": "eslint .",
@@ -42,9 +42,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@nestjs/cli": "^11.0.24",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.6",
-    "@types/passport-jwt": "^4.0.1",
-    "tsx": "^4.23.5"
+    "@types/passport-jwt": "^4.0.1"
   }
 }
