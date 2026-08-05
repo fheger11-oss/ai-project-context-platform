@@ -55,6 +55,26 @@ export class AppConfigService {
     return this.config.get("JWT_REFRESH_TOKEN_TTL_SECONDS", { infer: true });
   }
 
+  get githubClientId() {
+    return this.config.get("GITHUB_CLIENT_ID", { infer: true });
+  }
+
+  get githubClientSecret() {
+    return this.config.get("GITHUB_CLIENT_SECRET", { infer: true });
+  }
+
+  get githubCallbackUrl() {
+    return this.config.get("GITHUB_CALLBACK_URL", { infer: true });
+  }
+
+  get webAuthCallbackUrl() {
+    return this.config.get("WEB_AUTH_CALLBACK_URL", { infer: true });
+  }
+
+  get providerTokenEncryptionKey() {
+    return this.config.get("PROVIDER_TOKEN_ENCRYPTION_KEY", { infer: true });
+  }
+
   get corsOrigins() {
     const origins = this.config.get("CORS_ORIGINS", { infer: true });
 

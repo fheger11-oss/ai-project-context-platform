@@ -26,4 +26,12 @@ export class UsersService {
       }
     });
   }
+
+  createOAuthUser(input: { email: string }) {
+    return this.prisma.user.create({
+      data: {
+        email: input.email.toLowerCase()
+      }
+    });
+  }
 }

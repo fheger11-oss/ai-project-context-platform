@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { RepositoryModel } from "../../generated/prisma/models.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { GitHubAccountService } from "../auth/providers/github-account.service.js";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user.js";
 import type { RepositoryResponseDto } from "./dto/repository-response.dto.js";
 import { GitHubRepositoryProvider } from "./providers/github-repository.provider.js";
@@ -11,11 +12,14 @@ import type { GitHubRepositoryMetadata } from "./providers/github-repository.pro
 export class RepositoriesService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(GitHubAccountService)
+    private readonly githubAccountService: GitHubAccountService,
     @Inject(GitHubRepositoryProvider)
     private readonly githubRepositoryProvider: GitHubRepositoryProvider
   ) {}
 
-  async listAvailableGitHubRepositories(user: AuthenticatedUser, accessToken: string) {
+  async listAvailableGitHubRepositories(user: AuthenticatedUser) {
+    const accessToken = await this.githubAccountService.getAccessTokenForUser(user.id);
     const [githubRepositories, connectedRepositories] = await Promise.all([
       this.githubRepositoryProvider.listRepositories(accessToken),
       this.prisma.repository.findMany({
@@ -31,7 +35,8 @@ export class RepositoriesService {
     }));
   }
 
-  async connect(user: AuthenticatedUser, accessToken: string, githubId: string) {
+  async connect(user: AuthenticatedUser, githubId: string) {
+    const accessToken = await this.githubAccountService.getAccessTokenForUser(user.id);
     const repository = await this.githubRepositoryProvider.getRepositoryById(accessToken, githubId);
 
     if (!repository) {
@@ -65,7 +70,7 @@ export class RepositoriesService {
     return this.toResponse(repository);
   }
 
-  async sync(user: AuthenticatedUser, id: string, accessToken: string) {
+  async sync(user: AuthenticatedUser, id: string) {
     const existingRepository = await this.prisma.repository.findFirst({
       where: {
         id,
@@ -77,6 +82,7 @@ export class RepositoriesService {
       throw new NotFoundException("Repository was not found");
     }
 
+    const accessToken = await this.githubAccountService.getAccessTokenForUser(user.id);
     const repository = await this.githubRepositoryProvider.getRepositoryById(
       accessToken,
       existingRepository.githubId

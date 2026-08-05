@@ -5,16 +5,17 @@ import { useQuery } from "@tanstack/react-query";
 import { PageHeading } from "@/components/typography/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
+import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { RepositoryCard } from "@/features/repositories/components/repository-card";
 import {
   RepositoryErrorState,
   RepositoryState
 } from "@/features/repositories/components/repository-state";
 import { listRepositories } from "@/features/repositories/api/repositories-api";
-import { useRepositoryConnectionStore } from "@/features/repositories/stores/repository-connection-store";
 
 export function RepositoryListView() {
-  const apiAccessToken = useRepositoryConnectionStore((state) => state.apiAccessToken);
+  const apiAccessToken = useAuthSessionStore((state) => state.accessToken);
   const repositoriesQuery = useQuery({
     queryKey: ["repositories"],
     queryFn: () => listRepositories(apiAccessToken),
@@ -41,10 +42,10 @@ export function RepositoryListView() {
       {!apiAccessToken ? (
         <RepositoryState
           title="Session required"
-          description="Add an API access token before loading connected repositories."
+          description="Sign in with GitHub to load connected repositories."
           action={
-            <Button asChild variant="outline">
-              <Link to="/repositories/connect">Open connection</Link>
+            <Button asChild>
+              <a href={getGitHubLoginUrl()}>Sign in with GitHub</a>
             </Button>
           }
         />

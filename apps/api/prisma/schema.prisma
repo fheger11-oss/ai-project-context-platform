@@ -21,16 +21,35 @@ enum RepositoryVisibility {
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
-  passwordHash  String         @map("password_hash")
+  passwordHash  String?        @map("password_hash")
   role          Role           @default(USER)
   tenantId      String?        @map("tenant_id")
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
   refreshTokens RefreshToken[]
+  githubAccount GitHubAccount?
   repositories  Repository[]
 
   @@index([tenantId])
   @@map("users")
+}
+
+model GitHubAccount {
+  id                   String   @id @default(cuid())
+  userId               String   @unique @map("user_id")
+  githubId             String   @unique @map("github_id")
+  login                String
+  accessTokenEncrypted String   @map("access_token_encrypted")
+  accessTokenIv        String   @map("access_token_iv")
+  accessTokenAuthTag   String   @map("access_token_auth_tag")
+  scope                String?
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([login])
+  @@map("github_accounts")
 }
 
 model RefreshToken {

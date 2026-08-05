@@ -1,4 +1,11 @@
-import { BadGatewayException, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+  BadGatewayException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException
+} from "@nestjs/common";
+import { z } from "zod";
 
 import { RepositoryVisibility } from "../../../generated/prisma/enums.js";
 
@@ -19,25 +26,30 @@ export type GitHubRepositoryMetadata = {
   githubUpdatedAt: Date;
 };
 
-type GitHubRepositoryApiResponse = {
-  id: number;
-  name: string;
-  full_name: string;
-  owner: {
-    login: string;
-  };
-  description: string | null;
-  default_branch: string;
-  visibility?: "public" | "private" | "internal";
-  private: boolean;
-  language: string | null;
-  stargazers_count: number;
-  forks_count: number;
-  archived: boolean;
-  clone_url: string;
-  html_url: string;
-  updated_at: string;
-};
+const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
+const GITHUB_MAX_REPOSITORY_PAGES = 20;
+
+const githubRepositorySchema = z.object({
+  id: z.number().int().positive(),
+  name: z.string().min(1),
+  full_name: z.string().min(1),
+  owner: z.object({
+    login: z.string().min(1)
+  }),
+  description: z.string().nullable(),
+  default_branch: z.string().min(1),
+  visibility: z.enum(["public", "private", "internal"]).optional(),
+  private: z.boolean(),
+  language: z.string().nullable(),
+  stargazers_count: z.number().int().nonnegative(),
+  forks_count: z.number().int().nonnegative(),
+  archived: z.boolean(),
+  clone_url: z.string().url(),
+  html_url: z.string().url(),
+  updated_at: z.string().datetime()
+});
+
+type GitHubRepositoryApiResponse = z.infer<typeof githubRepositorySchema>;
 
 @Injectable()
 export class GitHubRepositoryProvider {
@@ -46,12 +58,23 @@ export class GitHubRepositoryProvider {
     let nextUrl: string | null =
       "https://api.github.com/user/repos?affiliation=owner,collaborator,organization_member&per_page=100&sort=updated";
 
+    let pageCount = 0;
+
     while (nextUrl) {
       const response = await this.request(nextUrl, accessToken);
-      const page = (await response.json()) as GitHubRepositoryApiResponse[];
+      const page = z.array(githubRepositorySchema).safeParse(await response.json());
 
-      repositories.push(...page);
+      if (!page.success) {
+        throw new BadGatewayException("GitHub repository response could not be validated");
+      }
+
+      repositories.push(...page.data);
       nextUrl = this.getNextPageUrl(response.headers.get("link"));
+      pageCount += 1;
+
+      if (pageCount >= GITHUB_MAX_REPOSITORY_PAGES) {
+        nextUrl = null;
+      }
     }
 
     return repositories.map((repository) => this.toMetadata(repository));
@@ -67,24 +90,42 @@ export class GitHubRepositoryProvider {
   }
 
   private async request(url: string, accessToken: string) {
-    const response = await fetch(url, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${accessToken}`,
-        "User-Agent": "ai-project-context-platform",
-        "X-GitHub-Api-Version": "2022-11-28"
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GITHUB_REQUEST_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${accessToken}`,
+          "User-Agent": "ai-project-context-platform",
+          "X-GitHub-Api-Version": "2022-11-28"
+        },
+        signal: controller.signal
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        if (response.headers.get("x-ratelimit-remaining") === "0") {
+          throw new HttpException("GitHub rate limit exceeded", HttpStatus.TOO_MANY_REQUESTS);
+        }
+
+        throw new UnauthorizedException("GitHub access was rejected");
       }
-    });
 
-    if (response.status === 401 || response.status === 403) {
-      throw new UnauthorizedException("GitHub access was rejected");
-    }
+      if (!response.ok) {
+        throw new BadGatewayException("GitHub repositories could not be retrieved");
+      }
 
-    if (!response.ok) {
+      return response;
+    } catch (error) {
+      if (error instanceof UnauthorizedException || error instanceof HttpException) {
+        throw error;
+      }
+
       throw new BadGatewayException("GitHub repositories could not be retrieved");
+    } finally {
+      clearTimeout(timeout);
     }
-
-    return response;
   }
 
   private getNextPageUrl(linkHeader: string | null) {

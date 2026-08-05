@@ -13,7 +13,12 @@ const environmentSchema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
   JWT_ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
-  JWT_REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(2_592_000)
+  JWT_REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(2_592_000),
+  GITHUB_CLIENT_ID: z.string().min(1),
+  GITHUB_CLIENT_SECRET: z.string().min(1),
+  GITHUB_CALLBACK_URL: z.string().url(),
+  WEB_AUTH_CALLBACK_URL: z.string().url().default("http://localhost:5173/auth/callback"),
+  PROVIDER_TOKEN_ENCRYPTION_KEY: z.string().min(32)
 });
 
 export type Environment = z.infer<typeof environmentSchema>;

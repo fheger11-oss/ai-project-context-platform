@@ -54,40 +54,26 @@ export function getRepository(accessToken: string, id: string) {
   return request<RepositorySummary>(`/repositories/${id}`, { accessToken });
 }
 
-export function listAvailableGitHubRepositories(accessToken: string, githubAccessToken: string) {
+export function listAvailableGitHubRepositories(accessToken: string) {
   return request<ListAvailableGitHubRepositoriesResponse>("/repositories/github/list", {
-    accessToken,
-    method: "POST",
-    body: {
-      accessToken: githubAccessToken
-    }
+    accessToken
   });
 }
 
-export function connectRepository(
-  accessToken: string,
-  input: { githubAccessToken: string; githubId: string }
-) {
+export function connectRepository(accessToken: string, githubId: string) {
   return request<RepositorySummary>("/repositories/connect", {
     accessToken,
     method: "POST",
     body: {
-      accessToken: input.githubAccessToken,
-      githubId: input.githubId
+      githubId
     }
   });
 }
 
-export function syncRepository(
-  accessToken: string,
-  input: { githubAccessToken: string; repositoryId: string }
-) {
-  return request<RepositorySummary>(`/repositories/${input.repositoryId}/sync`, {
+export function syncRepository(accessToken: string, repositoryId: string) {
+  return request<RepositorySummary>(`/repositories/${repositoryId}/sync`, {
     accessToken,
-    method: "POST",
-    body: {
-      accessToken: input.githubAccessToken
-    }
+    method: "POST"
   });
 }
 

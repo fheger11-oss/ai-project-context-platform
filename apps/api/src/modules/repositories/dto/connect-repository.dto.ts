@@ -1,17 +1,11 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, MinLength } from "class-validator";
+import { IsString, Matches, MaxLength, MinLength } from "class-validator";
 
 export class ConnectRepositoryDto {
-  @ApiProperty({
-    description: "GitHub access token from the authenticated GitHub account.",
-    minLength: 20
-  })
-  @IsString()
-  @MinLength(20)
-  accessToken!: string;
-
   @ApiProperty({ example: "721902250" })
   @IsString()
   @MinLength(1)
+  @MaxLength(32)
+  @Matches(/^\d+$/)
   githubId!: string;
 }

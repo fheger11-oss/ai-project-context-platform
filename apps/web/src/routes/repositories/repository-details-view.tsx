@@ -5,30 +5,25 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeading } from "@/components/typography/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ConnectionPanel } from "@/features/repositories/components/connection-panel";
+import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
+import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import {
   RepositoryErrorState,
   RepositoryState
 } from "@/features/repositories/components/repository-state";
 import { getRepository, syncRepository } from "@/features/repositories/api/repositories-api";
-import { useRepositoryConnectionStore } from "@/features/repositories/stores/repository-connection-store";
 
 export function RepositoryDetailsView() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const apiAccessToken = useRepositoryConnectionStore((state) => state.apiAccessToken);
-  const githubAccessToken = useRepositoryConnectionStore((state) => state.githubAccessToken);
+  const apiAccessToken = useAuthSessionStore((state) => state.accessToken);
   const repositoryQuery = useQuery({
     queryKey: ["repositories", id],
     queryFn: () => getRepository(apiAccessToken, id ?? ""),
     enabled: Boolean(apiAccessToken && id)
   });
   const syncMutation = useMutation({
-    mutationFn: () =>
-      syncRepository(apiAccessToken, {
-        githubAccessToken,
-        repositoryId: id ?? ""
-      }),
+    mutationFn: () => syncRepository(apiAccessToken, id ?? ""),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["repositories"] }),
@@ -56,12 +51,15 @@ export function RepositoryDetailsView() {
         }
       />
 
-      <ConnectionPanel />
-
       {!apiAccessToken ? (
         <RepositoryState
           title="Session required"
-          description="Add an API access token before loading repository metadata."
+          description="Sign in with GitHub to load repository metadata."
+          action={
+            <Button asChild>
+              <a href={getGitHubLoginUrl()}>Sign in with GitHub</a>
+            </Button>
+          }
         />
       ) : null}
 
@@ -118,7 +116,7 @@ export function RepositoryDetailsView() {
             </div>
             <Button
               type="button"
-              disabled={!githubAccessToken || syncMutation.isPending}
+              disabled={syncMutation.isPending}
               onClick={() => syncMutation.mutate()}
             >
               <RefreshCw />
@@ -127,6 +125,12 @@ export function RepositoryDetailsView() {
             <Button asChild variant="outline">
               <Link to="/repositories">Back to repositories</Link>
             </Button>
+            {syncMutation.isSuccess ? (
+              <p className="text-sm text-primary">Metadata synchronized.</p>
+            ) : null}
+            {syncMutation.isError ? (
+              <p className="text-sm text-destructive">Metadata sync failed.</p>
+            ) : null}
           </aside>
         </section>
       ) : null}

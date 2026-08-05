@@ -1,4 +1,16 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Post, Req } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Post,
+  Query,
+  Redirect,
+  Req,
+  Res
+} from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -7,12 +19,15 @@ import {
   ApiTags
 } from "@nestjs/swagger";
 import type { Request } from "express";
+import type { Response } from "express";
 
 import { AuthService } from "./auth.service.js";
 import { Auth } from "./decorators/auth.decorator.js";
 import { CurrentUser } from "./decorators/current-user.decorator.js";
 // Swagger and ValidationPipe need these DTOs as runtime values.
 import { AuthResponseDto } from "./dto/auth-response.dto.js";
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { GitHubCallbackDto } from "./dto/github-callback.dto.js";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { LoginDto } from "./dto/login.dto.js";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -32,6 +47,37 @@ import { UserResponseDto } from "../users/dto/user-response.dto.js";
 })
 export class AuthController {
   constructor(@Inject(AuthService) private readonly authService: AuthService) {}
+
+  @Get("github")
+  @Redirect()
+  async loginWithGitHub() {
+    return {
+      url: await this.authService.createGitHubAuthorizationUrl()
+    };
+  }
+
+  @Get("github/callback")
+  @ApiOkResponse({ type: AuthResponseDto })
+  async handleGitHubCallback(
+    @Query() dto: GitHubCallbackDto,
+    @Req() request: Request,
+    @Res() response: Response
+  ) {
+    const authResponse = await this.authService.loginWithGitHub(
+      dto.code,
+      dto.state,
+      this.getSessionMetadata(request)
+    );
+    const redirectUrl = new URL(this.authService.webAuthCallbackUrl);
+
+    redirectUrl.hash = new URLSearchParams({
+      access_token: authResponse.tokens.accessToken,
+      refresh_token: authResponse.tokens.refreshToken,
+      expires_in: String(authResponse.tokens.expiresIn)
+    }).toString();
+
+    return response.redirect(redirectUrl.toString());
+  }
 
   @Post("register")
   @ApiCreatedResponse({ type: AuthResponseDto })

@@ -4,31 +4,27 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeading } from "@/components/typography/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ConnectionPanel } from "@/features/repositories/components/connection-panel";
+import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
+import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { RepositoryState } from "@/features/repositories/components/repository-state";
 import {
   connectRepository,
   listAvailableGitHubRepositories
 } from "@/features/repositories/api/repositories-api";
 import type { AvailableGitHubRepository } from "@/features/repositories/api/repositories-api";
-import { useRepositoryConnectionStore } from "@/features/repositories/stores/repository-connection-store";
 
 export function ConnectRepositoryView() {
   const queryClient = useQueryClient();
-  const apiAccessToken = useRepositoryConnectionStore((state) => state.apiAccessToken);
-  const githubAccessToken = useRepositoryConnectionStore((state) => state.githubAccessToken);
-  const canLoad = Boolean(apiAccessToken && githubAccessToken);
+  const apiAccessToken = useAuthSessionStore((state) => state.accessToken);
+  const canLoad = Boolean(apiAccessToken);
   const availableQuery = useQuery({
-    queryKey: ["github-repositories", githubAccessToken],
-    queryFn: () => listAvailableGitHubRepositories(apiAccessToken, githubAccessToken),
-    enabled: false
+    queryKey: ["github-repositories"],
+    queryFn: () => listAvailableGitHubRepositories(apiAccessToken),
+    enabled: canLoad
   });
   const connectMutation = useMutation({
     mutationFn: (repository: AvailableGitHubRepository) =>
-      connectRepository(apiAccessToken, {
-        githubAccessToken,
-        githubId: repository.githubId
-      }),
+      connectRepository(apiAccessToken, repository.githubId),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["repositories"] }),
@@ -46,16 +42,15 @@ export function ConnectRepositoryView() {
         description="Import repository metadata from your GitHub account."
       />
 
-      <ConnectionPanel
-        submitLabel={availableQuery.isFetching ? "Loading" : "Load repositories"}
-        isDisabled={!canLoad || availableQuery.isFetching}
-        onSubmit={() => void availableQuery.refetch()}
-      />
-
       {!canLoad ? (
         <RepositoryState
-          title="Connection tokens required"
-          description="Provide the API session token and GitHub access token to retrieve repositories."
+          title="Session required"
+          description="Sign in with GitHub to retrieve repositories."
+          action={
+            <Button asChild>
+              <a href={getGitHubLoginUrl()}>Sign in with GitHub</a>
+            </Button>
+          }
         />
       ) : null}
 
@@ -66,7 +61,12 @@ export function ConnectRepositoryView() {
       {availableQuery.isError ? (
         <RepositoryState
           title="GitHub repositories unavailable"
-          description="The GitHub account could not be reached with the provided token."
+          description="The authenticated GitHub account could not be reached."
+          action={
+            <Button type="button" variant="outline" onClick={() => void availableQuery.refetch()}>
+              Retry
+            </Button>
+          }
         />
       ) : null}
 
@@ -123,6 +123,20 @@ export function ConnectRepositoryView() {
             ))}
           </div>
         </section>
+      ) : null}
+
+      {connectMutation.isSuccess ? (
+        <RepositoryState
+          title="Repository selected"
+          description="Repository metadata was stored and is ready for future engines."
+        />
+      ) : null}
+
+      {connectMutation.isError ? (
+        <RepositoryState
+          title="Repository could not be selected"
+          description="The repository was not available for the authenticated GitHub account."
+        />
       ) : null}
     </>
   );

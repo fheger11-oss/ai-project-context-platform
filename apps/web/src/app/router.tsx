@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router-dom";
 
 import { AppShell } from "@/layouts/app-shell";
+import { AuthCallbackView } from "@/routes/auth-callback-view";
 import { FoundationView } from "@/routes/foundation-view";
 import { ConnectRepositoryView } from "@/routes/repositories/connect-repository-view";
 import { RepositoryDetailsView } from "@/routes/repositories/repository-details-view";
@@ -14,6 +15,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <FoundationView />
+      },
+      {
+        path: "auth/callback",
+        element: <AuthCallbackView />
       },
       {
         path: "repositories",

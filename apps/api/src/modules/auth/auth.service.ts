@@ -10,6 +10,8 @@ import { UsersService } from "../users/users.service.js";
 import type { AuthResponseDto } from "./dto/auth-response.dto.js";
 import type { LoginDto } from "./dto/login.dto.js";
 import type { RegisterDto } from "./dto/register.dto.js";
+import { GitHubAccountService } from "./providers/github-account.service.js";
+import { GitHubOAuthProvider } from "./providers/github-oauth.provider.js";
 import type { AccessTokenPayload, RefreshTokenPayload } from "./types/jwt-payload.js";
 
 type SessionMetadata = {
@@ -18,6 +20,7 @@ type SessionMetadata = {
 };
 
 const PASSWORD_SALT_ROUNDS = 12;
+const GITHUB_OAUTH_STATE_TTL_SECONDS = 600;
 
 @Injectable()
 export class AuthService {
@@ -29,8 +32,61 @@ export class AuthService {
     @Inject(PrismaService)
     private readonly prisma: PrismaService,
     @Inject(UsersService)
-    private readonly usersService: UsersService
+    private readonly usersService: UsersService,
+    @Inject(GitHubOAuthProvider)
+    private readonly githubOAuthProvider: GitHubOAuthProvider,
+    @Inject(GitHubAccountService)
+    private readonly githubAccountService: GitHubAccountService
   ) {}
+
+  get webAuthCallbackUrl() {
+    return this.config.webAuthCallbackUrl;
+  }
+
+  async createGitHubAuthorizationUrl(): Promise<string> {
+    const state = await this.jwtService.signAsync(
+      {
+        nonce: randomUUID(),
+        type: "github_oauth_state"
+      },
+      {
+        secret: this.config.jwtAccessSecret,
+        expiresIn: GITHUB_OAUTH_STATE_TTL_SECONDS
+      }
+    );
+
+    return this.githubOAuthProvider.buildAuthorizationUrl(state);
+  }
+
+  async loginWithGitHub(
+    code: string,
+    state: string,
+    metadata: SessionMetadata
+  ): Promise<AuthResponseDto> {
+    await this.verifyGitHubOAuthState(state);
+
+    const profile = await this.githubOAuthProvider.exchangeCodeForProfile(code);
+    const existingGitHubAccount = await this.prisma.gitHubAccount.findUnique({
+      where: { githubId: profile.githubId },
+      include: { user: true }
+    });
+    const user =
+      existingGitHubAccount?.user ??
+      (await this.usersService.findByEmail(profile.email)) ??
+      (await this.usersService.createOAuthUser({
+        email: profile.email
+      }));
+
+    await this.githubAccountService.upsert({
+      userId: user.id,
+      githubId: profile.githubId,
+      login: profile.login,
+      scope: profile.scope,
+      accessToken: profile.accessToken
+    });
+
+    return this.createSession(user, metadata);
+  }
 
   async register(dto: RegisterDto, metadata: SessionMetadata): Promise<AuthResponseDto> {
     const existingUser = await this.usersService.findByEmail(dto.email);
@@ -52,6 +108,10 @@ export class AuthService {
     const user = await this.usersService.findByEmail(dto.email);
 
     if (!user) {
+      throw new UnauthorizedException("Invalid credentials");
+    }
+
+    if (!user.passwordHash) {
       throw new UnauthorizedException("Invalid credentials");
     }
 
@@ -191,6 +251,18 @@ export class AuthService {
     }
 
     return payload;
+  }
+
+  private async verifyGitHubOAuthState(state: string) {
+    const payload = await this.jwtService
+      .verifyAsync<{ type?: string }>(state, {
+        secret: this.config.jwtAccessSecret
+      })
+      .catch(() => null);
+
+    if (payload?.type !== "github_oauth_state") {
+      throw new UnauthorizedException("Invalid GitHub OAuth state");
+    }
   }
 
   private refreshTokenExpiresAt() {
