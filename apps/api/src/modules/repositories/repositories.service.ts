@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import type { RepositoryModel } from "../../generated/prisma/models.js";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -24,14 +24,17 @@ export class RepositoriesService {
       this.githubRepositoryProvider.listRepositories(accessToken),
       this.prisma.repository.findMany({
         where: { userId: user.id },
-        select: { githubId: true }
+        select: { githubId: true, id: true }
       })
     ]);
-    const connectedIds = new Set(connectedRepositories.map((repository) => repository.githubId));
+    const connectedRepositoriesByGithubId = new Map(
+      connectedRepositories.map((repository) => [repository.githubId, repository.id])
+    );
 
     return githubRepositories.map((repository) => ({
       ...repository,
-      isConnected: connectedIds.has(repository.githubId)
+      connectedRepositoryId: connectedRepositoriesByGithubId.get(repository.githubId) ?? null,
+      isConnected: connectedRepositoriesByGithubId.has(repository.githubId)
     }));
   }
 
@@ -68,6 +71,28 @@ export class RepositoriesService {
     }
 
     return this.toResponse(repository);
+  }
+
+  async disconnect(user: AuthenticatedUser, id: string): Promise<void> {
+    const repository = await this.prisma.repository.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true
+      }
+    });
+
+    if (!repository) {
+      throw new NotFoundException("Repository was not found");
+    }
+
+    if (repository.userId !== user.id) {
+      throw new ForbiddenException("Repository belongs to another user");
+    }
+
+    await this.prisma.repository.delete({
+      where: { id: repository.id }
+    });
   }
 
   async sync(user: AuthenticatedUser, id: string) {

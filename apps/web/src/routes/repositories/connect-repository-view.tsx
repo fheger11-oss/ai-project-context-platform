@@ -1,4 +1,4 @@
-import { CheckCircle2, GitBranch, Loader2, Plus } from "lucide-react";
+import { GitBranch, Loader2, Plus, Unlink } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeading } from "@/components/typography/page-heading";
@@ -9,6 +9,7 @@ import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { RepositoryState } from "@/features/repositories/components/repository-state";
 import {
   connectRepository,
+  disconnectRepository,
   listAvailableGitHubRepositories
 } from "@/features/repositories/api/repositories-api";
 import type { AvailableGitHubRepository } from "@/features/repositories/api/repositories-api";
@@ -32,7 +33,23 @@ export function ConnectRepositoryView() {
       ]);
     }
   });
+  const disconnectMutation = useMutation({
+    mutationFn: (repository: AvailableGitHubRepository) => {
+      if (!repository.connectedRepositoryId) {
+        throw new Error("Connected repository was not found.");
+      }
+
+      return disconnectRepository(apiAccessToken, repository.connectedRepositoryId);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["repositories"] }),
+        availableQuery.refetch()
+      ]);
+    }
+  });
   const repositories = availableQuery.data?.repositories ?? [];
+  const isRepositoryMutationPending = connectMutation.isPending || disconnectMutation.isPending;
 
   return (
     <>
@@ -92,33 +109,56 @@ export function ConnectRepositoryView() {
                 key={repository.githubId}
                 className="grid gap-3 px-4 py-3 md:grid-cols-[1fr_auto] md:items-center"
               >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate text-sm font-medium">{repository.fullName}</p>
-                    <Badge tone={repository.visibility === "PRIVATE" ? "muted" : "success"}>
-                      {repository.visibility.toLowerCase()}
-                    </Badge>
-                    {repository.isConnected ? <Badge tone="neutral">Connected</Badge> : null}
-                  </div>
-                  <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
-                    {repository.description ?? "No description provided."}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant={repository.isConnected ? "outline" : "default"}
-                  disabled={repository.isConnected || connectMutation.isPending}
-                  onClick={() => connectMutation.mutate(repository)}
-                >
-                  {repository.isConnected ? (
-                    <CheckCircle2 />
-                  ) : connectMutation.isPending ? (
-                    <Loader2 />
-                  ) : (
-                    <Plus />
-                  )}
-                  {repository.isConnected ? "Selected" : "Select"}
-                </Button>
+                {(() => {
+                  const isConnecting =
+                    connectMutation.isPending &&
+                    connectMutation.variables?.githubId === repository.githubId;
+                  const isDisconnecting =
+                    disconnectMutation.isPending &&
+                    disconnectMutation.variables?.githubId === repository.githubId;
+
+                  return (
+                    <>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm font-medium">{repository.fullName}</p>
+                          <Badge tone={repository.visibility === "PRIVATE" ? "muted" : "success"}>
+                            {repository.visibility.toLowerCase()}
+                          </Badge>
+                          {repository.isConnected ? <Badge tone="neutral">Connected</Badge> : null}
+                        </div>
+                        <p className="mt-1 line-clamp-1 text-sm text-muted-foreground">
+                          {repository.description ?? "No description provided."}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant={repository.isConnected ? "outline" : "default"}
+                        disabled={
+                          isRepositoryMutationPending ||
+                          (repository.isConnected && !repository.connectedRepositoryId)
+                        }
+                        onClick={() => {
+                          if (repository.isConnected) {
+                            disconnectMutation.mutate(repository);
+                            return;
+                          }
+
+                          connectMutation.mutate(repository);
+                        }}
+                      >
+                        {isConnecting || isDisconnecting ? (
+                          <Loader2 className="animate-spin" />
+                        ) : repository.isConnected ? (
+                          <Unlink />
+                        ) : (
+                          <Plus />
+                        )}
+                        {repository.isConnected ? "Disconnect" : "Select"}
+                      </Button>
+                    </>
+                  );
+                })()}
               </div>
             ))}
           </div>
@@ -136,6 +176,17 @@ export function ConnectRepositoryView() {
         <RepositoryState
           title="Repository could not be selected"
           description="The repository was not available for the authenticated GitHub account."
+        />
+      ) : null}
+
+      {disconnectMutation.isError ? (
+        <RepositoryState
+          title="Repository could not be disconnected"
+          description={
+            disconnectMutation.error instanceof Error
+              ? disconnectMutation.error.message
+              : "The repository connection could not be removed."
+          }
         />
       ) : null}
     </>

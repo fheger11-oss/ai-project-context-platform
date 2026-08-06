@@ -47,6 +47,9 @@ export class AvailableGitHubRepositoryResponseDto {
 
   @ApiProperty({ type: Boolean })
   isConnected!: boolean;
+
+  @ApiProperty({ type: String, nullable: true })
+  connectedRepositoryId!: string | null;
 }
 
 export class AvailableGitHubRepositoryListResponseDto {

@@ -1,4 +1,14 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Param,
+  Post
+} from "@nestjs/common";
 import { ApiCreatedResponse, ApiOkResponse, ApiTags } from "@nestjs/swagger";
 
 import { Auth } from "../auth/decorators/auth.decorator.js";
@@ -53,6 +63,12 @@ export class RepositoriesController {
   @ApiOkResponse({ type: RepositoryResponseDto })
   getById(@CurrentUser() user: AuthenticatedUser, @Param() params: RepositoryParamsDto) {
     return this.repositoriesService.getById(user, params.id);
+  }
+
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  disconnect(@CurrentUser() user: AuthenticatedUser, @Param() params: RepositoryParamsDto) {
+    return this.repositoriesService.disconnect(user, params.id);
   }
 
   @Post(":id/sync")

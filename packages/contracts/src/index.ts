@@ -20,6 +20,7 @@ export type RepositorySummary = {
 };
 
 export type AvailableGitHubRepository = Omit<RepositorySummary, "id" | "lastSyncedAt"> & {
+  connectedRepositoryId: string | null;
   isConnected: boolean;
 };
 

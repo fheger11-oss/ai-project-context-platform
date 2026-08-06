@@ -10,7 +10,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api/v1";
 type RequestOptions = {
   accessToken: string;
   body?: unknown;
-  method?: "GET" | "POST";
+  method?: "DELETE" | "GET" | "POST";
 };
 
 export class ApiRequestError extends Error {
@@ -43,6 +43,10 @@ async function request<T>(path: string, options: RequestOptions): Promise<T> {
     throw new ApiRequestError(payload?.message ?? "Request failed", response.status);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json() as Promise<T>;
 }
 
@@ -67,6 +71,13 @@ export function connectRepository(accessToken: string, githubId: string) {
     body: {
       githubId
     }
+  });
+}
+
+export function disconnectRepository(accessToken: string, repositoryId: string) {
+  return request<void>(`/repositories/${repositoryId}`, {
+    accessToken,
+    method: "DELETE"
   });
 }
 
