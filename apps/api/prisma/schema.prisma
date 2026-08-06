@@ -18,6 +18,14 @@ enum RepositoryVisibility {
   INTERNAL
 }
 
+enum ScanStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
@@ -93,10 +101,53 @@ model Repository {
   createdAt       DateTime             @default(now()) @map("created_at")
   updatedAt       DateTime             @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scans Scan[]
 
   @@unique([userId, githubId])
   @@index([userId])
   @@index([fullName])
   @@map("repositories")
+}
+
+model Scan {
+  id           String     @id @default(cuid())
+  repositoryId String     @map("repository_id")
+  status       ScanStatus @default(PENDING)
+  commitSha    String     @map("commit_sha")
+  startedAt    DateTime?  @map("started_at")
+  completedAt  DateTime?  @map("completed_at")
+  durationMs   Int?       @map("duration_ms")
+  totalFiles   Int        @default(0) @map("total_files")
+  totalSize    BigInt     @default(0) @map("total_size")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  files      ScanFile[]
+
+  @@index([repositoryId])
+  @@index([status])
+  @@index([commitSha])
+  @@map("scans")
+}
+
+model ScanFile {
+  id        String   @id @default(cuid())
+  scanId    String   @map("scan_id")
+  path      String
+  extension String?
+  size      BigInt
+  sha       String
+  isBinary  Boolean  @default(false) @map("is_binary")
+  isHidden  Boolean  @default(false) @map("is_hidden")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  scan Scan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@unique([scanId, path])
+  @@index([scanId])
+  @@index([path])
+  @@map("scan_files")
 }

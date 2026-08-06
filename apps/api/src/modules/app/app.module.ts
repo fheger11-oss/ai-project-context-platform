@@ -7,6 +7,7 @@ import { AppConfigModule } from "../config/app-config.module.js";
 import { HealthModule } from "../health/health.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { RepositoriesModule } from "../repositories/repositories.module.js";
+import { ScanModule } from "../scan/scan.module.js";
 import { UsersModule } from "../users/users.module.js";
 
 @Module({
@@ -16,6 +17,7 @@ import { UsersModule } from "../users/users.module.js";
     UsersModule,
     AuthModule,
     RepositoriesModule,
+    ScanModule,
     HealthModule
   ]
 })
