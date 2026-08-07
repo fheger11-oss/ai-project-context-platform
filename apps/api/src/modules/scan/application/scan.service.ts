@@ -11,16 +11,25 @@ import {
 import {
   SCAN_REPOSITORY,
   type ScanRepository,
-  type ScanSnapshot
+  type ScanSnapshot,
+  type StoreScanFileInput
 } from "../domain/contracts/scan-repository.contract.js";
+import { RepositoryAccessResolutionError } from "../domain/errors/repository-access-resolution.error.js";
 
 export type StartScanInput = {
   repositoryId: string;
   reference: string;
 };
 
+type SnapshotPersistenceStats = {
+  totalFiles: number;
+  totalSize: bigint;
+};
+
 @Injectable()
 export class ScanService {
+  private static readonly FILE_BATCH_SIZE = 250;
+
   constructor(
     @Inject(SCAN_REPOSITORY)
     private readonly scanRepository: ScanRepository,
@@ -31,15 +40,103 @@ export class ScanService {
   ) {}
 
   /**
-   * Future orchestration boundary:
-   * resolve commit, create immutable scan, mark running, read metadata,
-   * persist file metadata, update statistics, then mark completed or failed.
+   * Snapshot orchestration boundary:
+   * resolve access, resolve commit, create immutable scan, mark it running,
+   * persist repository snapshot metadata, then complete the snapshot.
    */
   async startScan(input: StartScanInput): Promise<ScanSnapshot> {
-    void input;
-    void this.scanRepository;
-    void this.repositoryContentProvider;
-    void this.repositoryAccessResolver;
-    throw new Error("Scan orchestration is not implemented.");
+    const startedAtMs = Date.now();
+    const startedAt = new Date(startedAtMs);
+    const access = await this.resolveRepositoryAccess(input);
+    const commit = await this.repositoryContentProvider.resolveCommit(access);
+    const scan = await this.scanRepository.createScan({
+      repositoryId: input.repositoryId,
+      commitSha: commit.commitSha,
+      startedAt
+    });
+
+    await this.scanRepository.updateScanStatus({
+      scanId: scan.id,
+      status: "RUNNING"
+    });
+
+    try {
+      const stats = await this.persistSnapshotFiles(scan.id, access, commit.commitSha);
+
+      return this.completeScan(scan.id, stats, startedAtMs);
+    } catch (error) {
+      await this.failScan(scan.id);
+      throw error;
+    }
+  }
+
+  private async resolveRepositoryAccess(input: StartScanInput) {
+    try {
+      return await this.repositoryAccessResolver.resolveRepositoryAccess(input);
+    } catch (error) {
+      throw new RepositoryAccessResolutionError(input.repositoryId, { cause: error });
+    }
+  }
+
+  private async persistSnapshotFiles(
+    scanId: string,
+    access: Awaited<ReturnType<RepositoryAccessResolver["resolveRepositoryAccess"]>>,
+    commitSha: string
+  ): Promise<SnapshotPersistenceStats> {
+    let batch: StoreScanFileInput[] = [];
+    const stats: SnapshotPersistenceStats = {
+      totalFiles: 0,
+      totalSize: 0n
+    };
+
+    for await (const file of this.repositoryContentProvider.listSnapshotFiles(access, commitSha)) {
+      batch.push(file);
+      stats.totalFiles += 1;
+      stats.totalSize += file.size;
+
+      if (batch.length === ScanService.FILE_BATCH_SIZE) {
+        await this.flushFileBatch(scanId, batch);
+        batch = [];
+      }
+    }
+
+    await this.flushFileBatch(scanId, batch);
+
+    return stats;
+  }
+
+  private async flushFileBatch(
+    scanId: string,
+    batch: readonly StoreScanFileInput[]
+  ): Promise<void> {
+    if (batch.length === 0) {
+      return;
+    }
+
+    await this.scanRepository.storeScanFiles(scanId, batch);
+  }
+
+  private completeScan(
+    scanId: string,
+    stats: SnapshotPersistenceStats,
+    startedAtMs: number
+  ): Promise<ScanSnapshot> {
+    const completedAt = new Date();
+
+    return this.scanRepository.updateScanStatus({
+      scanId,
+      status: "COMPLETED",
+      completedAt,
+      durationMs: Math.max(0, completedAt.getTime() - startedAtMs),
+      totalFiles: stats.totalFiles,
+      totalSize: stats.totalSize
+    });
+  }
+
+  private async failScan(scanId: string): Promise<void> {
+    await this.scanRepository.updateScanStatus({
+      scanId,
+      status: "FAILED"
+    });
   }
 }

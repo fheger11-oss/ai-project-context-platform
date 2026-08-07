@@ -8,6 +8,14 @@ import type { RepositoryResponseDto } from "./dto/repository-response.dto.js";
 import { GitHubRepositoryProvider } from "./providers/github-repository.provider.js";
 import type { GitHubRepositoryMetadata } from "./providers/github-repository.provider.js";
 
+export type RepositoryScanAccessMetadata = {
+  id: string;
+  userId: string;
+  owner: string;
+  name: string;
+  defaultBranch: string;
+};
+
 @Injectable()
 export class RepositoriesService {
   constructor(
@@ -71,6 +79,25 @@ export class RepositoriesService {
     }
 
     return this.toResponse(repository);
+  }
+
+  async getScanAccessMetadata(repositoryId: string): Promise<RepositoryScanAccessMetadata> {
+    const repository = await this.prisma.repository.findUnique({
+      where: { id: repositoryId },
+      select: {
+        id: true,
+        userId: true,
+        owner: true,
+        name: true,
+        defaultBranch: true
+      }
+    });
+
+    if (!repository) {
+      throw new NotFoundException("Repository was not found");
+    }
+
+    return repository;
   }
 
   async disconnect(user: AuthenticatedUser, id: string): Promise<void> {

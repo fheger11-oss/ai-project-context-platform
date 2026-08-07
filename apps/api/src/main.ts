@@ -46,6 +46,7 @@ async function bootstrap() {
     .addTag("auth")
     .addTag("health")
     .addTag("repositories")
+    .addTag("scans")
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 

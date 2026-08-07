@@ -36,6 +36,63 @@ function createService(repository: {
 }
 
 describe("RepositoriesService", () => {
+  describe("getScanAccessMetadata", () => {
+    it("returns repository metadata required by scan infrastructure", async () => {
+      const findUnique = vi.fn().mockResolvedValue({
+        id: "repository_1",
+        userId: "user_1",
+        owner: "owner",
+        name: "repository",
+        defaultBranch: "main"
+      });
+      const prisma = {
+        repository: {
+          findUnique
+        }
+      } as unknown as PrismaService;
+      const service = new RepositoriesService(
+        prisma,
+        {} as GitHubAccountService,
+        {} as GitHubRepositoryProvider
+      );
+
+      await expect(service.getScanAccessMetadata("repository_1")).resolves.toEqual({
+        id: "repository_1",
+        userId: "user_1",
+        owner: "owner",
+        name: "repository",
+        defaultBranch: "main"
+      });
+      expect(findUnique).toHaveBeenCalledWith({
+        where: { id: "repository_1" },
+        select: {
+          id: true,
+          userId: true,
+          owner: true,
+          name: true,
+          defaultBranch: true
+        }
+      });
+    });
+
+    it("returns 404 when scan repository metadata does not exist", async () => {
+      const prisma = {
+        repository: {
+          findUnique: vi.fn().mockResolvedValue(null)
+        }
+      } as unknown as PrismaService;
+      const service = new RepositoriesService(
+        prisma,
+        {} as GitHubAccountService,
+        {} as GitHubRepositoryProvider
+      );
+
+      await expect(service.getScanAccessMetadata("missing_repository")).rejects.toBeInstanceOf(
+        NotFoundException
+      );
+    });
+  });
+
   describe("disconnect", () => {
     it("removes an owned repository record", async () => {
       const deleteRepository = vi.fn().mockResolvedValue({});
