@@ -1,11 +1,9 @@
 export const REPOSITORY_CONTENT_PROVIDER = Symbol("REPOSITORY_CONTENT_PROVIDER");
 
-export type RepositoryAccess = {
-  provider: "github";
-  owner: string;
-  name: string;
+export type RepositoryContentAccess = {
+  locator: string;
   reference?: string;
-  accessToken: string;
+  authorization: unknown;
 };
 
 export type RepositoryContentCommit = {
@@ -22,9 +20,9 @@ export type RepositoryContentFile = {
 };
 
 export interface RepositoryContentProvider {
-  resolveCommit(access: RepositoryAccess): Promise<RepositoryContentCommit>;
+  resolveCommit(access: RepositoryContentAccess): Promise<RepositoryContentCommit>;
   listSnapshotFiles(
-    access: RepositoryAccess,
+    access: RepositoryContentAccess,
     commitSha: string
   ): AsyncIterable<RepositoryContentFile>;
 }

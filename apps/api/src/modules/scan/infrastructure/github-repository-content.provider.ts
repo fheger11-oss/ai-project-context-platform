@@ -2,7 +2,7 @@ import type {
   RepositoryContentCommit,
   RepositoryContentFile,
   RepositoryContentProvider,
-  RepositoryAccess
+  RepositoryContentAccess
 } from "../domain/contracts/repository-content-provider.contract.js";
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
@@ -32,6 +32,12 @@ type GitHubTreeEntry = {
 type GitHubTreeResponse = {
   tree: GitHubTreeEntry[];
   truncated: boolean;
+};
+
+type GitHubRepositoryContentAccess = RepositoryContentAccess & {
+  authorization: {
+    bearerToken: string;
+  };
 };
 
 const BINARY_EXTENSIONS = new Set([
@@ -74,12 +80,13 @@ const BINARY_EXTENSIONS = new Set([
 ]);
 
 export class GitHubRepositoryContentProvider implements RepositoryContentProvider {
-  async resolveCommit(access: RepositoryAccess): Promise<RepositoryContentCommit> {
-    const reference = access.reference ?? (await this.resolveDefaultReference(access));
+  async resolveCommit(access: RepositoryContentAccess): Promise<RepositoryContentCommit> {
+    const githubAccess = this.toGitHubAccess(access);
+    const reference = githubAccess.reference ?? (await this.resolveDefaultReference(githubAccess));
     const commit = this.parseCommit(
       await this.requestJson(
-        this.repositoryUrl(access, `commits/${encodeURIComponent(reference)}`),
-        access
+        this.repositoryUrl(githubAccess, `commits/${encodeURIComponent(reference)}`),
+        githubAccess
       )
     );
 
@@ -89,10 +96,11 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
   }
 
   async *listSnapshotFiles(
-    access: RepositoryAccess,
+    access: RepositoryContentAccess,
     commitSha: string
   ): AsyncIterable<RepositoryContentFile> {
-    const rootTreeSha = await this.resolveCommitTreeSha(access, commitSha);
+    const githubAccess = this.toGitHubAccess(access);
+    const rootTreeSha = await this.resolveCommitTreeSha(githubAccess, commitSha);
     const treeStack = [{ pathPrefix: "", treeSha: rootTreeSha }];
 
     while (treeStack.length > 0) {
@@ -102,7 +110,7 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
         continue;
       }
 
-      const tree = await this.loadTree(access, currentTree.treeSha);
+      const tree = await this.loadTree(githubAccess, currentTree.treeSha);
 
       for (const entry of tree.tree) {
         const path = this.joinPath(currentTree.pathPrefix, entry.path);
@@ -119,7 +127,7 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
     }
   }
 
-  private async resolveDefaultReference(access: RepositoryAccess): Promise<string> {
+  private async resolveDefaultReference(access: GitHubRepositoryContentAccess): Promise<string> {
     const repository = this.parseRepository(
       await this.requestJson(this.repositoryUrl(access), access)
     );
@@ -127,7 +135,10 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
     return repository.default_branch;
   }
 
-  private async resolveCommitTreeSha(access: RepositoryAccess, commitSha: string): Promise<string> {
+  private async resolveCommitTreeSha(
+    access: GitHubRepositoryContentAccess,
+    commitSha: string
+  ): Promise<string> {
     const commit = this.parseGitCommit(
       await this.requestJson(
         this.repositoryUrl(access, `git/commits/${encodeURIComponent(commitSha)}`),
@@ -138,7 +149,10 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
     return commit.tree.sha;
   }
 
-  private async loadTree(access: RepositoryAccess, treeSha: string): Promise<GitHubTreeResponse> {
+  private async loadTree(
+    access: GitHubRepositoryContentAccess,
+    treeSha: string
+  ): Promise<GitHubTreeResponse> {
     const tree = this.parseTree(
       await this.requestJson(
         this.repositoryUrl(access, `git/trees/${encodeURIComponent(treeSha)}`),
@@ -166,14 +180,15 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
     };
   }
 
-  private repositoryUrl(access: RepositoryAccess, path?: string): string {
-    const basePath = `repos/${encodeURIComponent(access.owner)}/${encodeURIComponent(access.name)}`;
+  private repositoryUrl(access: GitHubRepositoryContentAccess, path?: string): string {
+    const [owner, name] = this.parseLocator(access.locator);
+    const basePath = `repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
     const repositoryPath = path ? `${basePath}/${path}` : basePath;
 
     return `${GITHUB_API_BASE_URL}/${repositoryPath}`;
   }
 
-  private async requestJson(url: string, access: RepositoryAccess): Promise<unknown> {
+  private async requestJson(url: string, access: GitHubRepositoryContentAccess): Promise<unknown> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), GITHUB_REQUEST_TIMEOUT_MS);
 
@@ -181,7 +196,7 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
       const response = await fetch(url, {
         headers: {
           Accept: "application/vnd.github+json",
-          Authorization: `Bearer ${access.accessToken}`,
+          Authorization: `Bearer ${access.authorization.bearerToken}`,
           "User-Agent": "ai-project-context-platform",
           "X-GitHub-Api-Version": "2022-11-28"
         },
@@ -276,6 +291,34 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
 
   private joinPath(prefix: string, path: string): string {
     return prefix ? `${prefix}/${path}` : path;
+  }
+
+  private toGitHubAccess(access: RepositoryContentAccess): GitHubRepositoryContentAccess {
+    if (
+      !this.isGitHubLocator(access.locator) ||
+      !this.isRecord(access.authorization) ||
+      typeof access.authorization.bearerToken !== "string"
+    ) {
+      throw new Error("Repository content access could not be resolved for GitHub.");
+    }
+
+    return access as GitHubRepositoryContentAccess;
+  }
+
+  private isGitHubLocator(locator: string): boolean {
+    const [owner, name, extra] = locator.split("/");
+
+    return Boolean(owner && name && !extra);
+  }
+
+  private parseLocator(locator: string): [string, string] {
+    const [owner, name] = locator.split("/", 2);
+
+    if (!owner || !name) {
+      throw new Error("GitHub repository locator could not be parsed.");
+    }
+
+    return [owner, name];
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {

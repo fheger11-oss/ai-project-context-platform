@@ -4,11 +4,11 @@ The Scan Engine owns repository snapshot management for the AI Project Context P
 
 ## Current Sprint
 
-Sprint 3.1.6.1 refines provider authentication through runtime repository access.
+Sprint 3.1.6.3 hardens repository access boundaries before scan lifecycle work begins.
 
 ## Current Capabilities
 
-The engine is registered as a NestJS module, defines technology-neutral contracts, exposes an application service boundary, binds `ScanRepository` to a Prisma persistence adapter, and binds `RepositoryContentProvider` to a GitHub content adapter. It does not execute scans.
+The engine is registered as a NestJS module, defines technology-neutral contracts, defines an application service boundary, binds `ScanRepository` to a Prisma persistence adapter, and binds `RepositoryContentProvider` to a GitHub content adapter. It defines the `RepositoryAccessResolver` contract but does not implement repository access resolution or execute scans.
 
 ## Responsibilities
 
@@ -16,18 +16,20 @@ The engine is registered as a NestJS module, defines technology-neutral contract
 - Preserve clean application, domain, infrastructure, and presentation layers.
 - Define contracts that keep future application services independent from persistence and content-provider implementations.
 - Define `ScanService` as the future orchestration entry point for starting repository snapshots.
+- Define `RepositoryAccessResolver` as the future boundary for resolving repository content access without coupling Scan application code to repository, authentication, or provider implementations.
 
 ## Contracts
 
 - `ScanRepository` defines the storage capabilities required for repository snapshots without exposing Prisma.
-- `RepositoryContentProvider` defines repository content access through provider-neutral runtime `RepositoryAccess`.
+- `RepositoryAccessResolver` defines how future application use cases request repository content access through an abstraction.
+- `RepositoryContentProvider` defines repository content access through an opaque `RepositoryContentAccess` model.
 - Future application code must depend on these abstractions, while infrastructure supplies implementations.
 
 ## Application Boundary
 
-`ScanService.startScan` is the only application entry point. It depends on `ScanRepository` and `RepositoryContentProvider` contracts only, so future infrastructure can be added without changing orchestration code.
+`ScanService.startScan` is the future application entry point. It depends on `ScanRepository`, `RepositoryContentProvider`, and `RepositoryAccessResolver` contracts only, so future infrastructure can be added without changing orchestration code. It is not registered as a NestJS provider until repository access resolution is implemented.
 
-`RepositoryAccess` identifies repository content by provider, owner, name, optional reference, and runtime access token. It does not expose internal database IDs or provider SDK details, and it is never persisted by the Scan Engine.
+`RepositoryContentAccess` is intentionally opaque to the application layer. Concrete provider credentials and provider-specific repository addressing are interpreted only by infrastructure adapters.
 
 ## Infrastructure
 

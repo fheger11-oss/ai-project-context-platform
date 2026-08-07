@@ -1,5 +1,9 @@
-import { Inject, Injectable, Optional } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
 
+import {
+  REPOSITORY_ACCESS_RESOLVER,
+  type RepositoryAccessResolver
+} from "../domain/contracts/repository-access-resolver.contract.js";
 import {
   REPOSITORY_CONTENT_PROVIDER,
   type RepositoryContentProvider
@@ -18,12 +22,12 @@ export type StartScanInput = {
 @Injectable()
 export class ScanService {
   constructor(
-    @Optional()
     @Inject(SCAN_REPOSITORY)
-    private readonly scanRepository?: ScanRepository,
-    @Optional()
+    private readonly scanRepository: ScanRepository,
     @Inject(REPOSITORY_CONTENT_PROVIDER)
-    private readonly repositoryContentProvider?: RepositoryContentProvider
+    private readonly repositoryContentProvider: RepositoryContentProvider,
+    @Inject(REPOSITORY_ACCESS_RESOLVER)
+    private readonly repositoryAccessResolver: RepositoryAccessResolver
   ) {}
 
   /**
@@ -33,14 +37,9 @@ export class ScanService {
    */
   async startScan(input: StartScanInput): Promise<ScanSnapshot> {
     void input;
-    this.ensureInfrastructureIsRegistered();
-  }
-
-  private ensureInfrastructureIsRegistered(): never {
-    if (!this.scanRepository || !this.repositoryContentProvider) {
-      throw new Error("Scan infrastructure contracts are not registered.");
-    }
-
+    void this.scanRepository;
+    void this.repositoryContentProvider;
+    void this.repositoryAccessResolver;
     throw new Error("Scan orchestration is not implemented.");
   }
 }
