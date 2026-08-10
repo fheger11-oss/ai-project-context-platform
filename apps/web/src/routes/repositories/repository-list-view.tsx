@@ -82,7 +82,11 @@ export function RepositoryListView() {
           </div>
           <div className="grid gap-3 lg:grid-cols-2">
             {repositories.map((repository) => (
-              <RepositoryCard key={repository.id} repository={repository} />
+              <RepositoryCard
+                key={repository.id}
+                accessToken={apiAccessToken}
+                repository={repository}
+              />
             ))}
           </div>
         </section>

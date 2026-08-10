@@ -12,6 +12,8 @@ import {
   RepositoryState
 } from "@/features/repositories/components/repository-state";
 import { getRepository, syncRepository } from "@/features/repositories/api/repositories-api";
+import { ScanHistory } from "@/features/scans/components/scan-history";
+import { RepositoryScanAction } from "@/features/scans/components/repository-scan-action";
 
 export function RepositoryDetailsView() {
   const { id } = useParams<{ id: string }>();
@@ -72,66 +74,70 @@ export function RepositoryDetailsView() {
       ) : null}
 
       {repository ? (
-        <section className="grid gap-4 lg:grid-cols-[1fr_360px]">
-          <div className="rounded-md border bg-card/70">
-            <div className="border-b px-4 py-3">
-              <h2 className="text-sm font-medium">Metadata</h2>
+        <section className="grid gap-4">
+          <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+            <div className="rounded-md border bg-card/70">
+              <div className="border-b px-4 py-3">
+                <h2 className="text-sm font-medium">Metadata</h2>
+              </div>
+              <dl className="grid gap-px bg-border sm:grid-cols-2">
+                {[
+                  ["GitHub ID", repository.githubId],
+                  ["Owner", repository.owner],
+                  ["Default branch", repository.defaultBranch],
+                  ["Language", repository.language ?? "Unknown"],
+                  ["Clone URL", repository.cloneUrl],
+                  ["Updated on GitHub", new Date(repository.githubUpdatedAt).toLocaleString()],
+                  ["Last synced", new Date(repository.lastSyncedAt).toLocaleString()],
+                  ["Archived", repository.isArchived ? "Yes" : "No"]
+                ].map(([label, value]) => (
+                  <div key={label} className="min-w-0 bg-card/95 p-4">
+                    <dt className="text-xs uppercase text-muted-foreground">{label}</dt>
+                    <dd className="mt-1 truncate text-sm">{value}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
-            <dl className="grid gap-px bg-border sm:grid-cols-2">
-              {[
-                ["GitHub ID", repository.githubId],
-                ["Owner", repository.owner],
-                ["Default branch", repository.defaultBranch],
-                ["Language", repository.language ?? "Unknown"],
-                ["Clone URL", repository.cloneUrl],
-                ["Updated on GitHub", new Date(repository.githubUpdatedAt).toLocaleString()],
-                ["Last synced", new Date(repository.lastSyncedAt).toLocaleString()],
-                ["Archived", repository.isArchived ? "Yes" : "No"]
-              ].map(([label, value]) => (
-                <div key={label} className="min-w-0 bg-card/95 p-4">
-                  <dt className="text-xs uppercase text-muted-foreground">{label}</dt>
-                  <dd className="mt-1 truncate text-sm">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
 
-          <aside className="grid content-start gap-3">
-            <div className="rounded-md border bg-card/70 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <Badge tone={repository.visibility === "PRIVATE" ? "muted" : "success"}>
-                  {repository.visibility.toLowerCase()}
-                </Badge>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    <Star className="size-4" />
-                    {repository.stars}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <GitFork className="size-4" />
-                    {repository.forks}
-                  </span>
+            <aside className="grid content-start gap-3">
+              <div className="rounded-md border bg-card/70 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <Badge tone={repository.visibility === "PRIVATE" ? "muted" : "success"}>
+                    {repository.visibility.toLowerCase()}
+                  </Badge>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <Star className="size-4" />
+                      {repository.stars}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <GitFork className="size-4" />
+                      {repository.forks}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <Button
-              type="button"
-              disabled={syncMutation.isPending}
-              onClick={() => syncMutation.mutate()}
-            >
-              <RefreshCw />
-              {syncMutation.isPending ? "Syncing" : "Sync metadata"}
-            </Button>
-            <Button asChild variant="outline">
-              <Link to="/repositories">Back to repositories</Link>
-            </Button>
-            {syncMutation.isSuccess ? (
-              <p className="text-sm text-primary">Metadata synchronized.</p>
-            ) : null}
-            {syncMutation.isError ? (
-              <p className="text-sm text-destructive">Metadata sync failed.</p>
-            ) : null}
-          </aside>
+              <RepositoryScanAction accessToken={apiAccessToken} repositoryId={repository.id} />
+              <Button
+                type="button"
+                disabled={syncMutation.isPending}
+                onClick={() => syncMutation.mutate()}
+              >
+                <RefreshCw />
+                {syncMutation.isPending ? "Syncing" : "Sync metadata"}
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/repositories">Back to repositories</Link>
+              </Button>
+              {syncMutation.isSuccess ? (
+                <p className="text-sm text-primary">Metadata synchronized.</p>
+              ) : null}
+              {syncMutation.isError ? (
+                <p className="text-sm text-destructive">Metadata sync failed.</p>
+              ) : null}
+            </aside>
+          </div>
+          <ScanHistory accessToken={apiAccessToken} repositoryId={repository.id} />
         </section>
       ) : null}
     </>

@@ -46,3 +46,36 @@ export type AuthenticatedUser = {
   tenantId: string | null;
   createdAt: string;
 };
+
+export type ScanStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
+
+export type StartScanRequest = {
+  repositoryId: string;
+  reference?: string;
+};
+
+export type ScanSnapshot = {
+  id: string;
+  repositoryId: string;
+  status: ScanStatus;
+  commitSha: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  durationMs: number | null;
+  totalFiles: number;
+  totalSize: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ScanHistoryPagination = {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
+
+export type ScanHistoryResponse = {
+  items: ScanSnapshot[];
+  pagination: ScanHistoryPagination;
+};
