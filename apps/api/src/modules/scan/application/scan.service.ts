@@ -14,7 +14,9 @@ import {
   type ScanSnapshot,
   type StoreScanFileInput
 } from "../domain/contracts/scan-repository.contract.js";
+import { InvalidScanStateTransitionError } from "../domain/errors/invalid-scan-state-transition.error.js";
 import { RepositoryAccessResolutionError } from "../domain/errors/repository-access-resolution.error.js";
+import { assertValidScanStatusTransition } from "../domain/scan-state-machine.js";
 
 export type StartScanInput = {
   repositoryId: string;
@@ -49,13 +51,23 @@ export class ScanService {
     const startedAt = new Date(startedAtMs);
     const access = await this.resolveRepositoryAccess(input);
     const commit = await this.repositoryContentProvider.resolveCommit(access);
+    const existingCompletedScan = await this.scanRepository.findCompletedScanByRepositoryAndCommit(
+      input.repositoryId,
+      commit.commitSha
+    );
+
+    if (existingCompletedScan) {
+      return existingCompletedScan;
+    }
+
     const scan = await this.scanRepository.createScan({
       repositoryId: input.repositoryId,
       commitSha: commit.commitSha,
       startedAt
     });
 
-    await this.scanRepository.updateScanStatus({
+    assertValidScanStatusTransition(scan.status, "RUNNING");
+    const runningScan = await this.scanRepository.updateScanStatus({
       scanId: scan.id,
       status: "RUNNING"
     });
@@ -63,9 +75,13 @@ export class ScanService {
     try {
       const stats = await this.persistSnapshotFiles(scan.id, access, commit.commitSha);
 
-      return this.completeScan(scan.id, stats, startedAtMs);
+      return this.completeScan(runningScan, stats, startedAtMs);
     } catch (error) {
-      await this.failScan(scan.id);
+      if (error instanceof InvalidScanStateTransitionError) {
+        throw error;
+      }
+
+      await this.failScan(runningScan);
       throw error;
     }
   }
@@ -117,14 +133,15 @@ export class ScanService {
   }
 
   private completeScan(
-    scanId: string,
+    scan: ScanSnapshot,
     stats: SnapshotPersistenceStats,
     startedAtMs: number
   ): Promise<ScanSnapshot> {
     const completedAt = new Date();
 
+    assertValidScanStatusTransition(scan.status, "COMPLETED");
     return this.scanRepository.updateScanStatus({
-      scanId,
+      scanId: scan.id,
       status: "COMPLETED",
       completedAt,
       durationMs: Math.max(0, completedAt.getTime() - startedAtMs),
@@ -133,9 +150,10 @@ export class ScanService {
     });
   }
 
-  private async failScan(scanId: string): Promise<void> {
+  private async failScan(scan: ScanSnapshot): Promise<void> {
+    assertValidScanStatusTransition(scan.status, "FAILED");
     await this.scanRepository.updateScanStatus({
-      scanId,
+      scanId: scan.id,
       status: "FAILED"
     });
   }

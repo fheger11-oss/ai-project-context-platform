@@ -9,7 +9,7 @@ export class AuthTokensDto {
   @ApiProperty({ type: String })
   refreshToken!: string;
 
-  @ApiProperty({ type: Number, example: 900 })
+  @ApiProperty({ type: Number, example: 7200 })
   expiresIn!: number;
 }
 

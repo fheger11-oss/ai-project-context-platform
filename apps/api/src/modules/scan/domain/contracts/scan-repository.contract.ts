@@ -45,6 +45,10 @@ export interface ScanRepository {
   createScan(input: CreateScanInput): Promise<ScanSnapshot>;
   updateScanStatus(input: UpdateScanStatusInput): Promise<ScanSnapshot>;
   storeScanFiles(scanId: string, files: readonly StoreScanFileInput[]): Promise<void>;
+  findCompletedScanByRepositoryAndCommit(
+    repositoryId: string,
+    commitSha: string
+  ): Promise<ScanSnapshot | null>;
   getScan(scanId: string): Promise<ScanSnapshot | null>;
   getLatestScan(repositoryId: string): Promise<ScanSnapshot | null>;
 }

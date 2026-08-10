@@ -13,6 +13,7 @@ import type {
   ScanSnapshot,
   UpdateScanStatusInput
 } from "../domain/contracts/scan-repository.contract.js";
+import { InvalidScanStateTransitionError } from "../domain/errors/invalid-scan-state-transition.error.js";
 import { RepositoryAccessResolutionError } from "../domain/errors/repository-access-resolution.error.js";
 import { ScanService } from "./scan.service.js";
 
@@ -121,6 +122,7 @@ function createService(overrides?: {
     createScan: vi.fn().mockResolvedValue(pendingScan),
     updateScanStatus,
     storeScanFiles: vi.fn(),
+    findCompletedScanByRepositoryAndCommit: vi.fn().mockResolvedValue(null),
     getScan: vi.fn(),
     getLatestScan: vi.fn(),
     ...overrides?.scanRepository
@@ -168,6 +170,10 @@ describe("ScanService", () => {
       reference: "main"
     });
     expect(repositoryContentProvider.resolveCommit).toHaveBeenCalledWith(access);
+    expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
+      "repository_1",
+      "commit_sha"
+    );
     expect(scanRepository.createScan).toHaveBeenCalledWith({
       repositoryId: "repository_1",
       commitSha: "commit_sha",
@@ -187,6 +193,217 @@ describe("ScanService", () => {
       totalFiles: 0,
       totalSize: 0n
     });
+  });
+
+  it("uses the state machine for PENDING to RUNNING to COMPLETED", async () => {
+    const { scanRepository, service } = createService();
+
+    await service.startScan({
+      repositoryId: "repository_1",
+      reference: "main"
+    });
+
+    expect(scanRepository.createScan).toHaveReturned();
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(1, {
+      scanId: pendingScan.id,
+      status: "RUNNING"
+    });
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(2, {
+      scanId: runningScan.id,
+      status: "COMPLETED",
+      completedAt: expect.any(Date),
+      durationMs: expect.any(Number),
+      totalFiles: 0,
+      totalSize: 0n
+    });
+  });
+
+  it("returns an existing completed scan for the same repository and commit", async () => {
+    const existingScan: ScanSnapshot = {
+      ...completedScan,
+      id: "existing_scan",
+      repositoryId: "repository_1",
+      commitSha: "abc123",
+      totalFiles: 5,
+      totalSize: 1500n
+    };
+    const { repositoryContentProvider, scanRepository, service } = createService({
+      repositoryContentProvider: {
+        resolveCommit: vi.fn().mockResolvedValue({ commitSha: "abc123" })
+      },
+      scanRepository: {
+        findCompletedScanByRepositoryAndCommit: vi.fn().mockResolvedValue(existingScan)
+      }
+    });
+
+    const result = await service.startScan({
+      repositoryId: "repository_1",
+      reference: "main"
+    });
+
+    expect(result).toBe(existingScan);
+    expect(repositoryContentProvider.resolveCommit).toHaveBeenCalledWith(access);
+    expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
+      "repository_1",
+      "abc123"
+    );
+    expect(scanRepository.createScan).not.toHaveBeenCalled();
+    expect(scanRepository.updateScanStatus).not.toHaveBeenCalled();
+    expect(repositoryContentProvider.listSnapshotFiles).not.toHaveBeenCalled();
+    expect(scanRepository.storeScanFiles).not.toHaveBeenCalled();
+  });
+
+  it("creates a new scan for the same repository and a different commit", async () => {
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        resolveCommit: vi.fn().mockResolvedValue({ commitSha: "def456" })
+      }
+    });
+
+    await service.startScan({
+      repositoryId: "repository_1",
+      reference: "main"
+    });
+
+    expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
+      "repository_1",
+      "def456"
+    );
+    expect(scanRepository.createScan).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      commitSha: "def456",
+      startedAt: expect.any(Date)
+    });
+  });
+
+  it("creates a new scan for a different repository with the same commit", async () => {
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        resolveCommit: vi.fn().mockResolvedValue({ commitSha: "abc123" })
+      },
+      scanRepository: {
+        createScan: vi.fn().mockResolvedValue({
+          ...pendingScan,
+          id: "scan_2",
+          repositoryId: "repository_2",
+          commitSha: "abc123"
+        })
+      }
+    });
+
+    await service.startScan({
+      repositoryId: "repository_2",
+      reference: "main"
+    });
+
+    expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
+      "repository_2",
+      "abc123"
+    );
+    expect(scanRepository.createScan).toHaveBeenCalledWith({
+      repositoryId: "repository_2",
+      commitSha: "abc123",
+      startedAt: expect.any(Date)
+    });
+  });
+
+  it("allows retry when only a failed scan exists for the same repository and commit", async () => {
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        resolveCommit: vi.fn().mockResolvedValue({ commitSha: "abc123" })
+      },
+      scanRepository: {
+        findCompletedScanByRepositoryAndCommit: vi.fn().mockResolvedValue(null)
+      }
+    });
+
+    await service.startScan({
+      repositoryId: "repository_1",
+      reference: "main"
+    });
+
+    expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
+      "repository_1",
+      "abc123"
+    );
+    expect(scanRepository.createScan).toHaveBeenCalled();
+  });
+
+  it("allows retry when only a cancelled scan exists for the same repository and commit", async () => {
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        resolveCommit: vi.fn().mockResolvedValue({ commitSha: "abc123" })
+      },
+      scanRepository: {
+        findCompletedScanByRepositoryAndCommit: vi.fn().mockResolvedValue(null)
+      }
+    });
+
+    await service.startScan({
+      repositoryId: "repository_1",
+      reference: "main"
+    });
+
+    expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
+      "repository_1",
+      "abc123"
+    );
+    expect(scanRepository.createScan).toHaveBeenCalled();
+  });
+
+  it("does not reuse a running scan for the same repository and commit", async () => {
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        resolveCommit: vi.fn().mockResolvedValue({ commitSha: "abc123" })
+      },
+      scanRepository: {
+        findCompletedScanByRepositoryAndCommit: vi.fn().mockResolvedValue(null)
+      }
+    });
+
+    await service.startScan({
+      repositoryId: "repository_1",
+      reference: "main"
+    });
+
+    expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
+      "repository_1",
+      "abc123"
+    );
+    expect(scanRepository.createScan).toHaveBeenCalled();
+  });
+
+  it("checks duplicates after resolving the requested reference to a commit", async () => {
+    const existingScan: ScanSnapshot = {
+      ...completedScan,
+      id: "existing_scan",
+      repositoryId: "repository_1",
+      commitSha: "abc123"
+    };
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        resolveCommit: vi.fn().mockResolvedValue({ commitSha: "abc123" })
+      },
+      scanRepository: {
+        findCompletedScanByRepositoryAndCommit: vi.fn().mockResolvedValue(existingScan)
+      }
+    });
+
+    const result = await service.startScan({
+      repositoryId: "repository_1",
+      reference: "main"
+    });
+
+    expect(result).toBe(existingScan);
+    expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
+      "repository_1",
+      "abc123"
+    );
+    expect(scanRepository.findCompletedScanByRepositoryAndCommit).not.toHaveBeenCalledWith(
+      "repository_1",
+      "main"
+    );
+    expect(scanRepository.createScan).not.toHaveBeenCalled();
   });
 
   it("marks the scan completed with accumulated file totals", async () => {
@@ -371,5 +588,92 @@ describe("ScanService", () => {
       scanId: "scan_1",
       status: "FAILED"
     });
+  });
+
+  it("uses the state machine for PENDING to RUNNING to FAILED", async () => {
+    const originalError = new Error("persistence failed");
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        listSnapshotFiles: vi.fn().mockReturnValue(snapshotFiles([createFile("src/index.ts")]))
+      },
+      scanRepository: {
+        storeScanFiles: vi.fn().mockRejectedValue(originalError)
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main"
+      })
+    ).rejects.toBe(originalError);
+
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(1, {
+      scanId: pendingScan.id,
+      status: "RUNNING"
+    });
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(2, {
+      scanId: runningScan.id,
+      status: "FAILED"
+    });
+  });
+
+  it("rejects an invalid transition before persistence", async () => {
+    const completedInitialScan: ScanSnapshot = {
+      ...pendingScan,
+      status: "COMPLETED"
+    };
+    const { repositoryContentProvider, scanRepository, service } = createService({
+      scanRepository: {
+        createScan: vi.fn().mockResolvedValue(completedInitialScan)
+      }
+    });
+
+    const startScan = service.startScan({
+      repositoryId: "repository_1",
+      reference: "main"
+    });
+
+    await expect(startScan).rejects.toBeInstanceOf(InvalidScanStateTransitionError);
+    await expect(startScan).rejects.toMatchObject({
+      currentStatus: "COMPLETED",
+      nextStatus: "RUNNING"
+    });
+
+    expect(scanRepository.updateScanStatus).not.toHaveBeenCalled();
+    expect(repositoryContentProvider.listSnapshotFiles).not.toHaveBeenCalled();
+    expect(scanRepository.storeScanFiles).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid completion transition before persistence", async () => {
+    const completedRunningScan: ScanSnapshot = {
+      ...runningScan,
+      status: "COMPLETED"
+    };
+    const { scanRepository, service } = createService({
+      scanRepository: {
+        updateScanStatus: vi.fn(async (input: UpdateScanStatusInput): Promise<ScanSnapshot> => {
+          if (input.status === "RUNNING") {
+            return completedRunningScan;
+          }
+
+          return completedScan;
+        })
+      }
+    });
+
+    const startScan = service.startScan({
+      repositoryId: "repository_1",
+      reference: "main"
+    });
+
+    await expect(startScan).rejects.toBeInstanceOf(InvalidScanStateTransitionError);
+    await expect(startScan).rejects.toMatchObject({
+      currentStatus: "COMPLETED",
+      nextStatus: "COMPLETED"
+    });
+
+    expect(scanRepository.updateScanStatus).toHaveBeenCalledTimes(1);
+    expect(scanRepository.storeScanFiles).not.toHaveBeenCalled();
   });
 });

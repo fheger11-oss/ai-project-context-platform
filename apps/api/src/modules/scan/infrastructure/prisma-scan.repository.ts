@@ -60,6 +60,22 @@ export class PrismaScanRepository implements ScanRepository {
     });
   }
 
+  async findCompletedScanByRepositoryAndCommit(
+    repositoryId: string,
+    commitSha: string
+  ): Promise<ScanSnapshot | null> {
+    const scan = await this.prisma.scan.findFirst({
+      where: {
+        repositoryId,
+        commitSha,
+        status: "COMPLETED"
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    return scan ? this.toDomainScan(scan) : null;
+  }
+
   async getScan(scanId: string): Promise<ScanSnapshot | null> {
     const scan = await this.prisma.scan.findUnique({
       where: { id: scanId }
