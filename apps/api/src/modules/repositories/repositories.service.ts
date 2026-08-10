@@ -81,9 +81,15 @@ export class RepositoriesService {
     return this.toResponse(repository);
   }
 
-  async getScanAccessMetadata(repositoryId: string): Promise<RepositoryScanAccessMetadata> {
-    const repository = await this.prisma.repository.findUnique({
-      where: { id: repositoryId },
+  async getScanAccessMetadataForUser(
+    userId: string,
+    repositoryId: string
+  ): Promise<RepositoryScanAccessMetadata> {
+    const repository = await this.prisma.repository.findFirst({
+      where: {
+        id: repositoryId,
+        userId
+      },
       select: {
         id: true,
         userId: true,

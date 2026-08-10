@@ -1,9 +1,13 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 
 import {
   REPOSITORY_ACCESS_RESOLVER,
   type RepositoryAccessResolver
 } from "../domain/contracts/repository-access-resolver.contract.js";
+import {
+  REPOSITORY_OWNERSHIP_VERIFIER,
+  type RepositoryOwnershipVerifier
+} from "../domain/contracts/repository-ownership-verifier.contract.js";
 import {
   REPOSITORY_CONTENT_PROVIDER,
   type RepositoryContentProvider
@@ -15,12 +19,29 @@ import {
   type StoreScanFileInput
 } from "../domain/contracts/scan-repository.contract.js";
 import { InvalidScanStateTransitionError } from "../domain/errors/invalid-scan-state-transition.error.js";
-import { RepositoryAccessResolutionError } from "../domain/errors/repository-access-resolution.error.js";
 import { assertValidScanStatusTransition } from "../domain/scan-state-machine.js";
 
 export type StartScanInput = {
   repositoryId: string;
   reference: string;
+  userId: string;
+};
+
+export type GetScanHistoryInput = {
+  repositoryId: string;
+  userId: string;
+  page: number;
+  pageSize: number;
+};
+
+export type ScanHistoryResult = {
+  items: ScanSnapshot[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  };
 };
 
 type SnapshotPersistenceStats = {
@@ -28,9 +49,12 @@ type SnapshotPersistenceStats = {
   totalSize: bigint;
 };
 
+type ScanFailureStage = "FILE_STREAM" | "BATCH_PERSISTENCE" | "COMPLETION_PERSISTENCE";
+
 @Injectable()
 export class ScanService {
   private static readonly FILE_BATCH_SIZE = 250;
+  private readonly logger = new Logger(ScanService.name);
 
   constructor(
     @Inject(SCAN_REPOSITORY)
@@ -38,7 +62,9 @@ export class ScanService {
     @Inject(REPOSITORY_CONTENT_PROVIDER)
     private readonly repositoryContentProvider: RepositoryContentProvider,
     @Inject(REPOSITORY_ACCESS_RESOLVER)
-    private readonly repositoryAccessResolver: RepositoryAccessResolver
+    private readonly repositoryAccessResolver: RepositoryAccessResolver,
+    @Inject(REPOSITORY_OWNERSHIP_VERIFIER)
+    private readonly repositoryOwnershipVerifier: RepositoryOwnershipVerifier
   ) {}
 
   /**
@@ -72,32 +98,60 @@ export class ScanService {
       status: "RUNNING"
     });
 
+    let failureStage: ScanFailureStage = "FILE_STREAM";
+    let stats: SnapshotPersistenceStats;
+
     try {
-      const stats = await this.persistSnapshotFiles(scan.id, access, commit.commitSha);
-
-      return this.completeScan(runningScan, stats, startedAtMs);
+      stats = await this.persistSnapshotFiles(scan.id, access, commit.commitSha, (stage) => {
+        failureStage = stage;
+      });
     } catch (error) {
-      if (error instanceof InvalidScanStateTransitionError) {
-        throw error;
-      }
+      await this.handleRunningScanFailure(runningScan, failureStage, error);
+      throw error;
+    }
 
-      await this.failScan(runningScan);
+    try {
+      return await this.completeScan(runningScan, stats, startedAtMs);
+    } catch (error) {
+      if (!(error instanceof InvalidScanStateTransitionError)) {
+        await this.handleRunningScanFailure(runningScan, "COMPLETION_PERSISTENCE", error);
+      }
       throw error;
     }
   }
 
+  async getScanHistory(input: GetScanHistoryInput): Promise<ScanHistoryResult> {
+    await this.repositoryOwnershipVerifier.verifyRepositoryOwnership({
+      userId: input.userId,
+      repositoryId: input.repositoryId
+    });
+
+    const history = await this.scanRepository.listScanHistory({
+      repositoryId: input.repositoryId,
+      page: input.page,
+      pageSize: input.pageSize
+    });
+
+    return {
+      items: history.items,
+      pagination: {
+        page: input.page,
+        pageSize: input.pageSize,
+        totalItems: history.totalItems,
+        totalPages: Math.ceil(history.totalItems / input.pageSize)
+      }
+    };
+  }
+
   private async resolveRepositoryAccess(input: StartScanInput) {
-    try {
-      return await this.repositoryAccessResolver.resolveRepositoryAccess(input);
-    } catch (error) {
-      throw new RepositoryAccessResolutionError(input.repositoryId, { cause: error });
-    }
+    return this.repositoryAccessResolver.resolveRepositoryAccess(input);
   }
 
   private async persistSnapshotFiles(
     scanId: string,
     access: Awaited<ReturnType<RepositoryAccessResolver["resolveRepositoryAccess"]>>,
-    commitSha: string
+    commitSha: string,
+    setFailureStage: (stage: ScanFailureStage) => void
   ): Promise<SnapshotPersistenceStats> {
     let batch: StoreScanFileInput[] = [];
     const stats: SnapshotPersistenceStats = {
@@ -106,16 +160,20 @@ export class ScanService {
     };
 
     for await (const file of this.repositoryContentProvider.listSnapshotFiles(access, commitSha)) {
+      setFailureStage("FILE_STREAM");
       batch.push(file);
       stats.totalFiles += 1;
       stats.totalSize += file.size;
 
       if (batch.length === ScanService.FILE_BATCH_SIZE) {
+        setFailureStage("BATCH_PERSISTENCE");
         await this.flushFileBatch(scanId, batch);
         batch = [];
+        setFailureStage("FILE_STREAM");
       }
     }
 
+    setFailureStage("BATCH_PERSISTENCE");
     await this.flushFileBatch(scanId, batch);
 
     return stats;
@@ -156,5 +214,35 @@ export class ScanService {
       scanId: scan.id,
       status: "FAILED"
     });
+  }
+
+  private async handleRunningScanFailure(
+    scan: ScanSnapshot,
+    stage: ScanFailureStage,
+    error: unknown
+  ): Promise<void> {
+    this.logScanFailure(scan, stage, error);
+
+    try {
+      await this.failScan(scan);
+    } catch (failurePersistenceError) {
+      this.logFailedTransitionPersistence(scan, failurePersistenceError);
+    }
+  }
+
+  private logScanFailure(scan: ScanSnapshot, stage: ScanFailureStage, error: unknown): void {
+    this.logger.error(
+      `Scan failed scanId=${scan.id} repositoryId=${scan.repositoryId} stage=${stage} errorName=${this.errorName(error)}`
+    );
+  }
+
+  private logFailedTransitionPersistence(scan: ScanSnapshot, error: unknown): void {
+    this.logger.error(
+      `Scan failure status persistence failed scanId=${scan.id} repositoryId=${scan.repositoryId} errorName=${this.errorName(error)}`
+    );
+  }
+
+  private errorName(error: unknown): string {
+    return error instanceof Error ? error.name : typeof error;
   }
 }

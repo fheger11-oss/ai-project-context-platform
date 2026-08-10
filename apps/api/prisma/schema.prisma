@@ -127,6 +127,7 @@ model Scan {
   files      ScanFile[]
 
   @@index([repositoryId])
+  @@index([repositoryId, createdAt, id])
   @@index([status])
   @@index([commitSha])
   @@map("scans")

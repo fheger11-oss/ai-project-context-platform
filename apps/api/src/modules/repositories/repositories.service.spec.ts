@@ -36,9 +36,9 @@ function createService(repository: {
 }
 
 describe("RepositoriesService", () => {
-  describe("getScanAccessMetadata", () => {
+  describe("getScanAccessMetadataForUser", () => {
     it("returns repository metadata required by scan infrastructure", async () => {
-      const findUnique = vi.fn().mockResolvedValue({
+      const findFirst = vi.fn().mockResolvedValue({
         id: "repository_1",
         userId: "user_1",
         owner: "owner",
@@ -47,7 +47,7 @@ describe("RepositoriesService", () => {
       });
       const prisma = {
         repository: {
-          findUnique
+          findFirst
         }
       } as unknown as PrismaService;
       const service = new RepositoriesService(
@@ -56,15 +56,20 @@ describe("RepositoriesService", () => {
         {} as GitHubRepositoryProvider
       );
 
-      await expect(service.getScanAccessMetadata("repository_1")).resolves.toEqual({
-        id: "repository_1",
-        userId: "user_1",
-        owner: "owner",
-        name: "repository",
-        defaultBranch: "main"
-      });
-      expect(findUnique).toHaveBeenCalledWith({
-        where: { id: "repository_1" },
+      await expect(service.getScanAccessMetadataForUser("user_1", "repository_1")).resolves.toEqual(
+        {
+          id: "repository_1",
+          userId: "user_1",
+          owner: "owner",
+          name: "repository",
+          defaultBranch: "main"
+        }
+      );
+      expect(findFirst).toHaveBeenCalledWith({
+        where: {
+          id: "repository_1",
+          userId: "user_1"
+        },
         select: {
           id: true,
           userId: true,
@@ -78,7 +83,7 @@ describe("RepositoriesService", () => {
     it("returns 404 when scan repository metadata does not exist", async () => {
       const prisma = {
         repository: {
-          findUnique: vi.fn().mockResolvedValue(null)
+          findFirst: vi.fn().mockResolvedValue(null)
         }
       } as unknown as PrismaService;
       const service = new RepositoriesService(
@@ -87,8 +92,34 @@ describe("RepositoriesService", () => {
         {} as GitHubRepositoryProvider
       );
 
-      await expect(service.getScanAccessMetadata("missing_repository")).rejects.toBeInstanceOf(
-        NotFoundException
+      await expect(
+        service.getScanAccessMetadataForUser("user_1", "missing_repository")
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it("returns 404 when scan repository metadata belongs to another user", async () => {
+      const findFirst = vi.fn().mockResolvedValue(null);
+      const prisma = {
+        repository: {
+          findFirst
+        }
+      } as unknown as PrismaService;
+      const service = new RepositoriesService(
+        prisma,
+        {} as GitHubAccountService,
+        {} as GitHubRepositoryProvider
+      );
+
+      await expect(
+        service.getScanAccessMetadataForUser("user_1", "repository_2")
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: "repository_2",
+            userId: "user_1"
+          }
+        })
       );
     });
   });

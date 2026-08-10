@@ -1,8 +1,10 @@
 import "reflect-metadata";
 
-import { describe, expect, it, vi } from "vitest";
+import { Logger, NotFoundException } from "@nestjs/common";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RepositoryAccessResolver } from "../domain/contracts/repository-access-resolver.contract.js";
+import type { RepositoryOwnershipVerifier } from "../domain/contracts/repository-ownership-verifier.contract.js";
 import type {
   RepositoryContentAccess,
   RepositoryContentFile,
@@ -80,8 +82,17 @@ async function* snapshotFiles(files: readonly RepositoryContentFile[]) {
   }
 }
 
+async function* snapshotFilesThatThrowAfter(files: readonly RepositoryContentFile[], error: Error) {
+  for (const file of files) {
+    yield file;
+  }
+
+  throw error;
+}
+
 function createService(overrides?: {
   repositoryAccessResolver?: Partial<RepositoryAccessResolver>;
+  repositoryOwnershipVerifier?: Partial<RepositoryOwnershipVerifier>;
   repositoryContentProvider?: Partial<RepositoryContentProvider>;
   scanRepository?: Partial<ScanRepository>;
 }) {
@@ -89,6 +100,10 @@ function createService(overrides?: {
     resolveRepositoryAccess: vi.fn().mockResolvedValue(access),
     ...overrides?.repositoryAccessResolver
   } as RepositoryAccessResolver;
+  const repositoryOwnershipVerifier = {
+    verifyRepositoryOwnership: vi.fn(),
+    ...overrides?.repositoryOwnershipVerifier
+  } as RepositoryOwnershipVerifier;
   const repositoryContentProvider = {
     resolveCommit: vi.fn().mockResolvedValue({ commitSha: "commit_sha" }),
     listSnapshotFiles: vi.fn().mockReturnValue(snapshotFiles([])),
@@ -123,6 +138,7 @@ function createService(overrides?: {
     updateScanStatus,
     storeScanFiles: vi.fn(),
     findCompletedScanByRepositoryAndCommit: vi.fn().mockResolvedValue(null),
+    listScanHistory: vi.fn().mockResolvedValue({ items: [], totalItems: 0 }),
     getScan: vi.fn(),
     getLatestScan: vi.fn(),
     ...overrides?.scanRepository
@@ -130,13 +146,23 @@ function createService(overrides?: {
 
   return {
     repositoryAccessResolver,
+    repositoryOwnershipVerifier,
     repositoryContentProvider,
     scanRepository,
-    service: new ScanService(scanRepository, repositoryContentProvider, repositoryAccessResolver)
+    service: new ScanService(
+      scanRepository,
+      repositoryContentProvider,
+      repositoryAccessResolver,
+      repositoryOwnershipVerifier
+    )
   };
 }
 
 describe("ScanService", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("declares only contract tokens as constructor dependencies", () => {
     const dependencyTokens = Reflect.getMetadata("self:paramtypes", ScanService) as
       Array<{ index: number; param: unknown }> | undefined;
@@ -144,8 +170,97 @@ describe("ScanService", () => {
     expect(dependencyTokens?.map((dependency) => dependency.param)).toEqual([
       expect.any(Symbol),
       expect.any(Symbol),
+      expect.any(Symbol),
       expect.any(Symbol)
     ]);
+  });
+
+  it("returns paginated scan history for an owned repository", async () => {
+    const historyItems = [
+      { ...completedScan, id: "scan_2", totalSize: 200n },
+      { ...failedScan, id: "scan_1", totalSize: 100n }
+    ];
+    const { repositoryOwnershipVerifier, repositoryContentProvider, scanRepository, service } =
+      createService({
+        scanRepository: {
+          listScanHistory: vi.fn().mockResolvedValue({
+            items: historyItems,
+            totalItems: 42
+          })
+        }
+      });
+
+    await expect(
+      service.getScanHistory({
+        userId: "user_1",
+        repositoryId: "repository_1",
+        page: 2,
+        pageSize: 20
+      })
+    ).resolves.toEqual({
+      items: historyItems,
+      pagination: {
+        page: 2,
+        pageSize: 20,
+        totalItems: 42,
+        totalPages: 3
+      }
+    });
+
+    expect(repositoryOwnershipVerifier.verifyRepositoryOwnership).toHaveBeenCalledWith({
+      userId: "user_1",
+      repositoryId: "repository_1"
+    });
+    expect(scanRepository.listScanHistory).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      page: 2,
+      pageSize: 20
+    });
+    expect(repositoryContentProvider.resolveCommit).not.toHaveBeenCalled();
+    expect(repositoryContentProvider.listSnapshotFiles).not.toHaveBeenCalled();
+  });
+
+  it("does not query scan history when repository ownership fails", async () => {
+    const notFoundError = new NotFoundException("Repository was not found");
+    const { scanRepository, service } = createService({
+      repositoryOwnershipVerifier: {
+        verifyRepositoryOwnership: vi.fn().mockRejectedValue(notFoundError)
+      }
+    });
+
+    await expect(
+      service.getScanHistory({
+        userId: "user_1",
+        repositoryId: "repository_2",
+        page: 1,
+        pageSize: 20
+      })
+    ).rejects.toBe(notFoundError);
+
+    expect(scanRepository.listScanHistory).not.toHaveBeenCalled();
+    expect(scanRepository.createScan).not.toHaveBeenCalled();
+    expect(scanRepository.storeScanFiles).not.toHaveBeenCalled();
+  });
+
+  it("returns empty scan history with pagination metadata", async () => {
+    const { service } = createService();
+
+    await expect(
+      service.getScanHistory({
+        userId: "user_1",
+        repositoryId: "repository_1",
+        page: 1,
+        pageSize: 20
+      })
+    ).resolves.toEqual({
+      items: [],
+      pagination: {
+        page: 1,
+        pageSize: 20,
+        totalItems: 0,
+        totalPages: 0
+      }
+    });
   });
 
   it("persists snapshot files and returns the completed snapshot", async () => {
@@ -154,7 +269,8 @@ describe("ScanService", () => {
 
     const result = await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(result).toMatchObject({
@@ -167,7 +283,8 @@ describe("ScanService", () => {
 
     expect(repositoryAccessResolver.resolveRepositoryAccess).toHaveBeenCalledWith({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
     expect(repositoryContentProvider.resolveCommit).toHaveBeenCalledWith(access);
     expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
@@ -200,7 +317,8 @@ describe("ScanService", () => {
 
     await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(scanRepository.createScan).toHaveReturned();
@@ -238,7 +356,8 @@ describe("ScanService", () => {
 
     const result = await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(result).toBe(existingScan);
@@ -262,7 +381,8 @@ describe("ScanService", () => {
 
     await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
@@ -293,7 +413,8 @@ describe("ScanService", () => {
 
     await service.startScan({
       repositoryId: "repository_2",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
@@ -319,7 +440,8 @@ describe("ScanService", () => {
 
     await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
@@ -341,7 +463,8 @@ describe("ScanService", () => {
 
     await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
@@ -363,7 +486,8 @@ describe("ScanService", () => {
 
     await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(scanRepository.findCompletedScanByRepositoryAndCommit).toHaveBeenCalledWith(
@@ -391,7 +515,8 @@ describe("ScanService", () => {
 
     const result = await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(result).toBe(existingScan);
@@ -416,7 +541,8 @@ describe("ScanService", () => {
 
     const result = await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(result).toMatchObject({
@@ -442,12 +568,14 @@ describe("ScanService", () => {
 
     await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(repositoryAccessResolver.resolveRepositoryAccess).toHaveBeenCalledWith({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
     expect(repositoryContentProvider.resolveCommit).toHaveBeenCalledWith(access);
     expect(scanRepository.createScan).toHaveBeenCalledWith({
@@ -471,7 +599,8 @@ describe("ScanService", () => {
     await expect(
       service.startScan({
         repositoryId: "repository_1",
-        reference: "main"
+        reference: "main",
+        userId: "user_1"
       })
     ).rejects.toThrow("commit unavailable");
 
@@ -479,23 +608,69 @@ describe("ScanService", () => {
     expect(scanRepository.updateScanStatus).not.toHaveBeenCalled();
   });
 
-  it("throws a domain error when repository access cannot be resolved", async () => {
-    const { repositoryContentProvider, scanRepository, service } = createService({
-      repositoryAccessResolver: {
-        resolveRepositoryAccess: vi.fn().mockRejectedValue(new Error("missing access"))
+  it("propagates scan creation failures before the scan is running", async () => {
+    const originalError = new Error("scan creation failed");
+    const { scanRepository, service } = createService({
+      scanRepository: {
+        createScan: vi.fn().mockRejectedValue(originalError)
       }
     });
 
     await expect(
       service.startScan({
         repositoryId: "repository_1",
-        reference: "main"
+        reference: "main",
+        userId: "user_1"
       })
-    ).rejects.toBeInstanceOf(RepositoryAccessResolutionError);
+    ).rejects.toBe(originalError);
+
+    expect(scanRepository.updateScanStatus).not.toHaveBeenCalled();
+    expect(scanRepository.storeScanFiles).not.toHaveBeenCalled();
+  });
+
+  it("throws a domain error when repository access cannot be resolved", async () => {
+    const accessError = new RepositoryAccessResolutionError("repository_1", {
+      cause: new Error("missing access")
+    });
+    const { repositoryContentProvider, scanRepository, service } = createService({
+      repositoryAccessResolver: {
+        resolveRepositoryAccess: vi.fn().mockRejectedValue(accessError)
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(accessError);
 
     expect(repositoryContentProvider.resolveCommit).not.toHaveBeenCalled();
     expect(scanRepository.createScan).not.toHaveBeenCalled();
     expect(scanRepository.updateScanStatus).not.toHaveBeenCalled();
+  });
+
+  it("preserves repository authorization errors before scan creation", async () => {
+    const notFoundError = new NotFoundException("Repository was not found");
+    const { repositoryContentProvider, scanRepository, service } = createService({
+      repositoryAccessResolver: {
+        resolveRepositoryAccess: vi.fn().mockRejectedValue(notFoundError)
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_2",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(notFoundError);
+
+    expect(repositoryContentProvider.resolveCommit).not.toHaveBeenCalled();
+    expect(scanRepository.createScan).not.toHaveBeenCalled();
+    expect(scanRepository.updateScanStatus).not.toHaveBeenCalled();
+    expect(scanRepository.storeScanFiles).not.toHaveBeenCalled();
   });
 
   it("persists snapshot files in batches using the configured batch size", async () => {
@@ -526,7 +701,8 @@ describe("ScanService", () => {
 
     await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(scanRepository.storeScanFiles).toHaveBeenCalledTimes(2);
@@ -539,7 +715,8 @@ describe("ScanService", () => {
 
     await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(scanRepository.storeScanFiles).not.toHaveBeenCalled();
@@ -555,7 +732,8 @@ describe("ScanService", () => {
 
     await service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     expect(scanRepository.storeScanFiles).toHaveBeenCalledTimes(1);
@@ -576,7 +754,8 @@ describe("ScanService", () => {
     await expect(
       service.startScan({
         repositoryId: "repository_1",
-        reference: "main"
+        reference: "main",
+        userId: "user_1"
       })
     ).rejects.toBe(originalError);
 
@@ -588,6 +767,202 @@ describe("ScanService", () => {
       scanId: "scan_1",
       status: "FAILED"
     });
+  });
+
+  it("marks the scan failed when file streaming fails after a persisted batch", async () => {
+    const fileBatchSize = 250;
+    const files = Array.from({ length: fileBatchSize }, (_, index) =>
+      createFile(`src/file-${index}.ts`)
+    );
+    const originalError = new Error("file stream failed");
+    const { repositoryContentProvider, scanRepository, service } = createService({
+      repositoryContentProvider: {
+        listSnapshotFiles: vi
+          .fn()
+          .mockReturnValue(snapshotFilesThatThrowAfter(files, originalError))
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(originalError);
+
+    expect(repositoryContentProvider.listSnapshotFiles).toHaveBeenCalledWith(access, "commit_sha");
+    expect(scanRepository.storeScanFiles).toHaveBeenCalledTimes(1);
+    expect(scanRepository.storeScanFiles).toHaveBeenCalledWith("scan_1", files);
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(1, {
+      scanId: "scan_1",
+      status: "RUNNING"
+    });
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(2, {
+      scanId: "scan_1",
+      status: "FAILED"
+    });
+    expect(scanRepository.updateScanStatus).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: "COMPLETED" })
+    );
+  });
+
+  it("marks the scan failed and rethrows the original error when batch persistence fails", async () => {
+    const fileBatchSize = 250;
+    const files = Array.from({ length: fileBatchSize }, (_, index) =>
+      createFile(`src/file-${index}.ts`)
+    );
+    const originalError = new Error("batch persistence failed");
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        listSnapshotFiles: vi.fn().mockReturnValue(snapshotFiles(files))
+      },
+      scanRepository: {
+        storeScanFiles: vi.fn().mockRejectedValue(originalError)
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(originalError);
+
+    expect(scanRepository.storeScanFiles).toHaveBeenCalledWith("scan_1", files);
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(1, {
+      scanId: "scan_1",
+      status: "RUNNING"
+    });
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(2, {
+      scanId: "scan_1",
+      status: "FAILED"
+    });
+    expect(scanRepository.updateScanStatus).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: "COMPLETED" })
+    );
+  });
+
+  it("attempts failed status and preserves the original error when completion persistence fails", async () => {
+    const originalError = new Error("completion persistence failed");
+    const { scanRepository, service } = createService({
+      scanRepository: {
+        updateScanStatus: vi.fn(async (input: UpdateScanStatusInput): Promise<ScanSnapshot> => {
+          if (input.status === "RUNNING") {
+            return runningScan;
+          }
+
+          if (input.status === "COMPLETED") {
+            throw originalError;
+          }
+
+          if (input.status === "FAILED") {
+            return failedScan;
+          }
+
+          return {
+            ...runningScan,
+            status: input.status
+          };
+        })
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(originalError);
+
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(1, {
+      scanId: "scan_1",
+      status: "RUNNING"
+    });
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(2, {
+      scanId: "scan_1",
+      status: "COMPLETED",
+      completedAt: expect.any(Date),
+      durationMs: expect.any(Number),
+      totalFiles: 0,
+      totalSize: 0n
+    });
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(3, {
+      scanId: "scan_1",
+      status: "FAILED"
+    });
+  });
+
+  it("preserves the original runtime error when failed status persistence also fails", async () => {
+    const originalError = new Error("batch persistence failed");
+    const failedStatusError = new Error("failed status persistence failed");
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        listSnapshotFiles: vi.fn().mockReturnValue(snapshotFiles([createFile("src/index.ts")]))
+      },
+      scanRepository: {
+        storeScanFiles: vi.fn().mockRejectedValue(originalError),
+        updateScanStatus: vi.fn(async (input: UpdateScanStatusInput): Promise<ScanSnapshot> => {
+          if (input.status === "RUNNING") {
+            return runningScan;
+          }
+
+          if (input.status === "FAILED") {
+            throw failedStatusError;
+          }
+
+          return completedScan;
+        })
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(originalError);
+
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(2, {
+      scanId: "scan_1",
+      status: "FAILED"
+    });
+  });
+
+  it("logs running scan failures without credential-bearing details", async () => {
+    const loggerSpy = vi.spyOn(Logger.prototype, "error").mockImplementation(() => undefined);
+    const originalError = new Error(
+      "Authorization Bearer ghp_secret_token accessToken=secret refreshToken=secret"
+    );
+    const { service } = createService({
+      repositoryContentProvider: {
+        listSnapshotFiles: vi.fn().mockReturnValue(snapshotFiles([createFile("src/index.ts")]))
+      },
+      scanRepository: {
+        storeScanFiles: vi.fn().mockRejectedValue(originalError)
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(originalError);
+
+    const logOutput = loggerSpy.mock.calls.flat().join("\n");
+    expect(logOutput).toContain("scanId=scan_1");
+    expect(logOutput).toContain("repositoryId=repository_1");
+    expect(logOutput).toContain("stage=BATCH_PERSISTENCE");
+    expect(logOutput).not.toContain("ghp_secret_token");
+    expect(logOutput).not.toContain("Authorization");
+    expect(logOutput).not.toContain("Bearer");
+    expect(logOutput).not.toContain("accessToken=secret");
+    expect(logOutput).not.toContain("refreshToken=secret");
   });
 
   it("uses the state machine for PENDING to RUNNING to FAILED", async () => {
@@ -604,7 +979,8 @@ describe("ScanService", () => {
     await expect(
       service.startScan({
         repositoryId: "repository_1",
-        reference: "main"
+        reference: "main",
+        userId: "user_1"
       })
     ).rejects.toBe(originalError);
 
@@ -631,7 +1007,8 @@ describe("ScanService", () => {
 
     const startScan = service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     await expect(startScan).rejects.toBeInstanceOf(InvalidScanStateTransitionError);
@@ -664,7 +1041,8 @@ describe("ScanService", () => {
 
     const startScan = service.startScan({
       repositoryId: "repository_1",
-      reference: "main"
+      reference: "main",
+      userId: "user_1"
     });
 
     await expect(startScan).rejects.toBeInstanceOf(InvalidScanStateTransitionError);

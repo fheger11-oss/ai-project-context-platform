@@ -41,6 +41,17 @@ export type StoreScanFileInput = {
   isHidden: boolean;
 };
 
+export type ScanHistoryQuery = {
+  repositoryId: string;
+  page: number;
+  pageSize: number;
+};
+
+export type ScanHistoryQueryResult = {
+  items: ScanSnapshot[];
+  totalItems: number;
+};
+
 export interface ScanRepository {
   createScan(input: CreateScanInput): Promise<ScanSnapshot>;
   updateScanStatus(input: UpdateScanStatusInput): Promise<ScanSnapshot>;
@@ -51,4 +62,5 @@ export interface ScanRepository {
   ): Promise<ScanSnapshot | null>;
   getScan(scanId: string): Promise<ScanSnapshot | null>;
   getLatestScan(repositoryId: string): Promise<ScanSnapshot | null>;
+  listScanHistory(input: ScanHistoryQuery): Promise<ScanHistoryQueryResult>;
 }

@@ -5,6 +5,7 @@ export const REPOSITORY_ACCESS_RESOLVER = Symbol("REPOSITORY_ACCESS_RESOLVER");
 export type ResolveRepositoryAccessInput = {
   repositoryId: string;
   reference: string;
+  userId: string;
 };
 
 export interface RepositoryAccessResolver {

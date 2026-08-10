@@ -4,6 +4,8 @@ import type { ScanModel, ScanFileCreateManyInput } from "../../../generated/pris
 import { PrismaService } from "../../prisma/prisma.service.js";
 import type {
   CreateScanInput,
+  ScanHistoryQuery,
+  ScanHistoryQueryResult,
   ScanRepository,
   ScanSnapshot,
   StoreScanFileInput,
@@ -91,6 +93,26 @@ export class PrismaScanRepository implements ScanRepository {
     });
 
     return scan ? this.toDomainScan(scan) : null;
+  }
+
+  async listScanHistory(input: ScanHistoryQuery): Promise<ScanHistoryQueryResult> {
+    const skip = (input.page - 1) * input.pageSize;
+    const [scans, totalItems] = await this.prisma.$transaction([
+      this.prisma.scan.findMany({
+        where: { repositoryId: input.repositoryId },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip,
+        take: input.pageSize
+      }),
+      this.prisma.scan.count({
+        where: { repositoryId: input.repositoryId }
+      })
+    ]);
+
+    return {
+      items: scans.map((scan) => this.toDomainScan(scan)),
+      totalItems
+    };
   }
 
   private toDomainScan(scan: ScanModel): ScanSnapshot {

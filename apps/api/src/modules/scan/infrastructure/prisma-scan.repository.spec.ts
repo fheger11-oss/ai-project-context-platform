@@ -121,4 +121,101 @@ describe("PrismaScanRepository", () => {
       orderBy: { createdAt: "desc" }
     });
   });
+
+  it("lists scan history using repository filtering, deterministic ordering, and database pagination", async () => {
+    const newerScan = {
+      ...prismaScan,
+      id: "scan_2",
+      status: "FAILED",
+      commitSha: "def456",
+      createdAt: new Date("2026-08-07T11:00:00.000Z")
+    };
+    const findMany = vi.fn().mockResolvedValue([newerScan, prismaScan]);
+    const count = vi.fn().mockResolvedValue(42);
+    const scanFileFindMany = vi.fn();
+    const prisma = {
+      scan: {
+        findMany,
+        count
+      },
+      scanFile: {
+        findMany: scanFileFindMany
+      },
+      $transaction: vi.fn(async (queries: Array<Promise<unknown>>) => Promise.all(queries))
+    } as unknown as PrismaService;
+    const repository = new PrismaScanRepository(prisma);
+
+    await expect(
+      repository.listScanHistory({
+        repositoryId: "repository_1",
+        page: 3,
+        pageSize: 10
+      })
+    ).resolves.toEqual({
+      items: [
+        {
+          id: "scan_2",
+          repositoryId: "repository_1",
+          status: "FAILED",
+          commitSha: "def456",
+          startedAt: null,
+          completedAt: null,
+          durationMs: null,
+          totalFiles: 12,
+          totalSize: 2048n,
+          createdAt: new Date("2026-08-07T11:00:00.000Z"),
+          updatedAt
+        },
+        {
+          id: "scan_1",
+          repositoryId: "repository_1",
+          status: "COMPLETED",
+          commitSha: "abc123",
+          startedAt: null,
+          completedAt: null,
+          durationMs: null,
+          totalFiles: 12,
+          totalSize: 2048n,
+          createdAt,
+          updatedAt
+        }
+      ],
+      totalItems: 42
+    });
+
+    expect(findMany).toHaveBeenCalledWith({
+      where: { repositoryId: "repository_1" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: 20,
+      take: 10
+    });
+    expect(count).toHaveBeenCalledWith({
+      where: { repositoryId: "repository_1" }
+    });
+    expect(scanFileFindMany).not.toHaveBeenCalled();
+  });
+
+  it("returns persisted scan statuses in history without filtering lifecycle states", async () => {
+    const scans = [
+      { ...prismaScan, id: "completed_scan", status: "COMPLETED" },
+      { ...prismaScan, id: "failed_scan", status: "FAILED" },
+      { ...prismaScan, id: "cancelled_scan", status: "CANCELLED" }
+    ];
+    const prisma = {
+      scan: {
+        findMany: vi.fn().mockResolvedValue(scans),
+        count: vi.fn().mockResolvedValue(scans.length)
+      },
+      $transaction: vi.fn(async (queries: Array<Promise<unknown>>) => Promise.all(queries))
+    } as unknown as PrismaService;
+    const repository = new PrismaScanRepository(prisma);
+
+    const history = await repository.listScanHistory({
+      repositoryId: "repository_1",
+      page: 1,
+      pageSize: 20
+    });
+
+    expect(history.items.map((scan) => scan.status)).toEqual(["COMPLETED", "FAILED", "CANCELLED"]);
+  });
 });

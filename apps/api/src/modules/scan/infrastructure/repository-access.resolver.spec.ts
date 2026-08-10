@@ -1,3 +1,4 @@
+import { NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import type { GitHubAccountService } from "../../auth/providers/github-account.service.js";
@@ -11,7 +12,7 @@ function createResolver(overrides?: {
   githubAccountService?: Partial<GitHubAccountService>;
 }) {
   const repositoriesService = {
-    getScanAccessMetadata: vi.fn().mockResolvedValue({
+    getScanAccessMetadataForUser: vi.fn().mockResolvedValue({
       id: "repository_1",
       userId: "user_1",
       owner: "owner",
@@ -39,7 +40,8 @@ describe("RepositoryAccessResolverInfrastructure", () => {
     await expect(
       resolver.resolveRepositoryAccess({
         repositoryId: "repository_1",
-        reference: "feature"
+        reference: "feature",
+        userId: "user_1"
       })
     ).resolves.toEqual({
       locator: "owner/repository",
@@ -49,7 +51,10 @@ describe("RepositoryAccessResolverInfrastructure", () => {
       }
     });
 
-    expect(repositoriesService.getScanAccessMetadata).toHaveBeenCalledWith("repository_1");
+    expect(repositoriesService.getScanAccessMetadataForUser).toHaveBeenCalledWith(
+      "user_1",
+      "repository_1"
+    );
     expect(githubAccountService.getAccessTokenForUser).toHaveBeenCalledWith("user_1");
   });
 
@@ -59,7 +64,8 @@ describe("RepositoryAccessResolverInfrastructure", () => {
     await expect(
       resolver.resolveRepositoryAccess({
         repositoryId: "repository_1",
-        reference: ""
+        reference: "",
+        userId: "user_1"
       })
     ).resolves.toMatchObject({
       reference: "main"
@@ -69,14 +75,15 @@ describe("RepositoryAccessResolverInfrastructure", () => {
   it("throws a domain error when repository metadata cannot be resolved", async () => {
     const { githubAccountService, resolver } = createResolver({
       repositoriesService: {
-        getScanAccessMetadata: vi.fn().mockRejectedValue(new Error("not found"))
+        getScanAccessMetadataForUser: vi.fn().mockRejectedValue(new Error("not found"))
       }
     });
 
     await expect(
       resolver.resolveRepositoryAccess({
         repositoryId: "missing_repository",
-        reference: "main"
+        reference: "main",
+        userId: "user_1"
       })
     ).rejects.toBeInstanceOf(RepositoryAccessResolutionError);
 
@@ -93,7 +100,8 @@ describe("RepositoryAccessResolverInfrastructure", () => {
     await expect(
       resolver.resolveRepositoryAccess({
         repositoryId: "repository_1",
-        reference: "main"
+        reference: "main",
+        userId: "user_1"
       })
     ).rejects.toBeInstanceOf(RepositoryProviderAccountResolutionError);
   });
@@ -108,8 +116,32 @@ describe("RepositoryAccessResolverInfrastructure", () => {
     await expect(
       resolver.resolveRepositoryAccess({
         repositoryId: "repository_1",
-        reference: "main"
+        reference: "main",
+        userId: "user_1"
       })
     ).rejects.toBeInstanceOf(RepositoryProviderAccountResolutionError);
+  });
+
+  it("does not resolve credentials for unauthorized repositories", async () => {
+    const notFoundError = new NotFoundException("Repository was not found");
+    const { githubAccountService, repositoriesService, resolver } = createResolver({
+      repositoriesService: {
+        getScanAccessMetadataForUser: vi.fn().mockRejectedValue(notFoundError)
+      }
+    });
+
+    await expect(
+      resolver.resolveRepositoryAccess({
+        repositoryId: "repository_2",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(notFoundError);
+
+    expect(repositoriesService.getScanAccessMetadataForUser).toHaveBeenCalledWith(
+      "user_1",
+      "repository_2"
+    );
+    expect(githubAccountService.getAccessTokenForUser).not.toHaveBeenCalled();
   });
 });

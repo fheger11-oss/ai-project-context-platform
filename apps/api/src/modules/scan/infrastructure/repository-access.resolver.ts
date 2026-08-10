@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { HttpException, Inject, Injectable } from "@nestjs/common";
 
 import { GitHubAccountService } from "../../auth/providers/github-account.service.js";
 import { RepositoriesService } from "../../repositories/repositories.service.js";
@@ -22,7 +22,7 @@ export class RepositoryAccessResolverInfrastructure implements RepositoryAccessR
   async resolveRepositoryAccess(
     input: ResolveRepositoryAccessInput
   ): Promise<RepositoryContentAccess> {
-    const repository = await this.getRepository(input.repositoryId);
+    const repository = await this.getRepository(input.userId, input.repositoryId);
     const accessToken = await this.getAccessToken(repository.userId, input.repositoryId);
 
     if (!accessToken) {
@@ -38,10 +38,14 @@ export class RepositoryAccessResolverInfrastructure implements RepositoryAccessR
     };
   }
 
-  private async getRepository(repositoryId: string) {
+  private async getRepository(userId: string, repositoryId: string) {
     try {
-      return await this.repositoriesService.getScanAccessMetadata(repositoryId);
+      return await this.repositoriesService.getScanAccessMetadataForUser(userId, repositoryId);
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       throw new RepositoryAccessResolutionError(repositoryId, { cause: error });
     }
   }
