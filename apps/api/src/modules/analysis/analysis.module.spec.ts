@@ -7,13 +7,16 @@ import { AnalysisInputService } from "./application/analysis-input.service.js";
 import { AnalysisPipelineService } from "./application/analysis-pipeline.service.js";
 import { AnalysisResultAggregationService } from "./application/analysis-result-aggregation.service.js";
 import { FileClassificationService } from "./application/file-classification.service.js";
+import { PersistAnalysisResultService } from "./application/persist-analysis-result.service.js";
 import { ProjectDetectionService } from "./application/project-detection.service.js";
 import { RelationshipAnalysisService } from "./application/relationship-analysis.service.js";
 import { SourceStructureAnalysisService } from "./application/source-structure-analysis.service.js";
 import { AnalysisModule } from "./analysis.module.js";
+import { ANALYSIS_REPOSITORY } from "./domain/contracts/analysis-repository.contract.js";
 import { COMPLETED_SCAN_RESOLVER } from "./domain/contracts/completed-scan-resolver.contract.js";
 import { SCAN_CONTENT_READER } from "./domain/contracts/scan-content-reader.contract.js";
 import { SOURCE_PARSER } from "./domain/contracts/source-parser.contract.js";
+import { PrismaAnalysisRepository } from "./infrastructure/prisma-analysis.repository.js";
 import { PrismaScanContentReader } from "./infrastructure/prisma-scan-content.reader.js";
 import { ScanRepositoryCompletedScanResolver } from "./infrastructure/scan-repository-completed-scan.resolver.js";
 import { TypeScriptSourceParser } from "./infrastructure/typescript-source.parser.js";
@@ -36,9 +39,14 @@ describe("AnalysisModule", () => {
       AnalysisPipelineService,
       AnalysisResultAggregationService,
       FileClassificationService,
+      PersistAnalysisResultService,
       ProjectDetectionService,
       RelationshipAnalysisService,
       SourceStructureAnalysisService,
+      {
+        provide: ANALYSIS_REPOSITORY,
+        useClass: PrismaAnalysisRepository
+      },
       {
         provide: COMPLETED_SCAN_RESOLVER,
         useClass: ScanRepositoryCompletedScanResolver

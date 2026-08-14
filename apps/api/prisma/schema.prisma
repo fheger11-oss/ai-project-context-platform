@@ -26,6 +26,14 @@ enum ScanStatus {
   CANCELLED
 }
 
+enum AnalysisStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
@@ -103,6 +111,7 @@ model Repository {
 
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   scans Scan[]
+  analyses Analysis[]
 
   @@unique([userId, githubId])
   @@index([userId])
@@ -125,12 +134,41 @@ model Scan {
 
   repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   files      ScanFile[]
+  analyses   Analysis[]
 
   @@index([repositoryId])
   @@index([repositoryId, createdAt, id])
   @@index([status])
   @@index([commitSha])
   @@map("scans")
+}
+
+model Analysis {
+  id               String         @id
+  scanId           String         @map("scan_id")
+  repositoryId     String         @map("repository_id")
+  status           AnalysisStatus @default(PENDING)
+  analyzerVersion  String         @map("analyzer_version")
+  commitSha        String         @map("commit_sha")
+  generatedAt      DateTime?      @map("generated_at")
+  project          Json?
+  files            Json?
+  sourceStructures Json?          @map("source_structures")
+  relationships    Json?
+  dependencies     Json?
+  issues           Json?
+  startedAt        DateTime?      @map("started_at")
+  completedAt      DateTime?      @map("completed_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  scan       Scan       @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@index([scanId])
+  @@index([repositoryId])
+  @@index([scanId, analyzerVersion])
+  @@map("analyses")
 }
 
 model ScanFile {
