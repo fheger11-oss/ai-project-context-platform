@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 
 import { RequestLoggerMiddleware } from "../../shared/middleware/request-logger.middleware.js";
+import { AnalysisModule } from "../analysis/analysis.module.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { AppConfigModule } from "../config/app-config.module.js";
 import { HealthModule } from "../health/health.module.js";
@@ -18,6 +19,7 @@ import { UsersModule } from "../users/users.module.js";
     AuthModule,
     RepositoriesModule,
     ScanModule,
+    AnalysisModule,
     HealthModule
   ]
 })
