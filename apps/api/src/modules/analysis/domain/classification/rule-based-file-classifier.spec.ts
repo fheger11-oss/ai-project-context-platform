@@ -27,7 +27,12 @@ describe("RuleBasedFileClassifier", () => {
 
   it.each<[string, FileCategory]>([
     ["src/main.ts", "SOURCE"],
+    ["src/main.mts", "SOURCE"],
+    ["src/main.cts", "SOURCE"],
     ["src/components/app.TSX", "SOURCE"],
+    ["src/index.js", "SOURCE"],
+    ["src/index.cjs", "SOURCE"],
+    ["src/index.mjs", "SOURCE"],
     ["src/foo/foo.spec.ts", "TEST"],
     ["src/foo/foo.test.ts", "TEST"],
     ["tests/support/example.ts", "TEST"],

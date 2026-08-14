@@ -18,8 +18,10 @@ type FileContext = {
 const SOURCE_EXTENSIONS = new Set([
   "c",
   "cc",
+  "cjs",
   "cpp",
   "cs",
+  "cts",
   "css",
   "go",
   "java",
@@ -27,6 +29,7 @@ const SOURCE_EXTENSIONS = new Set([
   "jsx",
   "kt",
   "mjs",
+  "mts",
   "php",
   "py",
   "rb",
