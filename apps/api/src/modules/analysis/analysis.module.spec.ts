@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { AppModule } from "../app/app.module.js";
 import { AnalysisInputService } from "./application/analysis-input.service.js";
+import { FileClassificationService } from "./application/file-classification.service.js";
 import { AnalysisModule } from "./analysis.module.js";
 import { COMPLETED_SCAN_RESOLVER } from "./domain/contracts/completed-scan-resolver.contract.js";
 import { SCAN_CONTENT_READER } from "./domain/contracts/scan-content-reader.contract.js";
@@ -25,6 +26,7 @@ describe("AnalysisModule", () => {
     ]);
     expect(Reflect.getMetadata(MODULE_PROVIDERS_METADATA, AnalysisModule) ?? []).toEqual([
       AnalysisInputService,
+      FileClassificationService,
       {
         provide: COMPLETED_SCAN_RESOLVER,
         useClass: ScanRepositoryCompletedScanResolver
