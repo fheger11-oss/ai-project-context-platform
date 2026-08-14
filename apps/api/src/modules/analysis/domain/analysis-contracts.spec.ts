@@ -2,7 +2,10 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import type { Analysis } from "./analysis.js";
 import type { AnalysisInput } from "./contracts/analysis-input.contract.js";
-import type { AnalysisRepository } from "./contracts/analysis-repository.contract.js";
+import type {
+  AnalysisHistoryItem,
+  AnalysisRepository
+} from "./contracts/analysis-repository.contract.js";
 import type { AnalysisResult } from "./contracts/analysis-result.contract.js";
 import type {
   CompletedScanReference,
@@ -32,6 +35,14 @@ describe("Analysis contracts", () => {
       findById(analysisId: string): Promise<Analysis | null>;
       findResultById(analysisId: string): Promise<AnalysisResult | null>;
       findByScanId(scanId: string): Promise<Analysis | null>;
+      findHistoryByScanId(scanId: string): Promise<AnalysisHistoryItem[]>;
+    }>();
+    expectTypeOf<AnalysisHistoryItem>().toEqualTypeOf<{
+      analysisId: string;
+      scanId: string;
+      analyzerVersion: string;
+      generatedAt: Date;
+      commitSha: string;
     }>();
   });
 

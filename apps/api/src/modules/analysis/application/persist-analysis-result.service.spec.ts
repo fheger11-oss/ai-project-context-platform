@@ -32,10 +32,21 @@ const result: AnalysisResult = {
   issues: []
 };
 
+const history = [
+  {
+    analysisId: "analysis_1",
+    scanId: "scan_1",
+    analyzerVersion: "analysis-4.9",
+    generatedAt: new Date("2026-08-14T12:00:00.000Z"),
+    commitSha: "abc123"
+  }
+];
+
 function createService(repository: Partial<AnalysisRepository> = {}) {
   const analysisRepository = {
     saveResult: vi.fn(async (analysisResult: AnalysisResult) => analysisResult),
     findResultById: vi.fn(async () => result),
+    findHistoryByScanId: vi.fn(async () => history),
     ...repository
   } as unknown as AnalysisRepository;
 
@@ -58,6 +69,13 @@ describe("PersistAnalysisResultService", () => {
 
     await expect(service.findById("analysis_1")).resolves.toEqual(result);
     expect(analysisRepository.findResultById).toHaveBeenCalledWith("analysis_1");
+  });
+
+  it("retrieves lightweight Analysis history through the repository contract", async () => {
+    const { service, analysisRepository } = createService();
+
+    await expect(service.findHistoryByScanId("scan_1")).resolves.toEqual(history);
+    expect(analysisRepository.findHistoryByScanId).toHaveBeenCalledWith("scan_1");
   });
 
   it("rejects invalid persistence input before calling the repository", async () => {

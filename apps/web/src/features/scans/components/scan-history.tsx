@@ -1,11 +1,14 @@
-import { ChevronLeft, ChevronRight, History, RotateCw } from "lucide-react";
+import { BarChart3, ChevronLeft, ChevronRight, Eye, History, RotateCw } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AnalysisApiRequestError, getAnalysisHistory } from "@/features/analysis/api/analysis-api";
 import { StartAnalysisButton } from "@/features/analysis/components/start-analysis-button";
 import { getScanHistory, ScanApiRequestError } from "@/features/scans/api/scan-api";
+import type { AnalysisHistoryItem } from "@/features/analysis/api/analysis-api";
 import type { ScanHistoryResponse, ScanSnapshot, ScanStatus } from "@/features/scans/api/scan-api";
 
 const HISTORY_PAGE_SIZE = 20;
@@ -57,6 +60,20 @@ function displayDate(value: string | null): string {
 
 function displayDuration(durationMs: number | null): string {
   return durationMs === null ? "Not available" : `${durationMs} ms`;
+}
+
+function analysisHistoryErrorMessage(error: unknown): string {
+  if (error instanceof AnalysisApiRequestError) {
+    if (error.status === 401) {
+      return "Sign in again to load analysis history.";
+    }
+
+    if (error.status === 403 || error.status === 404) {
+      return "Analysis history is not available for this scan.";
+    }
+  }
+
+  return "Analysis history could not be loaded.";
 }
 
 export function ScanHistory({ accessToken, repositoryId }: ScanHistoryProps) {
@@ -173,6 +190,12 @@ export function ScanHistoryContent({
 }
 
 function ScanHistoryItem({ accessToken, scan }: { accessToken: string; scan: ScanSnapshot }) {
+  const analysisHistoryQuery = useQuery({
+    queryKey: ["analysis-history", scan.id],
+    queryFn: () => getAnalysisHistory(accessToken, scan.id),
+    enabled: Boolean(accessToken && scan.status === "COMPLETED")
+  });
+
   return (
     <article className="grid gap-3 rounded-md border bg-background/70 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -212,9 +235,121 @@ function ScanHistoryItem({ accessToken, scan }: { accessToken: string; scan: Sca
 
       {scan.status === "COMPLETED" ? (
         <div className="border-t pt-3">
-          <StartAnalysisButton accessToken={accessToken} scanId={scan.id} />
+          <AnalysisActions
+            accessToken={accessToken}
+            error={analysisHistoryQuery.error}
+            history={analysisHistoryQuery.data?.items ?? []}
+            isError={analysisHistoryQuery.isError}
+            isLoading={analysisHistoryQuery.isLoading}
+            scanId={scan.id}
+          />
         </div>
       ) : null}
     </article>
+  );
+}
+
+function AnalysisActions({
+  accessToken,
+  error,
+  history,
+  isError,
+  isLoading,
+  scanId
+}: {
+  accessToken: string;
+  error: unknown;
+  history: readonly AnalysisHistoryItem[];
+  isError: boolean;
+  isLoading: boolean;
+  scanId: string;
+}) {
+  const latest = history[0];
+
+  if (isLoading) {
+    return (
+      <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+        Loading analysis history.
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="grid gap-2">
+        <p className="text-sm text-destructive" role="alert">
+          {analysisHistoryErrorMessage(error)}
+        </p>
+        <StartAnalysisButton accessToken={accessToken} scanId={scanId} />
+      </div>
+    );
+  }
+
+  if (!latest) {
+    return (
+      <div className="grid gap-2">
+        <p className="text-sm text-muted-foreground">No analysis yet.</p>
+        <StartAnalysisButton accessToken={accessToken} scanId={scanId} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="inline-flex items-center gap-2 text-sm font-medium">
+            <BarChart3 className="size-4" />
+            Analysis
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Analyzed {displayDate(latest.generatedAt)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild size="sm">
+            <Link to={`/analyses/${encodeURIComponent(latest.analysisId)}`}>
+              <Eye />
+              View Analysis
+            </Link>
+          </Button>
+          <StartAnalysisButton
+            accessToken={accessToken}
+            label="Analyze Again"
+            pendingLabel="Analyzing Again"
+            scanId={scanId}
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-2">
+        <p className="text-xs uppercase text-muted-foreground">Analysis History</p>
+        <div className="grid gap-2">
+          {history.map((item) => (
+            <AnalysisHistoryRow key={item.analysisId} item={item} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnalysisHistoryRow({ item }: { item: AnalysisHistoryItem }) {
+  return (
+    <div className="grid gap-2 rounded-md border bg-card/60 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="min-w-0">
+        <p className="text-sm">{displayDate(item.generatedAt)}</p>
+        <p className="mt-1 truncate font-mono text-xs text-muted-foreground" title={item.commitSha}>
+          {item.commitSha}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">{item.analyzerVersion}</p>
+      </div>
+      <Button asChild size="sm" variant="outline">
+        <Link to={`/analyses/${encodeURIComponent(item.analysisId)}`}>
+          <Eye />
+          View
+        </Link>
+      </Button>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import {
+  type AnalysisHistoryItem,
   ANALYSIS_REPOSITORY,
   type AnalysisRepository
 } from "../domain/contracts/analysis-repository.contract.js";
@@ -32,6 +33,12 @@ export class PersistAnalysisResultService {
     this.assertRequired(analysisId, "analysisId");
 
     return this.analysisRepository.findResultById(analysisId);
+  }
+
+  async findHistoryByScanId(scanId: string): Promise<AnalysisHistoryItem[]> {
+    this.assertRequired(scanId, "scanId");
+
+    return this.analysisRepository.findHistoryByScanId(scanId);
   }
 
   private assertRequired(value: string, field: string): void {

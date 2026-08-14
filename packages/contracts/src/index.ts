@@ -5,6 +5,8 @@ export type {
   AnalysisDetectedLanguage,
   AnalysisFileCategory,
   AnalysisFileClassification,
+  AnalysisHistoryItem,
+  AnalysisHistoryResponse,
   AnalysisIssue,
   AnalysisManifestType,
   AnalysisPackageDependency,

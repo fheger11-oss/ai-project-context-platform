@@ -1,4 +1,8 @@
-import type { AnalysisResultResponse, CreateAnalysisRequest } from "@ai-context/contracts";
+import type {
+  AnalysisHistoryResponse,
+  AnalysisResultResponse,
+  CreateAnalysisRequest
+} from "@ai-context/contracts";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api/v1";
 
@@ -62,4 +66,11 @@ export function getAnalysisResult(accessToken: string, analysisId: string) {
   });
 }
 
+export function getAnalysisHistory(accessToken: string, scanId: string) {
+  return request<AnalysisHistoryResponse>(`/scans/${encodeURIComponent(scanId)}/analyses`, {
+    accessToken
+  });
+}
+
+export type { AnalysisHistoryItem, AnalysisHistoryResponse } from "@ai-context/contracts";
 export type { AnalysisResultResponse, CreateAnalysisRequest };

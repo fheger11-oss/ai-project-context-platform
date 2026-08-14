@@ -205,6 +205,22 @@ function createRepository(
     Object.hasOwn(options, "findUniqueResult") ? options.findUniqueResult : stored()
   );
   const findFirst = vi.fn(async () => stored());
+  const findMany = vi.fn(async () => [
+    {
+      id: "analysis_new",
+      scanId: "scan_1",
+      analyzerVersion: "analysis-4.9",
+      generatedAt: new Date("2026-08-14T12:05:00.000Z"),
+      commitSha: "abc123"
+    },
+    {
+      id: "analysis_old",
+      scanId: "scan_1",
+      analyzerVersion: "analysis-4.9",
+      generatedAt,
+      commitSha: "abc123"
+    }
+  ]);
   const scanFindUnique = vi.fn(
     async () =>
       options.scan ?? {
@@ -215,7 +231,8 @@ function createRepository(
   const analysisDelegate = {
     upsert,
     findUnique,
-    findFirst
+    findFirst,
+    findMany
   };
   const scanDelegate = {
     findUnique: scanFindUnique
@@ -274,6 +291,45 @@ describe("PrismaAnalysisRepository", () => {
     const { repository } = createRepository({ findUniqueResult: null });
 
     await expect(repository.findResultById("missing")).resolves.toBeNull();
+  });
+
+  it("lists lightweight scan analysis history without loading full result JSON", async () => {
+    const { repository, analysis } = createRepository();
+
+    await expect(repository.findHistoryByScanId("scan_1")).resolves.toEqual([
+      {
+        analysisId: "analysis_new",
+        scanId: "scan_1",
+        analyzerVersion: "analysis-4.9",
+        generatedAt: new Date("2026-08-14T12:05:00.000Z"),
+        commitSha: "abc123"
+      },
+      {
+        analysisId: "analysis_old",
+        scanId: "scan_1",
+        analyzerVersion: "analysis-4.9",
+        generatedAt,
+        commitSha: "abc123"
+      }
+    ]);
+    expect(analysis.findMany).toHaveBeenCalledWith({
+      where: {
+        scanId: "scan_1",
+        status: "COMPLETED",
+        generatedAt: { not: null }
+      },
+      select: {
+        id: true,
+        scanId: true,
+        analyzerVersion: true,
+        generatedAt: true,
+        commitSha: true
+      },
+      orderBy: [{ generatedAt: "desc" }, { id: "desc" }]
+    });
+    expect(JSON.stringify(analysis.findMany.mock.calls)).not.toMatch(
+      /project|files|sourceStructures|relationships|dependencies|issues/
+    );
   });
 
   it("preserves identity, version, timestamp, nested data, and deterministic ordering", async () => {

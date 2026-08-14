@@ -7,6 +7,8 @@ import { AnalysisApiRequestError, startAnalysis } from "@/features/analysis/api/
 
 type StartAnalysisButtonProps = {
   accessToken: string;
+  label?: string;
+  pendingLabel?: string;
   scanId: string;
 };
 
@@ -34,7 +36,12 @@ function startAnalysisErrorMessage(error: unknown): string {
   return "Network problem. Check your connection and try again.";
 }
 
-export function StartAnalysisButton({ accessToken, scanId }: StartAnalysisButtonProps) {
+export function StartAnalysisButton({
+  accessToken,
+  label = "Analyze Scan",
+  pendingLabel = "Analyzing",
+  scanId
+}: StartAnalysisButtonProps) {
   const navigate = useNavigate();
   const analysisMutation = useMutation({
     mutationFn: () => startAnalysis(accessToken, scanId),
@@ -64,7 +71,7 @@ export function StartAnalysisButton({ accessToken, scanId }: StartAnalysisButton
         onClick={handleStartAnalysis}
       >
         {analysisMutation.isPending ? <Loader2 /> : <BarChart3 />}
-        {analysisMutation.isPending ? "Analyzing" : "Analyze Scan"}
+        {analysisMutation.isPending ? pendingLabel : label}
       </Button>
 
       <div id={feedbackId} aria-live="polite">

@@ -2,6 +2,18 @@ export type CreateAnalysisRequest = {
   scanId: string;
 };
 
+export type AnalysisHistoryItem = {
+  analysisId: string;
+  scanId: string;
+  analyzerVersion: string;
+  generatedAt: string;
+  commitSha: string;
+};
+
+export type AnalysisHistoryResponse = {
+  items: readonly AnalysisHistoryItem[];
+};
+
 export type AnalysisFileCategory =
   | "SOURCE"
   | "TEST"

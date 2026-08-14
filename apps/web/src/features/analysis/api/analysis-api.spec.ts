@@ -1,8 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AnalysisResultResponse } from "@ai-context/contracts";
+import type { AnalysisHistoryResponse, AnalysisResultResponse } from "@ai-context/contracts";
 import { readFileSync } from "node:fs";
 
-import { AnalysisApiRequestError, getAnalysisResult, startAnalysis } from "./analysis-api";
+import {
+  AnalysisApiRequestError,
+  getAnalysisHistory,
+  getAnalysisResult,
+  startAnalysis
+} from "./analysis-api";
 
 const analysisResult: AnalysisResultResponse = {
   analysisId: "analysis_1",
@@ -45,6 +50,25 @@ const analysisResult: AnalysisResultResponse = {
   relationships: [],
   dependencies: [],
   issues: []
+};
+
+const analysisHistory: AnalysisHistoryResponse = {
+  items: [
+    {
+      analysisId: "analysis_2",
+      scanId: "scan_1",
+      analyzerVersion: "analysis-engine-4.13",
+      generatedAt: "2026-08-14T12:05:00.000Z",
+      commitSha: "abc123"
+    },
+    {
+      analysisId: "analysis_1",
+      scanId: "scan_1",
+      analyzerVersion: "analysis-engine-4.13",
+      generatedAt: "2026-08-14T12:00:00.000Z",
+      commitSha: "abc123"
+    }
+  ]
 };
 
 function mockFetch(response: unknown, init: ResponseInit = { status: 200 }) {
@@ -95,6 +119,24 @@ describe("analysis-api", () => {
     expect(result.analysisId).toBe("analysis_1");
   });
 
+  it("retrieves lightweight analysis history for a scan", async () => {
+    const fetchMock = mockFetch(analysisHistory);
+
+    const result = await getAnalysisHistory("access_token", "scan/with space");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/v1/scans/scan%2Fwith%20space/analyses",
+      {
+        method: "GET",
+        headers: {
+          Authorization: "Bearer access_token",
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    expect(result.items[0]?.analysisId).toBe("analysis_2");
+  });
+
   it("propagates safe API errors without exposing tokens", async () => {
     mockFetch({ message: "Scan is not ready for analysis" }, { status: 400 });
 
@@ -116,5 +158,6 @@ describe("analysis-api", () => {
     expect(source).not.toMatch(/export type SourceFileStructure\s*=/);
     expect(source).not.toMatch(/export type SourceRelationship\s*=/);
     expect(source).not.toMatch(/export type DependencyEdge\s*=/);
+    expect(source).not.toMatch(/export type AnalysisHistoryItem\s*=/);
   });
 });

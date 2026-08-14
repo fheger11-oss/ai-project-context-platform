@@ -2,6 +2,7 @@ import { describe, expectTypeOf, it } from "vitest";
 
 import type {
   AnalysisDependencyEdge,
+  AnalysisHistoryResponse,
   AnalysisIssue,
   AnalysisProjectProfile,
   AnalysisResultResponse,
@@ -19,6 +20,25 @@ describe("Analysis API contracts", () => {
 
   it("models generatedAt as the serialized HTTP response type", () => {
     expectTypeOf<AnalysisResultResponse["generatedAt"]>().toEqualTypeOf<string>();
+    expectTypeOf<AnalysisHistoryResponse["items"][number]["generatedAt"]>().toEqualTypeOf<string>();
+  });
+
+  it("models lightweight scan analysis history without full result payloads", () => {
+    expectTypeOf<AnalysisHistoryResponse>().toEqualTypeOf<{
+      items: readonly {
+        analysisId: string;
+        scanId: string;
+        analyzerVersion: string;
+        generatedAt: string;
+        commitSha: string;
+      }[];
+    }>();
+    expectTypeOf<AnalysisHistoryResponse["items"][number]>().not.toHaveProperty("project");
+    expectTypeOf<AnalysisHistoryResponse["items"][number]>().not.toHaveProperty("files");
+    expectTypeOf<AnalysisHistoryResponse["items"][number]>().not.toHaveProperty("sourceStructures");
+    expectTypeOf<AnalysisHistoryResponse["items"][number]>().not.toHaveProperty("relationships");
+    expectTypeOf<AnalysisHistoryResponse["items"][number]>().not.toHaveProperty("dependencies");
+    expectTypeOf<AnalysisHistoryResponse["items"][number]>().not.toHaveProperty("issues");
   });
 
   it("models the nested public AnalysisResult response structures", () => {

@@ -4,7 +4,10 @@ import type { Prisma } from "../../../generated/prisma/client.js";
 import type { AnalysisModel } from "../../../generated/prisma/models.js";
 import { PrismaService } from "../../prisma/prisma.service.js";
 import { Analysis as AnalysisEntity, type Analysis } from "../domain/analysis.js";
-import type { AnalysisRepository } from "../domain/contracts/analysis-repository.contract.js";
+import type {
+  AnalysisHistoryItem,
+  AnalysisRepository
+} from "../domain/contracts/analysis-repository.contract.js";
 import type { AnalysisResult } from "../domain/contracts/analysis-result.contract.js";
 import { AnalysisPersistenceError } from "../domain/errors/analysis-persistence.error.js";
 import { InvalidPersistedAnalysisResultError } from "../domain/errors/invalid-persisted-analysis-result.error.js";
@@ -105,6 +108,38 @@ export class PrismaAnalysisRepository implements AnalysisRepository {
     });
 
     return stored ? this.toAnalysis(stored) : null;
+  }
+
+  async findHistoryByScanId(scanId: string): Promise<AnalysisHistoryItem[]> {
+    const stored = await this.prisma.analysis.findMany({
+      where: {
+        scanId,
+        status: "COMPLETED",
+        generatedAt: { not: null }
+      },
+      select: {
+        id: true,
+        scanId: true,
+        analyzerVersion: true,
+        generatedAt: true,
+        commitSha: true
+      },
+      orderBy: [{ generatedAt: "desc" }, { id: "desc" }]
+    });
+
+    return stored.map((item) => {
+      if (!item.generatedAt) {
+        throw new InvalidPersistedAnalysisResultError(item.id, "generatedAt is missing.");
+      }
+
+      return {
+        analysisId: item.id,
+        scanId: item.scanId,
+        analyzerVersion: item.analyzerVersion,
+        generatedAt: item.generatedAt,
+        commitSha: item.commitSha
+      };
+    });
   }
 
   private async assertScanMatchesResult(result: AnalysisResult): Promise<void> {

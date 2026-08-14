@@ -9,11 +9,14 @@ import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard.js";
 import { RolesGuard } from "../../auth/guards/roles.guard.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
 import type { GetAnalysisResultService } from "../application/get-analysis-result.service.js";
+import type { GetAnalysisHistoryService } from "../application/get-analysis-history.service.js";
 import type { RunAnalysisService } from "../application/run-analysis.service.js";
 import type { AnalysisResult } from "../domain/contracts/analysis-result.contract.js";
 import { AnalysisController } from "./analysis.controller.js";
 import { AnalysisParamsDto } from "./dto/analysis-params.dto.js";
+import { ScanAnalysisHistoryParamsDto } from "./dto/scan-analysis-history-params.dto.js";
 import { CreateAnalysisDto } from "./dto/create-analysis.dto.js";
+import { ScanAnalysisHistoryController } from "./scan-analysis-history.controller.js";
 
 const METHOD_METADATA = "method";
 const PATH_METADATA = "path";
@@ -52,6 +55,23 @@ const analysisResult: AnalysisResult = {
   issues: []
 };
 
+const analysisHistory = [
+  {
+    analysisId: "analysis_2",
+    scanId: "scan_1",
+    analyzerVersion: "analysis-engine-4.10",
+    generatedAt: new Date("2026-08-14T12:05:00.000Z"),
+    commitSha: "abc123"
+  },
+  {
+    analysisId: "analysis_1",
+    scanId: "scan_1",
+    analyzerVersion: "analysis-engine-4.10",
+    generatedAt: new Date("2026-08-14T12:00:00.000Z"),
+    commitSha: "abc123"
+  }
+];
+
 function createController() {
   const runAnalysisService = {
     run: vi.fn(async () => analysisResult)
@@ -64,6 +84,17 @@ function createController() {
     controller: new AnalysisController(runAnalysisService, getAnalysisResultService),
     runAnalysisService,
     getAnalysisResultService
+  };
+}
+
+function createHistoryController() {
+  const getAnalysisHistoryService = {
+    getByScan: vi.fn(async () => analysisHistory)
+  } as unknown as GetAnalysisHistoryService;
+
+  return {
+    controller: new ScanAnalysisHistoryController(getAnalysisHistoryService),
+    getAnalysisHistoryService
   };
 }
 
@@ -97,11 +128,34 @@ describe("AnalysisController", () => {
     );
   });
 
+  it("exposes GET /scans/:scanId/analyses under API version 1", () => {
+    expect(Reflect.getMetadata(PATH_METADATA, ScanAnalysisHistoryController)).toBe(
+      "scans/:scanId/analyses"
+    );
+    expect(Reflect.getMetadata(VERSION_METADATA, ScanAnalysisHistoryController)).toBe("1");
+    expect(
+      Reflect.getMetadata(PATH_METADATA, ScanAnalysisHistoryController.prototype.getByScan)
+    ).toBe("/");
+    expect(
+      Reflect.getMetadata(METHOD_METADATA, ScanAnalysisHistoryController.prototype.getByScan)
+    ).toBe(RequestMethod.GET);
+  });
+
   it("uses the existing Auth guard mechanism and Swagger bearer auth", () => {
     const guards = Reflect.getMetadata(GUARDS_METADATA, AnalysisController) as unknown[];
     const security = Reflect.getMetadata(API_SECURITY_METADATA, AnalysisController) as Array<
       Record<string, string[]>
     >;
+
+    expect(guards).toContain(JwtAuthGuard);
+    expect(guards).toContain(RolesGuard);
+    expect(security).toContainEqual({ bearer: [] });
+  });
+
+  it("uses the existing Auth guard mechanism for scan analysis history", () => {
+    const guards = Reflect.getMetadata(GUARDS_METADATA, ScanAnalysisHistoryController) as unknown[];
+    const security = Reflect.getMetadata(API_SECURITY_METADATA, ScanAnalysisHistoryController) as
+      Array<Record<string, string[]>> | undefined;
 
     expect(guards).toContain(JwtAuthGuard);
     expect(guards).toContain(RolesGuard);
@@ -136,6 +190,17 @@ describe("AnalysisController", () => {
     });
   });
 
+  it("delegates scan analysis history requests to GetAnalysisHistoryService", async () => {
+    const { controller, getAnalysisHistoryService } = createHistoryController();
+
+    await controller.getByScan(user, { scanId: "scan_1" });
+
+    expect(getAnalysisHistoryService.getByScan).toHaveBeenCalledWith({
+      userId: "user_1",
+      scanId: "scan_1"
+    });
+  });
+
   it("maps AnalysisResult to a JSON-safe HTTP response", async () => {
     const { controller } = createController();
 
@@ -146,6 +211,34 @@ describe("AnalysisController", () => {
       generatedAt: "2026-08-14T12:00:00.000Z"
     });
     expect(() => JSON.stringify(response)).not.toThrow();
+  });
+
+  it("maps Analysis history to lightweight JSON-safe metadata", async () => {
+    const { controller } = createHistoryController();
+
+    const response = await controller.getByScan(user, { scanId: "scan_1" });
+
+    expect(response).toEqual({
+      items: [
+        {
+          analysisId: "analysis_2",
+          scanId: "scan_1",
+          analyzerVersion: "analysis-engine-4.10",
+          generatedAt: "2026-08-14T12:05:00.000Z",
+          commitSha: "abc123"
+        },
+        {
+          analysisId: "analysis_1",
+          scanId: "scan_1",
+          analyzerVersion: "analysis-engine-4.10",
+          generatedAt: "2026-08-14T12:00:00.000Z",
+          commitSha: "abc123"
+        }
+      ]
+    });
+    expect(JSON.stringify(response)).not.toMatch(
+      /project|files|sourceStructures|relationships|dependencies|issues/
+    );
   });
 
   it("does not expose credential-shaped values in responses", async () => {
@@ -177,6 +270,15 @@ describe("AnalysisController", () => {
     await expect(validate(plainToInstance(AnalysisParamsDto, {}))).resolves.not.toEqual([]);
     await expect(
       validate(plainToInstance(AnalysisParamsDto, { analysisId: "analysis_1" }))
+    ).resolves.toEqual([]);
+  });
+
+  it("validates scan analysis history route params", async () => {
+    await expect(validate(plainToInstance(ScanAnalysisHistoryParamsDto, {}))).resolves.not.toEqual(
+      []
+    );
+    await expect(
+      validate(plainToInstance(ScanAnalysisHistoryParamsDto, { scanId: "scan_1" }))
     ).resolves.toEqual([]);
   });
 });
