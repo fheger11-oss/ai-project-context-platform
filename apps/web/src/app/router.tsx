@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "@/layouts/app-shell";
 import { AuthCallbackView } from "@/routes/auth-callback-view";
 import { FoundationView } from "@/routes/foundation-view";
+import { AnalysisResultView } from "@/routes/analyses/analysis-result-view";
 import { ConnectRepositoryView } from "@/routes/repositories/connect-repository-view";
 import { RepositoryDetailsView } from "@/routes/repositories/repository-details-view";
 import { RepositoryListView } from "@/routes/repositories/repository-list-view";
@@ -31,6 +32,10 @@ export const router = createBrowserRouter([
       {
         path: "repositories/:id",
         element: <RepositoryDetailsView />
+      },
+      {
+        path: "analyses/:analysisId",
+        element: <AnalysisResultView />
       }
     ]
   }

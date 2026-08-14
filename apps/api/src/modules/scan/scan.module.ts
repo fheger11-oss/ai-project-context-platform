@@ -36,6 +36,6 @@ import { RepositoriesModule } from "../repositories/repositories.module.js";
       useClass: GitHubRepositoryContentProvider
     }
   ],
-  exports: [SCAN_REPOSITORY]
+  exports: [SCAN_REPOSITORY, REPOSITORY_OWNERSHIP_VERIFIER]
 })
 export class ScanModule {}

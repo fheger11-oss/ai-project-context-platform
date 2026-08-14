@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StartAnalysisButton } from "@/features/analysis/components/start-analysis-button";
 import { getScanHistory, ScanApiRequestError } from "@/features/scans/api/scan-api";
 import type { ScanHistoryResponse, ScanSnapshot, ScanStatus } from "@/features/scans/api/scan-api";
 
@@ -15,6 +16,7 @@ type ScanHistoryProps = {
 };
 
 type ScanHistoryContentProps = {
+  accessToken: string;
   data: ScanHistoryResponse | undefined;
   error: unknown;
   isError: boolean;
@@ -67,6 +69,7 @@ export function ScanHistory({ accessToken, repositoryId }: ScanHistoryProps) {
 
   return (
     <ScanHistoryContent
+      accessToken={accessToken}
       data={historyQuery.data}
       error={historyQuery.error}
       isError={historyQuery.isError}
@@ -78,6 +81,7 @@ export function ScanHistory({ accessToken, repositoryId }: ScanHistoryProps) {
 }
 
 export function ScanHistoryContent({
+  accessToken,
   data,
   error,
   isError,
@@ -129,7 +133,9 @@ export function ScanHistoryContent({
         ) : null}
 
         {!isLoading && !isError
-          ? scans.map((scan) => <ScanHistoryItem key={scan.id} scan={scan} />)
+          ? scans.map((scan) => (
+              <ScanHistoryItem key={scan.id} accessToken={accessToken} scan={scan} />
+            ))
           : null}
 
         {showPagination && pagination ? (
@@ -166,7 +172,7 @@ export function ScanHistoryContent({
   );
 }
 
-function ScanHistoryItem({ scan }: { scan: ScanSnapshot }) {
+function ScanHistoryItem({ accessToken, scan }: { accessToken: string; scan: ScanSnapshot }) {
   return (
     <article className="grid gap-3 rounded-md border bg-background/70 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -203,6 +209,12 @@ function ScanHistoryItem({ scan }: { scan: ScanSnapshot }) {
           <dd>{displayDate(scan.completedAt)}</dd>
         </div>
       </dl>
+
+      {scan.status === "COMPLETED" ? (
+        <div className="border-t pt-3">
+          <StartAnalysisButton accessToken={accessToken} scanId={scan.id} />
+        </div>
+      ) : null}
     </article>
   );
 }

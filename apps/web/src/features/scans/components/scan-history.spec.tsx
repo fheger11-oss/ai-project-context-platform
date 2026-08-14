@@ -53,6 +53,12 @@ vi.mock("@/features/scans/api/scan-api", async (importOriginal) => {
   };
 });
 
+vi.mock("@/features/analysis/components/start-analysis-button", () => ({
+  StartAnalysisButton: ({ scanId }: { scanId: string }) => (
+    <button type="button">Analyze {scanId}</button>
+  )
+}));
+
 const completedScan: ScanSnapshot = {
   id: "scan_completed",
   repositoryId: "repository_1",
@@ -100,6 +106,7 @@ function renderHistory(state: QueryState = {}, repositoryId = "repository_1") {
 
 function renderContent(state: QueryState, onPageChange = vi.fn()) {
   return ScanHistoryContent({
+    accessToken: "access_token",
     data: state.data,
     error: state.error,
     isError: state.isError ?? false,
@@ -178,6 +185,8 @@ describe("ScanHistory", () => {
     expect(markup).toContain("6864 ms");
     expect(markup).toContain("98765432101234567890 bytes");
     expect(markup).toContain("Not available");
+    expect(markup).toContain("Analyze scan_completed");
+    expect(markup).not.toContain("Analyze scan_failed");
   });
 
   it("renders an empty state when the backend returns no history items", () => {
@@ -246,11 +255,13 @@ describe("ScanHistory", () => {
     );
     const buttons = findButtonElements(element);
 
-    expect(buttons[0]?.props.disabled).toBe(false);
-    expect(buttons[1]?.props.disabled).toBe(false);
+    const paginationButtons = buttons.slice(-2);
 
-    buttons[0]?.props.onClick?.();
-    buttons[1]?.props.onClick?.();
+    expect(paginationButtons[0]?.props.disabled).toBe(false);
+    expect(paginationButtons[1]?.props.disabled).toBe(false);
+
+    paginationButtons[0]?.props.onClick?.();
+    paginationButtons[1]?.props.onClick?.();
 
     expect(onPageChange).toHaveBeenCalledWith(1);
     expect(onPageChange).toHaveBeenCalledWith(3);
