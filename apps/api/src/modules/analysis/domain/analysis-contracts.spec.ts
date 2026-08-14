@@ -94,11 +94,19 @@ describe("Analysis contracts", () => {
   });
 
   it("keeps AnalysisResult as a minimal persistence-neutral result boundary", () => {
-    expectTypeOf<AnalysisResult>().toEqualTypeOf<{
+    expectTypeOf<AnalysisResult>().toMatchTypeOf<{
       analysisId: string;
       scanId: string;
+      repositoryId: string;
+      commitSha: string;
       analyzerVersion: string;
       generatedAt: Date;
+      project: unknown;
+      files: readonly unknown[];
+      sourceStructures: readonly unknown[];
+      relationships: readonly unknown[];
+      dependencies: readonly unknown[];
+      issues: readonly unknown[];
     }>();
   });
 });
