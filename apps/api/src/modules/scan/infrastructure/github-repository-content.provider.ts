@@ -34,6 +34,13 @@ type GitHubTreeResponse = {
   truncated: boolean;
 };
 
+type GitHubBlobResponse = {
+  content: string;
+  encoding: string;
+};
+
+type RepositoryContentFileMetadata = Omit<RepositoryContentFile, "content">;
+
 type GitHubRepositoryContentAccess = RepositoryContentAccess & {
   authorization: {
     bearerToken: string;
@@ -121,7 +128,12 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
         }
 
         if (entry.type === "blob") {
-          yield this.mapTreeEntry(entry, path);
+          const file = this.mapTreeEntry(entry, path);
+
+          yield {
+            ...file,
+            content: file.isBinary ? null : await this.loadBlobContent(githubAccess, entry.sha)
+          };
         }
       }
     }
@@ -167,7 +179,21 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
     return tree;
   }
 
-  private mapTreeEntry(entry: GitHubTreeEntry, path: string): RepositoryContentFile {
+  private async loadBlobContent(
+    access: GitHubRepositoryContentAccess,
+    blobSha: string
+  ): Promise<string> {
+    const blob = this.parseBlob(
+      await this.requestJson(
+        this.repositoryUrl(access, `git/blobs/${encodeURIComponent(blobSha)}`),
+        access
+      )
+    );
+
+    return Buffer.from(blob.content.replaceAll("\n", ""), "base64").toString("utf8");
+  }
+
+  private mapTreeEntry(entry: GitHubTreeEntry, path: string): RepositoryContentFileMetadata {
     const extension = this.getExtension(path);
 
     return {
@@ -249,6 +275,21 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
     return {
       tree: payload.tree.map((entry) => this.parseTreeEntry(entry)),
       truncated: payload.truncated === true
+    };
+  }
+
+  private parseBlob(payload: unknown): GitHubBlobResponse {
+    if (
+      !this.isRecord(payload) ||
+      typeof payload.content !== "string" ||
+      payload.encoding !== "base64"
+    ) {
+      throw new Error("GitHub blob response could not be validated.");
+    }
+
+    return {
+      content: payload.content,
+      encoding: payload.encoding
     };
   }
 

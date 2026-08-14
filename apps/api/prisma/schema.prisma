@@ -140,6 +140,7 @@ model ScanFile {
   extension String?
   size      BigInt
   sha       String
+  content   String?
   isBinary  Boolean  @default(false) @map("is_binary")
   isHidden  Boolean  @default(false) @map("is_hidden")
   createdAt DateTime @default(now()) @map("created_at")

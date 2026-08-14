@@ -34,7 +34,7 @@ describe("GitHubRepositoryContentProvider", () => {
     });
   });
 
-  it("returns file metadata using only the RepositoryContentFile contract shape", async () => {
+  it("returns file metadata and content using only the RepositoryContentFile contract shape", async () => {
     vi.stubGlobal(
       "fetch",
       vi
@@ -58,6 +58,13 @@ describe("GitHubRepositoryContentProvider", () => {
             ]
           })
         })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn().mockResolvedValue({
+            content: Buffer.from("export const value = 1;").toString("base64"),
+            encoding: "base64"
+          })
+        })
     );
     const provider = new GitHubRepositoryContentProvider();
 
@@ -72,6 +79,7 @@ describe("GitHubRepositoryContentProvider", () => {
         extension: "ts",
         size: 123n,
         sha: "file_sha",
+        content: "export const value = 1;",
         isBinary: false,
         isHidden: false
       }

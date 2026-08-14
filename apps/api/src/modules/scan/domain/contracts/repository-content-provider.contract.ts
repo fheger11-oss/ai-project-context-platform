@@ -15,6 +15,7 @@ export type RepositoryContentFile = {
   extension: string | null;
   size: bigint;
   sha: string;
+  content: string | null;
   isBinary: boolean;
   isHidden: boolean;
 };

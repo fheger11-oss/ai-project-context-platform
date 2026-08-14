@@ -56,6 +56,7 @@ export class PrismaScanRepository implements ScanRepository {
         extension: file.extension,
         size: file.size,
         sha: file.sha,
+        content: file.content,
         isBinary: file.isBinary,
         isHidden: file.isHidden
       }))

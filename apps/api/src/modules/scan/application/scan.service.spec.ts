@@ -71,6 +71,7 @@ function createFile(path: string, size = 1n): RepositoryContentFile {
     extension: "ts",
     size,
     sha: `${path}_sha`,
+    content: `content:${path}`,
     isBinary: false,
     isHidden: false
   };

@@ -5,6 +5,10 @@ import type { AnalysisInput } from "./contracts/analysis-input.contract.js";
 import type { AnalysisRepository } from "./contracts/analysis-repository.contract.js";
 import type { AnalysisResult } from "./contracts/analysis-result.contract.js";
 import type {
+  CompletedScanReference,
+  CompletedScanResolver
+} from "./contracts/completed-scan-resolver.contract.js";
+import type {
   ScanContentFile,
   ScanContentReader,
   ScannedFileContent
@@ -35,6 +39,17 @@ describe("Analysis contracts", () => {
       repositoryId: string;
       commitSha: string;
       contentReader: ScanContentReader;
+    }>();
+  });
+
+  it("models completed scan resolution without exposing Scan persistence details", () => {
+    expectTypeOf<CompletedScanReference>().toEqualTypeOf<{
+      scanId: string;
+      repositoryId: string;
+      commitSha: string;
+    }>();
+    expectTypeOf<CompletedScanResolver>().toMatchTypeOf<{
+      resolveCompletedScan(scanId: string): Promise<CompletedScanReference | null>;
     }>();
   });
 
