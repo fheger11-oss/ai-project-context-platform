@@ -1,10 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AnalysisResultResponse } from "@ai-context/contracts";
 
 import { AnalysisApiRequestError, getAnalysisResult } from "@/features/analysis/api/analysis-api";
 import { AnalysisResultView } from "./analysis-result-view";
-import type { AnalysisResult } from "@/features/analysis/api/analysis-api";
 
 type QueryOptions = {
   enabled?: boolean;
@@ -13,7 +13,7 @@ type QueryOptions = {
 };
 
 type QueryState = {
-  data?: AnalysisResult;
+  data?: AnalysisResultResponse;
   error?: unknown;
   isError?: boolean;
   isFetching?: boolean;
@@ -24,7 +24,7 @@ const queryOptions: QueryOptions[] = [];
 let queryState: QueryState = {};
 let accessToken = "access_token";
 
-const result: AnalysisResult = {
+const result: AnalysisResultResponse = {
   analysisId: "analysis_1",
   scanId: "scan_1",
   repositoryId: "repository_1",

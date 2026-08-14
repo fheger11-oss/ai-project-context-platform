@@ -10,16 +10,16 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import type {
+  AnalysisDependencyEdge as DependencyEdge,
+  AnalysisIssue,
+  AnalysisPackageManagerDetection as PackageManagerDetection,
+  AnalysisResultResponse as AnalysisResult,
+  AnalysisSourceFileStructure as SourceFileStructure,
+  AnalysisSourceRelationship as SourceRelationship
+} from "@ai-context/contracts";
 
 import { Badge } from "@/components/ui/badge";
-import type {
-  AnalysisIssue,
-  AnalysisResult,
-  DependencyEdge,
-  PackageManagerDetection,
-  SourceFileStructure,
-  SourceRelationship
-} from "@/features/analysis/api/analysis-api";
 
 type AnalysisResultDetailsProps = {
   result: AnalysisResult;

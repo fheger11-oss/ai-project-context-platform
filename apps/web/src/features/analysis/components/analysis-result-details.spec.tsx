@@ -1,10 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import type { AnalysisResultResponse } from "@ai-context/contracts";
 
 import { AnalysisResultDetails } from "./analysis-result-details";
-import type { AnalysisResult } from "@/features/analysis/api/analysis-api";
 
-const result: AnalysisResult = {
+const result: AnalysisResultResponse = {
   analysisId: "analysis_1234567890_long_value",
   scanId: "scan_1",
   repositoryId: "repository_1",
@@ -183,7 +183,7 @@ describe("AnalysisResultDetails", () => {
   });
 
   it("renders empty collections as empty states rather than errors", () => {
-    const emptyResult: AnalysisResult = {
+    const emptyResult: AnalysisResultResponse = {
       ...result,
       project: {
         ...result.project,

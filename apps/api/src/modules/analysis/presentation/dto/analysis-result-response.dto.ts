@@ -1,10 +1,9 @@
 import { ApiProperty } from "@nestjs/swagger";
+import type { AnalysisResultResponse } from "@ai-context/contracts";
 
 import type { AnalysisResult } from "../../domain/contracts/analysis-result.contract.js";
 
-export type AnalysisResultResponse = Omit<AnalysisResult, "generatedAt"> & {
-  generatedAt: string;
-};
+export type { AnalysisResultResponse };
 
 export class AnalysisResultResponseDto {
   @ApiProperty()

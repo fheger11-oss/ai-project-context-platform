@@ -19,14 +19,12 @@ import type {
 
 @Injectable()
 export class ProjectDetectionService {
-  constructor(
-    private readonly manifestDetector = new ManifestDetector(),
-    private readonly languageDetector = new ExtensionLanguageDetector(),
-    private readonly packageManagerDetector = new PackageManagerDetector(),
-    private readonly packageJsonParser = new PackageJsonParser(),
-    private readonly frameworkDetector = new FrameworkDetector(),
-    private readonly ecosystemDetector = new EcosystemDetector()
-  ) {}
+  private readonly manifestDetector = new ManifestDetector();
+  private readonly languageDetector = new ExtensionLanguageDetector();
+  private readonly packageManagerDetector = new PackageManagerDetector();
+  private readonly packageJsonParser = new PackageJsonParser();
+  private readonly frameworkDetector = new FrameworkDetector();
+  private readonly ecosystemDetector = new EcosystemDetector();
 
   async detectProject(input: AnalysisInput): Promise<ProjectProfile> {
     const files = await this.listFiles(input);

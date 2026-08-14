@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AnalysisResultResponse } from "@ai-context/contracts";
+import { readFileSync } from "node:fs";
 
 import { AnalysisApiRequestError, getAnalysisResult, startAnalysis } from "./analysis-api";
-import type { AnalysisResult } from "./analysis-api";
 
-const analysisResult: AnalysisResult = {
+const analysisResult: AnalysisResultResponse = {
   analysisId: "analysis_1",
   scanId: "scan_1",
   repositoryId: "repository_1",
@@ -104,5 +105,16 @@ describe("analysis-api", () => {
       status: 400,
       message: "Scan is not ready for analysis"
     });
+  });
+
+  it("does not maintain a duplicated local AnalysisResult contract", () => {
+    const source = readFileSync(new URL("./analysis-api.ts", import.meta.url), "utf8");
+
+    expect(source).toContain("@ai-context/contracts");
+    expect(source).not.toMatch(/export type AnalysisResult\s*=/);
+    expect(source).not.toMatch(/export type ProjectProfile\s*=/);
+    expect(source).not.toMatch(/export type SourceFileStructure\s*=/);
+    expect(source).not.toMatch(/export type SourceRelationship\s*=/);
+    expect(source).not.toMatch(/export type DependencyEdge\s*=/);
   });
 });
