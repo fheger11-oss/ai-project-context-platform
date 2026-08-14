@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 
 import { AnalysisInputService } from "./application/analysis-input.service.js";
+import { AnalysisPipelineService } from "./application/analysis-pipeline.service.js";
 import { AnalysisResultAggregationService } from "./application/analysis-result-aggregation.service.js";
 import { FileClassificationService } from "./application/file-classification.service.js";
 import { ProjectDetectionService } from "./application/project-detection.service.js";
@@ -19,6 +20,7 @@ import { ScanModule } from "../scan/scan.module.js";
   imports: [PrismaModule, ScanModule],
   providers: [
     AnalysisInputService,
+    AnalysisPipelineService,
     AnalysisResultAggregationService,
     FileClassificationService,
     ProjectDetectionService,
@@ -39,6 +41,7 @@ import { ScanModule } from "../scan/scan.module.js";
   ],
   exports: [
     AnalysisInputService,
+    AnalysisPipelineService,
     AnalysisResultAggregationService,
     FileClassificationService,
     ProjectDetectionService,

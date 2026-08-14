@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { AppModule } from "../app/app.module.js";
 import { AnalysisInputService } from "./application/analysis-input.service.js";
+import { AnalysisPipelineService } from "./application/analysis-pipeline.service.js";
 import { AnalysisResultAggregationService } from "./application/analysis-result-aggregation.service.js";
 import { FileClassificationService } from "./application/file-classification.service.js";
 import { ProjectDetectionService } from "./application/project-detection.service.js";
@@ -32,6 +33,7 @@ describe("AnalysisModule", () => {
     ]);
     expect(Reflect.getMetadata(MODULE_PROVIDERS_METADATA, AnalysisModule) ?? []).toEqual([
       AnalysisInputService,
+      AnalysisPipelineService,
       AnalysisResultAggregationService,
       FileClassificationService,
       ProjectDetectionService,
