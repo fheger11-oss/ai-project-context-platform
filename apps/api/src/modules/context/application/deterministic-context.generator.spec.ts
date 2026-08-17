@@ -17,6 +17,33 @@ type MonorepoClaimValue = {
   packageCount: number;
 };
 
+type SourceGroupClaimValue = {
+  type: "SOURCE_GROUP";
+  moduleId: string;
+  path: string;
+  sourceFileCount: number;
+  declarationCount: number;
+};
+
+type ModuleCandidateClaimValue = {
+  type: "MODULE_CANDIDATE";
+  moduleId: string;
+  name: string;
+  path: string;
+  sourceFileCount: number;
+  declarationCount: number;
+  internalRelationshipCount: number;
+  incomingRelationshipCount: number;
+  outgoingRelationshipCount: number;
+};
+
+type ModuleRelationshipClaimValue = {
+  type: "MODULE_RELATIONSHIP";
+  sourceModuleId: string;
+  targetModuleId: string;
+  relationshipCount: number;
+};
+
 const generatedAt = new Date("2026-08-17T10:00:00.000Z");
 
 function baseAnalysis(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
@@ -93,6 +120,120 @@ function isMonorepoClaim(claim: ContextClaim): claim is ContextClaim<MonorepoCla
     "type" in claim.value &&
     claim.value.type === "MONOREPO"
   );
+}
+
+function isSourceGroupClaim(claim: ContextClaim): claim is ContextClaim<SourceGroupClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "SOURCE_GROUP"
+  );
+}
+
+function isModuleCandidateClaim(
+  claim: ContextClaim
+): claim is ContextClaim<ModuleCandidateClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "MODULE_CANDIDATE"
+  );
+}
+
+function isModuleRelationshipClaim(
+  claim: ContextClaim
+): claim is ContextClaim<ModuleRelationshipClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "MODULE_RELATIONSHIP"
+  );
+}
+
+function sourceStructure(
+  path: string,
+  declarations = 1
+): AnalysisResult["sourceStructures"][number] {
+  return {
+    path,
+    language: "TYPESCRIPT",
+    imports: [],
+    exports: [],
+    declarations: Array.from({ length: declarations }, (_, index) => ({
+      name: `Declaration${index + 1}`,
+      kind: "CLASS",
+      containerName: null,
+      visibility: null,
+      location: {
+        start: index,
+        end: index + 1,
+        startLine: index + 1,
+        startColumn: 1,
+        endLine: index + 1,
+        endColumn: 2
+      }
+    })),
+    issues: []
+  };
+}
+
+function relationship(
+  sourcePath: string,
+  targetPath: string,
+  specifier: string
+): AnalysisResult["relationships"][number] {
+  return {
+    sourcePath,
+    kind: "IMPORTS",
+    specifier,
+    targetKind: "LOCAL_FILE",
+    targetPath,
+    targetPackageName: null,
+    resolved: true,
+    packageDependency: null,
+    evidence: []
+  };
+}
+
+function unresolvedRelationship(
+  sourcePath: string,
+  specifier: string
+): AnalysisResult["relationships"][number] {
+  return {
+    sourcePath,
+    kind: "IMPORTS",
+    specifier,
+    targetKind: "UNRESOLVED",
+    targetPath: null,
+    targetPackageName: null,
+    resolved: false,
+    packageDependency: null,
+    evidence: []
+  };
+}
+
+function packageRelationship(
+  sourcePath: string,
+  packageName: string
+): AnalysisResult["relationships"][number] {
+  return {
+    sourcePath,
+    kind: "IMPORTS",
+    specifier: packageName,
+    targetKind: "PACKAGE",
+    targetPath: null,
+    targetPackageName: packageName,
+    resolved: true,
+    packageDependency: {
+      manifestPath: "package.json",
+      version: "^1.0.0",
+      type: "DEPENDENCY"
+    },
+    evidence: []
+  };
 }
 
 async function generate(analysis: AnalysisResult) {
@@ -439,6 +580,8 @@ describe("DeterministicContextGenerator", () => {
 
     expect(context.project.claims).toEqual([]);
     expect(context.technology.claims).toEqual([]);
+    expect(context.structure.claims).toEqual([]);
+    expect(context.architecture.claims).toEqual([]);
   });
 
   it("uses medium confidence for tied primary-language inference", async () => {
@@ -480,6 +623,339 @@ describe("DeterministicContextGenerator", () => {
     const first = await generate(analysis);
     const second = await generate(analysis);
 
+    expect({ ...first, generatedAt: null }).toEqual({ ...second, generatedAt: null });
+  });
+
+  it("omits architecture and module context when structural evidence is insufficient", async () => {
+    const context = await generate(
+      baseAnalysis({
+        sourceStructures: [sourceStructure("src/main.ts")]
+      })
+    );
+
+    expect(context.structure.claims).toEqual([]);
+    expect(context.architecture.claims).toEqual([]);
+  });
+
+  it("generates a deterministic module candidate for a cohesive source area", async () => {
+    const context = await generate(
+      baseAnalysis({
+        sourceStructures: [
+          sourceStructure("src/auth/controller.ts"),
+          sourceStructure("src/auth/service.ts")
+        ],
+        relationships: [relationship("src/auth/controller.ts", "src/auth/service.ts", "./service")]
+      })
+    );
+    const sourceGroups = context.structure.claims.filter(isSourceGroupClaim);
+    const modules = context.architecture.claims.filter(isModuleCandidateClaim);
+
+    expect(sourceGroups).toEqual([
+      {
+        value: {
+          type: "SOURCE_GROUP",
+          moduleId: "module:src/auth",
+          path: "src/auth",
+          sourceFileCount: 2,
+          declarationCount: 2
+        },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "SOURCE_STRUCTURE",
+            reference: { kind: "SOURCE_STRUCTURE", path: "src/auth/controller.ts" }
+          },
+          {
+            kind: "SOURCE_STRUCTURE",
+            reference: { kind: "SOURCE_STRUCTURE", path: "src/auth/service.ts" }
+          }
+        ]
+      }
+    ]);
+    expect(modules).toEqual([
+      expect.objectContaining({
+        value: {
+          type: "MODULE_CANDIDATE",
+          moduleId: "module:src/auth",
+          name: "auth",
+          path: "src/auth",
+          sourceFileCount: 2,
+          declarationCount: 2,
+          internalRelationshipCount: 1,
+          incomingRelationshipCount: 0,
+          outgoingRelationshipCount: 0
+        },
+        kind: "INFERRED",
+        confidence: "MEDIUM",
+        evidence: expect.arrayContaining([
+          {
+            kind: "RELATIONSHIP",
+            reference: {
+              kind: "RELATIONSHIP",
+              sourcePath: "src/auth/controller.ts",
+              specifier: "./service"
+            }
+          }
+        ])
+      })
+    ]);
+  });
+
+  it("generates multiple modules and aggregates cross-module relationships", async () => {
+    const context = await generate(
+      baseAnalysis({
+        sourceStructures: [
+          sourceStructure("src/auth/controller.ts"),
+          sourceStructure("src/auth/service.ts"),
+          sourceStructure("src/users/controller.ts"),
+          sourceStructure("src/users/service.ts"),
+          sourceStructure("src/repositories/controller.ts"),
+          sourceStructure("src/repositories/service.ts")
+        ],
+        relationships: [
+          relationship("src/auth/controller.ts", "src/auth/service.ts", "./service"),
+          relationship("src/auth/service.ts", "src/users/service.ts", "../users/service"),
+          relationship("src/users/controller.ts", "src/users/service.ts", "./service"),
+          relationship("src/repositories/controller.ts", "src/repositories/service.ts", "./service")
+        ]
+      })
+    );
+    const modules = context.architecture.claims.filter(isModuleCandidateClaim);
+    const moduleRelationships = context.architecture.claims.filter(isModuleRelationshipClaim);
+
+    expect(modules.map((claim) => claim.value.moduleId)).toEqual([
+      "module:src/auth",
+      "module:src/repositories",
+      "module:src/users"
+    ]);
+    expect(moduleRelationships).toEqual([
+      {
+        value: {
+          type: "MODULE_RELATIONSHIP",
+          sourceModuleId: "module:src/auth",
+          targetModuleId: "module:src/users",
+          relationshipCount: 1
+        },
+        kind: "INFERRED",
+        confidence: "MEDIUM",
+        evidence: [
+          {
+            kind: "RELATIONSHIP",
+            reference: {
+              kind: "RELATIONSHIP",
+              sourcePath: "src/auth/service.ts",
+              specifier: "../users/service"
+            }
+          }
+        ]
+      }
+    ]);
+  });
+
+  it("ignores unresolved relationships instead of inventing module edges", async () => {
+    const analysis = baseAnalysis({
+      sourceStructures: [
+        sourceStructure("src/auth/controller.ts"),
+        sourceStructure("src/auth/service.ts"),
+        sourceStructure("src/users/controller.ts"),
+        sourceStructure("src/users/service.ts")
+      ],
+      relationships: [
+        relationship("src/auth/controller.ts", "src/auth/service.ts", "./service"),
+        relationship("src/users/controller.ts", "src/users/service.ts", "./service"),
+        unresolvedRelationship("src/auth/service.ts", "../users/missing-service")
+      ]
+    });
+
+    const first = await generate(analysis);
+    const second = await generate(analysis);
+    const moduleRelationships = first.architecture.claims.filter(isModuleRelationshipClaim);
+
+    expect(moduleRelationships).toEqual([]);
+    expect(JSON.stringify(first.architecture.claims)).not.toContain("../users/missing-service");
+    expect({ ...first, generatedAt: null }).toEqual({ ...second, generatedAt: null });
+  });
+
+  it("ignores external package relationships when aggregating module edges", async () => {
+    const analysis = baseAnalysis({
+      sourceStructures: [
+        sourceStructure("src/auth/controller.ts"),
+        sourceStructure("src/auth/service.ts"),
+        sourceStructure("src/users/controller.ts"),
+        sourceStructure("src/users/service.ts")
+      ],
+      relationships: [
+        relationship("src/auth/controller.ts", "src/auth/service.ts", "./service"),
+        relationship("src/users/controller.ts", "src/users/service.ts", "./service"),
+        packageRelationship("src/auth/service.ts", "@nestjs/common")
+      ]
+    });
+
+    const first = await generate(analysis);
+    const second = await generate(analysis);
+    const modules = first.architecture.claims.filter(isModuleCandidateClaim);
+    const moduleRelationships = first.architecture.claims.filter(isModuleRelationshipClaim);
+
+    expect(modules.map((claim) => claim.value.moduleId)).toEqual([
+      "module:src/auth",
+      "module:src/users"
+    ]);
+    expect(modules.map((claim) => claim.value.moduleId)).not.toContain("module:@nestjs/common");
+    expect(moduleRelationships).toEqual([]);
+    expect(JSON.stringify(first.architecture.claims)).not.toContain("@nestjs/common");
+    expect({ ...first, generatedAt: null }).toEqual({ ...second, generatedAt: null });
+  });
+
+  it("uses self-module relationships as cohesion evidence without emitting self edges", async () => {
+    const context = await generate(
+      baseAnalysis({
+        sourceStructures: [
+          sourceStructure("src/auth/controller.ts"),
+          sourceStructure("src/auth/service.ts")
+        ],
+        relationships: [
+          relationship("src/auth/service.ts", "src/auth/controller.ts", "./controller")
+        ]
+      })
+    );
+    const modules = context.architecture.claims.filter(isModuleCandidateClaim);
+    const moduleRelationships = context.architecture.claims.filter(isModuleRelationshipClaim);
+
+    expect(modules).toEqual([
+      expect.objectContaining({
+        value: expect.objectContaining({
+          moduleId: "module:src/auth",
+          internalRelationshipCount: 1
+        }),
+        evidence: expect.arrayContaining([
+          {
+            kind: "RELATIONSHIP",
+            reference: {
+              kind: "RELATIONSHIP",
+              sourcePath: "src/auth/service.ts",
+              specifier: "./controller"
+            }
+          }
+        ])
+      })
+    ]);
+    expect(moduleRelationships).toEqual([]);
+  });
+
+  it("aggregates duplicate file-level relationships into one deterministic module edge", async () => {
+    const analysis = baseAnalysis({
+      sourceStructures: [
+        sourceStructure("src/auth/a.ts"),
+        sourceStructure("src/auth/c.ts"),
+        sourceStructure("src/users/b.ts"),
+        sourceStructure("src/users/d.ts")
+      ],
+      relationships: [
+        relationship("src/auth/a.ts", "src/auth/c.ts", "./c"),
+        relationship("src/users/b.ts", "src/users/d.ts", "./d"),
+        relationship("src/auth/a.ts", "src/users/b.ts", "../users/b"),
+        relationship("src/auth/c.ts", "src/users/d.ts", "../users/d"),
+        relationship("src/auth/a.ts", "src/users/b.ts", "../users/b")
+      ]
+    });
+
+    const first = await generate(analysis);
+    const second = await generate(analysis);
+    const moduleRelationships = first.architecture.claims.filter(isModuleRelationshipClaim);
+
+    expect(moduleRelationships).toEqual([
+      {
+        value: {
+          type: "MODULE_RELATIONSHIP",
+          sourceModuleId: "module:src/auth",
+          targetModuleId: "module:src/users",
+          relationshipCount: 3
+        },
+        kind: "INFERRED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "RELATIONSHIP",
+            reference: {
+              kind: "RELATIONSHIP",
+              sourcePath: "src/auth/a.ts",
+              specifier: "../users/b"
+            }
+          },
+          {
+            kind: "RELATIONSHIP",
+            reference: {
+              kind: "RELATIONSHIP",
+              sourcePath: "src/auth/a.ts",
+              specifier: "../users/b"
+            }
+          },
+          {
+            kind: "RELATIONSHIP",
+            reference: {
+              kind: "RELATIONSHIP",
+              sourcePath: "src/auth/c.ts",
+              specifier: "../users/d"
+            }
+          }
+        ]
+      }
+    ]);
+    expect({ ...first, generatedAt: null }).toEqual({ ...second, generatedAt: null });
+  });
+
+  it("uses high confidence for stronger internal module evidence", async () => {
+    const context = await generate(
+      baseAnalysis({
+        sourceStructures: [
+          sourceStructure("src/auth/controller.ts", 2),
+          sourceStructure("src/auth/service.ts", 2),
+          sourceStructure("src/auth/repository.ts", 1)
+        ],
+        relationships: [
+          relationship("src/auth/controller.ts", "src/auth/service.ts", "./service"),
+          relationship("src/auth/service.ts", "src/auth/repository.ts", "./repository")
+        ]
+      })
+    );
+
+    expect(context.architecture.claims.filter(isModuleCandidateClaim)).toEqual([
+      expect.objectContaining({
+        value: expect.objectContaining({
+          moduleId: "module:src/auth",
+          internalRelationshipCount: 2,
+          declarationCount: 5
+        }),
+        kind: "INFERRED",
+        confidence: "HIGH"
+      })
+    ]);
+  });
+
+  it("keeps module identifiers and ordering stable", async () => {
+    const analysis = baseAnalysis({
+      sourceStructures: [
+        sourceStructure("src/users/service.ts"),
+        sourceStructure("src/auth/service.ts"),
+        sourceStructure("src/users/controller.ts"),
+        sourceStructure("src/auth/controller.ts")
+      ],
+      relationships: [
+        relationship("src/users/controller.ts", "src/users/service.ts", "./service"),
+        relationship("src/auth/controller.ts", "src/auth/service.ts", "./service")
+      ]
+    });
+
+    const first = await generate(analysis);
+    const second = await generate(analysis);
+
+    expect(
+      first.architecture.claims.filter(isModuleCandidateClaim).map((claim) => claim.value)
+    ).toEqual([
+      expect.objectContaining({ moduleId: "module:src/auth", path: "src/auth" }),
+      expect.objectContaining({ moduleId: "module:src/users", path: "src/users" })
+    ]);
     expect({ ...first, generatedAt: null }).toEqual({ ...second, generatedAt: null });
   });
 });
