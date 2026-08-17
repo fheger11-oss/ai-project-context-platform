@@ -1269,6 +1269,128 @@ describe("DeterministicContextGenerator", () => {
     expect({ ...first, generatedAt: null }).toEqual({ ...second, generatedAt: null });
   });
 
+  it("deduplicates equivalent project and technology facts while preserving supporting evidence", async () => {
+    const context = await generate(
+      nodePackageAnalysis({
+        ecosystems: ["NODE_JS", "NODE_JS", "TYPESCRIPT"],
+        languages: [
+          { language: "TYPESCRIPT", fileCount: 12 },
+          { language: "TYPESCRIPT", fileCount: 12 },
+          { language: "JAVASCRIPT", fileCount: 2 }
+        ],
+        packageManager: {
+          status: "DETECTED",
+          packageManager: "PNPM",
+          evidence: ["pnpm-lock.yaml", "pnpm-lock.yaml"]
+        },
+        frameworks: [
+          { framework: "NESTJS", evidence: ["package.json:@nestjs/core"] },
+          { framework: "NESTJS", evidence: ["apps/api/package.json:@nestjs/core"] },
+          { framework: "NESTJS", evidence: ["package.json:@nestjs/core"] }
+        ],
+        dependencies: [
+          {
+            manifestPath: "package.json",
+            name: "@nestjs/core",
+            version: "^11.0.0",
+            type: "DEPENDENCY"
+          },
+          {
+            manifestPath: "package.json",
+            name: "@nestjs/core",
+            version: "^11.0.0",
+            type: "DEPENDENCY"
+          }
+        ]
+      })
+    );
+
+    expect(claimTypes(context.technology.claims)).toEqual([
+      "ECOSYSTEM",
+      "ECOSYSTEM",
+      "LANGUAGE",
+      "LANGUAGE",
+      "FRAMEWORK",
+      "PACKAGE_MANAGER",
+      "DEPENDENCY"
+    ]);
+    expect(context.technology.claims.filter(isLanguageClaim).map((claim) => claim.value)).toEqual([
+      { type: "LANGUAGE", language: "TYPESCRIPT", fileCount: 12 },
+      { type: "LANGUAGE", language: "JAVASCRIPT", fileCount: 2 }
+    ]);
+    expect(
+      context.technology.claims.find(
+        (claim) =>
+          typeof claim.value === "object" &&
+          claim.value !== null &&
+          "type" in claim.value &&
+          claim.value.type === "FRAMEWORK"
+      )
+    ).toEqual({
+      value: { type: "FRAMEWORK", framework: "NESTJS" },
+      kind: "OBSERVED",
+      confidence: "HIGH",
+      evidence: [
+        {
+          kind: "DEPENDENCY",
+          reference: {
+            kind: "DEPENDENCY",
+            manifestPath: "apps/api/package.json",
+            name: "@nestjs/core"
+          }
+        },
+        {
+          kind: "DEPENDENCY",
+          reference: {
+            kind: "DEPENDENCY",
+            manifestPath: "package.json",
+            name: "@nestjs/core"
+          }
+        },
+        {
+          kind: "PROJECT_METADATA",
+          reference: { kind: "PROJECT_METADATA", field: "project.frameworks" }
+        }
+      ]
+    });
+    expect(
+      context.project.claims.find(
+        (claim) =>
+          typeof claim.value === "object" &&
+          claim.value !== null &&
+          "type" in claim.value &&
+          claim.value.type === "APPLICATION_TYPE"
+      )
+    ).toEqual(
+      expect.objectContaining({
+        kind: "INFERRED",
+        confidence: "MEDIUM",
+        evidence: [
+          {
+            kind: "DEPENDENCY",
+            reference: {
+              kind: "DEPENDENCY",
+              manifestPath: "apps/api/package.json",
+              name: "@nestjs/core"
+            }
+          },
+          {
+            kind: "DEPENDENCY",
+            reference: {
+              kind: "DEPENDENCY",
+              manifestPath: "package.json",
+              name: "@nestjs/core"
+            }
+          },
+          {
+            kind: "PROJECT_METADATA",
+            reference: { kind: "PROJECT_METADATA", field: "project.frameworks" }
+          }
+        ]
+      })
+    );
+  });
+
   it("does not promote generic Analysis scripts into runtime entry-point context", async () => {
     const context = await generate(
       baseAnalysis({
@@ -1442,7 +1564,7 @@ describe("DeterministicContextGenerator", () => {
           type: "SOURCE_ENTRY_POINT_CANDIDATE",
           entryPointId: "entry-point:src/main.ts",
           path: "src/main.ts",
-          outgoingRelationshipCount: 2,
+          outgoingRelationshipCount: 1,
           connectedSourceFileCount: 1
         },
         kind: "INFERRED",
@@ -1779,19 +1901,11 @@ describe("DeterministicContextGenerator", () => {
           type: "MODULE_RELATIONSHIP",
           sourceModuleId: "module:src/auth",
           targetModuleId: "module:src/users",
-          relationshipCount: 3
+          relationshipCount: 2
         },
         kind: "INFERRED",
         confidence: "HIGH",
         evidence: [
-          {
-            kind: "RELATIONSHIP",
-            reference: {
-              kind: "RELATIONSHIP",
-              sourcePath: "src/auth/a.ts",
-              specifier: "../users/b"
-            }
-          },
           {
             kind: "RELATIONSHIP",
             reference: {

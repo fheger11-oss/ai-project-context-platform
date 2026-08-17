@@ -260,7 +260,8 @@ export class DeterministicContextGenerator implements ContextGenerator {
   private applicationTypeClaims(
     analysis: AnalysisResult
   ): ContextClaim<ProjectIdentityClaimValue>[] {
-    const frameworks = new Set(analysis.project.frameworks.map((framework) => framework.framework));
+    const detectedFrameworks = uniqueFrameworks(analysis.project.frameworks);
+    const frameworks = new Set(detectedFrameworks.map((framework) => framework.framework));
     const hasBackend = frameworks.has("NESTJS");
     const hasFrontend = frameworks.has("REACT") || frameworks.has("NEXT_JS");
 
@@ -279,7 +280,7 @@ export class DeterministicContextGenerator implements ContextGenerator {
         },
         kind: "INFERRED",
         confidence: "MEDIUM",
-        evidence: this.frameworkEvidence(analysis.project.frameworks)
+        evidence: this.frameworkEvidence(detectedFrameworks)
       }
     ];
   }
@@ -291,10 +292,7 @@ export class DeterministicContextGenerator implements ContextGenerator {
       return [];
     }
 
-    const sortedLanguages = [...analysis.project.languages].sort(
-      (left, right) =>
-        right.fileCount - left.fileCount || left.language.localeCompare(right.language)
-    );
+    const sortedLanguages = uniqueLanguages(analysis.project.languages);
     const [primary, secondary] = sortedLanguages;
 
     if (!primary) {
@@ -317,50 +315,45 @@ export class DeterministicContextGenerator implements ContextGenerator {
   }
 
   private ecosystemClaims(analysis: AnalysisResult): ContextClaim<TechnologyClaimValue>[] {
-    return [...analysis.project.ecosystems].sort().map((ecosystem) => ({
-      value: {
-        type: "ECOSYSTEM",
-        ecosystem
-      },
-      kind: "OBSERVED",
-      confidence: "HIGH",
-      evidence: [projectMetadataEvidence("project.ecosystems")]
-    }));
+    return uniqueBy([...analysis.project.ecosystems], (ecosystem) => ecosystem)
+      .sort()
+      .map((ecosystem) => ({
+        value: {
+          type: "ECOSYSTEM",
+          ecosystem
+        },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [projectMetadataEvidence("project.ecosystems")]
+      }));
   }
 
   private languageClaims(analysis: AnalysisResult): ContextClaim<TechnologyClaimValue>[] {
-    return [...analysis.project.languages]
-      .sort(
-        (left, right) =>
-          right.fileCount - left.fileCount || left.language.localeCompare(right.language)
-      )
-      .map((language) => ({
-        value: {
-          type: "LANGUAGE",
-          language: language.language,
-          fileCount: language.fileCount
-        },
-        kind: "OBSERVED",
-        confidence: "HIGH",
-        evidence: [projectMetadataEvidence("project.languages")]
-      }));
+    return uniqueLanguages(analysis.project.languages).map((language) => ({
+      value: {
+        type: "LANGUAGE",
+        language: language.language,
+        fileCount: language.fileCount
+      },
+      kind: "OBSERVED",
+      confidence: "HIGH",
+      evidence: [projectMetadataEvidence("project.languages")]
+    }));
   }
 
   private frameworkClaims(analysis: AnalysisResult): ContextClaim<TechnologyClaimValue>[] {
-    return [...analysis.project.frameworks]
-      .sort((left, right) => left.framework.localeCompare(right.framework))
-      .map((framework) => ({
-        value: {
-          type: "FRAMEWORK",
-          framework: framework.framework
-        },
-        kind: "OBSERVED",
-        confidence: "HIGH",
-        evidence: [
-          projectMetadataEvidence("project.frameworks"),
-          ...framework.evidence.map((evidence) => frameworkEvidenceReference(evidence))
-        ].sort(compareEvidence)
-      }));
+    return uniqueFrameworks(analysis.project.frameworks).map((framework) => ({
+      value: {
+        type: "FRAMEWORK",
+        framework: framework.framework
+      },
+      kind: "OBSERVED",
+      confidence: "HIGH",
+      evidence: [
+        projectMetadataEvidence("project.frameworks"),
+        ...framework.evidence.map((evidence) => frameworkEvidenceReference(evidence))
+      ].sort(compareEvidence)
+    }));
   }
 
   private packageManagerClaims(analysis: AnalysisResult): ContextClaim<TechnologyClaimValue>[] {
@@ -380,14 +373,17 @@ export class DeterministicContextGenerator implements ContextGenerator {
         confidence: "HIGH",
         evidence: [
           projectMetadataEvidence("project.packageManager"),
-          ...packageManager.evidence.map((path) => manifestEvidence(path))
+          ...uniqueBy(packageManager.evidence, (path) => path).map((path) => manifestEvidence(path))
         ].sort(compareEvidence)
       }
     ];
   }
 
   private dependencyClaims(analysis: AnalysisResult): ContextClaim<TechnologyClaimValue>[] {
-    return [...analysis.project.dependencies]
+    return uniqueBy(
+      analysis.project.dependencies,
+      (dependency) => `${dependency.manifestPath}\0${dependency.name}\0${dependency.type}`
+    )
       .filter((dependency) => dependency.type === "DEPENDENCY")
       .sort(compareDependencies)
       .map((dependency) => ({
@@ -483,7 +479,7 @@ export class DeterministicContextGenerator implements ContextGenerator {
   ): SourceFileStructure[] {
     const testPaths = new Set(testFiles.map((file) => file.path));
 
-    return analysis.sourceStructures
+    return uniqueSourceStructures(analysis.sourceStructures)
       .filter((structure) => testPaths.has(structure.path))
       .sort((left, right) => left.path.localeCompare(right.path));
   }
@@ -675,7 +671,7 @@ export class DeterministicContextGenerator implements ContextGenerator {
   private moduleCandidates(analysis: AnalysisResult): ModuleCandidate[] {
     const structuresByModule = new Map<string, SourceFileStructure[]>();
 
-    for (const structure of analysis.sourceStructures) {
+    for (const structure of uniqueSourceStructures(analysis.sourceStructures)) {
       const path = modulePathForSourcePath(structure.path);
 
       if (!path) {
@@ -790,7 +786,10 @@ export class DeterministicContextGenerator implements ContextGenerator {
       }
 
       const key = `${sourceModule}\0${targetModule}`;
-      relationshipsByPair.set(key, [...(relationshipsByPair.get(key) ?? []), relationship]);
+      relationshipsByPair.set(
+        key,
+        uniqueBy([...(relationshipsByPair.get(key) ?? []), relationship], relationshipKey)
+      );
     }
 
     return [...relationshipsByPair.entries()]
@@ -876,10 +875,10 @@ function appendRelationship(
   modulePath: string,
   relationship: SourceRelationship
 ): void {
-  relationshipsByModule.set(modulePath, [
-    ...(relationshipsByModule.get(modulePath) ?? []),
-    relationship
-  ]);
+  relationshipsByModule.set(
+    modulePath,
+    uniqueBy([...(relationshipsByModule.get(modulePath) ?? []), relationship], relationshipKey)
+  );
 }
 
 function compareFileClassifications(
@@ -990,6 +989,50 @@ function uniqueEvidence(evidence: readonly ContextEvidence[]): ContextEvidence[]
   return [...new Map(evidence.map((item) => [JSON.stringify(item), item])).values()];
 }
 
+function uniqueBy<T>(items: readonly T[], keyForItem: (item: T) => string): T[] {
+  return [...new Map(items.map((item) => [keyForItem(item), item])).values()];
+}
+
+function uniqueLanguages(languages: readonly { language: ProjectLanguage; fileCount: number }[]): {
+  language: ProjectLanguage;
+  fileCount: number;
+}[] {
+  return uniqueBy(
+    [...languages].sort(
+      (left, right) =>
+        right.fileCount - left.fileCount || left.language.localeCompare(right.language)
+    ),
+    (language) => language.language
+  );
+}
+
+function uniqueFrameworks(frameworks: readonly DetectedFramework[]): DetectedFramework[] {
+  const evidenceByFramework = new Map<ProjectFramework, string[]>();
+
+  for (const framework of frameworks) {
+    evidenceByFramework.set(framework.framework, [
+      ...(evidenceByFramework.get(framework.framework) ?? []),
+      ...framework.evidence
+    ]);
+  }
+
+  return [...evidenceByFramework.entries()]
+    .map(([framework, evidence]) => ({
+      framework,
+      evidence: uniqueBy(evidence, (item) => item).sort()
+    }))
+    .sort((left, right) => left.framework.localeCompare(right.framework));
+}
+
+function uniqueSourceStructures(
+  sourceStructures: readonly SourceFileStructure[]
+): SourceFileStructure[] {
+  return uniqueBy(
+    [...sourceStructures].sort((left, right) => left.path.localeCompare(right.path)),
+    (structure) => structure.path
+  );
+}
+
 function compareDependencies(left: PackageDependency, right: PackageDependency): number {
   return (
     left.manifestPath.localeCompare(right.manifestPath) ||
@@ -1008,4 +1051,16 @@ function compareRelationships(left: SourceRelationship, right: SourceRelationshi
     left.specifier.localeCompare(right.specifier) ||
     (left.targetPath ?? "").localeCompare(right.targetPath ?? "")
   );
+}
+
+function relationshipKey(relationship: SourceRelationship): string {
+  return [
+    relationship.sourcePath,
+    relationship.kind,
+    relationship.specifier,
+    relationship.targetKind,
+    relationship.targetPath ?? "",
+    relationship.targetPackageName ?? "",
+    relationship.resolved ? "resolved" : "unresolved"
+  ].join("\0");
 }
