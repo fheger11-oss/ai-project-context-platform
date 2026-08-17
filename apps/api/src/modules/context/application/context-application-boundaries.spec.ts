@@ -42,4 +42,9 @@ describe("Context application boundaries", () => {
     expect(source).not.toMatch(/@ai-context\/web|from ["'][^"']*react|zustand|react-query/i);
     expect(source).not.toMatch(/openai|anthropic|gemini|embedding|vector|prompt/i);
   });
+
+  it("does not maintain framework-to-package detection mappings", () => {
+    expect(source).not.toMatch(/frameworkPackageNames/);
+    expect(source).not.toMatch(/@nest(?:\$\{[^}]+\})?js\/core|react-dom/);
+  });
 });

@@ -4,9 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import { AppModule } from "../app/app.module.js";
 import { AnalysisModule } from "../analysis/analysis.module.js";
+import { DeterministicContextGenerator } from "./application/deterministic-context.generator.js";
+import { GenerateProjectContextService } from "./application/generate-project-context.service.js";
 import { ReadContextInputService } from "./application/read-context-input.service.js";
 import { ContextModule } from "./context.module.js";
 import { ANALYSIS_CONTEXT_READER } from "./domain/contracts/analysis-context-reader.contract.js";
+import { CONTEXT_GENERATOR } from "./domain/contracts/context-generator.contract.js";
 import { AnalysisResultContextReader } from "./infrastructure/analysis-result-context.reader.js";
 
 const MODULE_IMPORTS_METADATA = "imports";
@@ -21,15 +24,22 @@ describe("ContextModule", () => {
     ]);
     expect(Reflect.getMetadata(MODULE_CONTROLLERS_METADATA, ContextModule) ?? []).toEqual([]);
     expect(Reflect.getMetadata(MODULE_PROVIDERS_METADATA, ContextModule) ?? []).toEqual([
+      GenerateProjectContextService,
       ReadContextInputService,
       {
         provide: ANALYSIS_CONTEXT_READER,
         useClass: AnalysisResultContextReader
+      },
+      {
+        provide: CONTEXT_GENERATOR,
+        useClass: DeterministicContextGenerator
       }
     ]);
     expect(Reflect.getMetadata(MODULE_EXPORTS_METADATA, ContextModule) ?? []).toEqual([
+      GenerateProjectContextService,
       ReadContextInputService,
-      ANALYSIS_CONTEXT_READER
+      ANALYSIS_CONTEXT_READER,
+      CONTEXT_GENERATOR
     ]);
   });
 

@@ -52,7 +52,7 @@ export type ContextEvidence = {
   reference: ContextEvidenceReference;
 };
 
-export type ContextClaim<TValue = string> = {
+export type ContextClaim<TValue = unknown> = {
   value: TValue;
   kind: ContextClaimKind;
   confidence: ContextConfidence;
