@@ -9,6 +9,7 @@ import { AnalysisApiRequestError, getAnalysisResult } from "@/features/analysis/
 import { AnalysisResultDetails } from "@/features/analysis/components/analysis-result-details";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
+import { ProjectContextPanel } from "@/features/context/components/project-context-panel";
 
 function analysisErrorMessage(error: unknown): string {
   if (error instanceof AnalysisApiRequestError) {
@@ -90,7 +91,15 @@ export function AnalysisResultView() {
         />
       ) : null}
 
-      {analysisQuery.data ? <AnalysisResultDetails result={analysisQuery.data} /> : null}
+      {analysisQuery.data ? (
+        <div className="grid gap-6">
+          <ProjectContextPanel
+            accessToken={apiAccessToken}
+            analysisId={analysisQuery.data.analysisId}
+          />
+          <AnalysisResultDetails result={analysisQuery.data} />
+        </div>
+      ) : null}
     </>
   );
 }

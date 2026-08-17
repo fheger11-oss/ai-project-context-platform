@@ -43,6 +43,20 @@ export type {
   CreateAnalysisRequest
 } from "./analysis.js";
 
+export type {
+  ContextClaim,
+  ContextClaimKind,
+  ContextConfidence,
+  ContextEvidence,
+  ContextEvidenceKind,
+  ContextEvidenceReference,
+  ContextSection,
+  GenerateProjectContextResponse,
+  ProjectContextHistoryItem,
+  ProjectContextHistoryResponse,
+  ProjectContextResponse
+} from "./context.js";
+
 export type RepositoryVisibility = "PUBLIC" | "PRIVATE" | "INTERNAL";
 
 export type RepositorySummary = {

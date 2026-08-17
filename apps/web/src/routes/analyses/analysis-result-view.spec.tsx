@@ -52,8 +52,26 @@ const result: AnalysisResultResponse = {
 };
 
 vi.mock("@tanstack/react-query", () => ({
+  useMutation: () => ({
+    error: null,
+    isError: false,
+    isPending: false,
+    isSuccess: false,
+    mutate: vi.fn()
+  }),
   useQuery: (options: QueryOptions) => {
     queryOptions.push(options);
+
+    if (options.queryKey[0] !== "analysis") {
+      return {
+        data: options.queryKey[0] === "context-history" ? { items: [] } : undefined,
+        error: undefined,
+        isError: false,
+        isFetching: false,
+        isLoading: false,
+        refetch: vi.fn()
+      };
+    }
 
     return {
       data: queryState.data,
@@ -63,7 +81,11 @@ vi.mock("@tanstack/react-query", () => ({
       isLoading: queryState.isLoading ?? false,
       refetch: vi.fn()
     };
-  }
+  },
+  useQueryClient: () => ({
+    invalidateQueries: vi.fn(),
+    setQueryData: vi.fn()
+  })
 }));
 
 vi.mock("react-router-dom", () => ({

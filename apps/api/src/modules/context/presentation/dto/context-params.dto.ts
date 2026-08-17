@@ -1,0 +1,15 @@
+import { IsString, MaxLength, MinLength } from "class-validator";
+
+export class ContextParamsDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  contextId!: string;
+}
+
+export class AnalysisContextParamsDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(128)
+  analysisId!: string;
+}
