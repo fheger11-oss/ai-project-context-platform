@@ -79,6 +79,14 @@ type ArchitectureClaimValue =
       relationshipCount: number;
     };
 
+type EntryPointClaimValue = {
+  type: "SOURCE_ENTRY_POINT_CANDIDATE";
+  entryPointId: string;
+  path: string;
+  outgoingRelationshipCount: number;
+  connectedSourceFileCount: number;
+};
+
 type ModuleCandidate = {
   moduleId: string;
   name: string;
@@ -94,6 +102,14 @@ type ModuleRelationship = {
   sourceModuleId: string;
   targetModuleId: string;
   relationships: SourceRelationship[];
+};
+
+type SourceEntryPointCandidate = {
+  entryPointId: string;
+  path: string;
+  sourceStructure: SourceFileStructure;
+  outgoingRelationships: SourceRelationship[];
+  connectedSourceFileCount: number;
 };
 
 @Injectable()
@@ -121,6 +137,9 @@ export class DeterministicContextGenerator implements ContextGenerator {
       },
       architecture: {
         claims: this.architectureClaims(modules, this.moduleRelationships(analysis, modules))
+      },
+      entryPoints: {
+        claims: this.entryPointClaims(analysis)
       }
     });
   }
@@ -343,6 +362,89 @@ export class DeterministicContextGenerator implements ContextGenerator {
       }));
   }
 
+  private entryPointClaims(analysis: AnalysisResult): ContextClaim<EntryPointClaimValue>[] {
+    return this.sourceEntryPointCandidateClaims(analysis);
+  }
+
+  private sourceEntryPointCandidateClaims(
+    analysis: AnalysisResult
+  ): ContextClaim<EntryPointClaimValue>[] {
+    return this.sourceEntryPointCandidates(analysis).map((candidate) => ({
+      value: {
+        type: "SOURCE_ENTRY_POINT_CANDIDATE",
+        entryPointId: candidate.entryPointId,
+        path: candidate.path,
+        outgoingRelationshipCount: candidate.outgoingRelationships.length,
+        connectedSourceFileCount: candidate.connectedSourceFileCount
+      },
+      kind: "INFERRED",
+      confidence: sourceEntryPointConfidence(),
+      evidence: uniqueEvidence([
+        fileClassificationEvidence(candidate.path),
+        ...sourceStructureEvidence([candidate.sourceStructure]),
+        ...relationshipEvidence(candidate.outgoingRelationships)
+      ]).sort(compareEvidence)
+    }));
+  }
+
+  private sourceEntryPointCandidates(analysis: AnalysisResult): SourceEntryPointCandidate[] {
+    const sourcePaths = new Set(
+      analysis.files.filter((file) => file.category === "SOURCE").map((file) => file.path)
+    );
+    const structuresByPath = new Map(
+      analysis.sourceStructures.map((structure) => [structure.path, structure])
+    );
+    const outgoing = new Map<string, SourceRelationship[]>();
+    const incoming = new Map<string, SourceRelationship[]>();
+    const connectedTargets = new Map<string, Set<string>>();
+
+    for (const relationship of analysis.relationships) {
+      if (!isResolvedSourceRelationship(relationship, sourcePaths)) {
+        continue;
+      }
+
+      if (relationship.sourcePath === relationship.targetPath) {
+        continue;
+      }
+
+      appendRelationship(outgoing, relationship.sourcePath, relationship);
+      appendRelationship(incoming, relationship.targetPath, relationship);
+
+      const targets = connectedTargets.get(relationship.sourcePath) ?? new Set<string>();
+      targets.add(relationship.targetPath);
+      connectedTargets.set(relationship.sourcePath, targets);
+    }
+
+    sortRelationshipMap(outgoing);
+    sortRelationshipMap(incoming);
+
+    return [...sourcePaths]
+      .flatMap((path) => {
+        const sourceStructure = structuresByPath.get(path);
+        const outgoingRelationships = outgoing.get(path) ?? [];
+        const incomingRelationships = incoming.get(path) ?? [];
+
+        if (
+          !sourceStructure ||
+          outgoingRelationships.length === 0 ||
+          incomingRelationships.length > 0
+        ) {
+          return [];
+        }
+
+        return [
+          {
+            entryPointId: entryPointId(path),
+            path,
+            sourceStructure,
+            outgoingRelationships,
+            connectedSourceFileCount: connectedTargets.get(path)?.size ?? 0
+          }
+        ];
+      })
+      .sort((left, right) => left.path.localeCompare(right.path));
+  }
+
   private frameworkEvidence(frameworks: readonly DetectedFramework[]): ContextEvidence[] {
     return [
       projectMetadataEvidence("project.frameworks"),
@@ -491,6 +593,19 @@ export class DeterministicContextGenerator implements ContextGenerator {
   }
 }
 
+function isResolvedSourceRelationship(
+  relationship: SourceRelationship,
+  sourcePaths: ReadonlySet<string>
+): relationship is SourceRelationship & { targetPath: string } {
+  return (
+    relationship.resolved &&
+    relationship.targetKind === "LOCAL_FILE" &&
+    relationship.targetPath !== null &&
+    sourcePaths.has(relationship.sourcePath) &&
+    sourcePaths.has(relationship.targetPath)
+  );
+}
+
 function modulePathForSourcePath(path: string): string | null {
   const segments = path.split("/").filter(Boolean);
   const sourceRootIndex = segments.indexOf("src");
@@ -522,8 +637,16 @@ function moduleConfidence(module: ModuleCandidate): "HIGH" | "MEDIUM" {
     : "MEDIUM";
 }
 
+function sourceEntryPointConfidence(): "MEDIUM" {
+  return "MEDIUM";
+}
+
 function moduleId(path: string): string {
   return `module:${path}`;
+}
+
+function entryPointId(path: string): string {
+  return `entry-point:${path}`;
 }
 
 function moduleName(path: string): string {
@@ -578,6 +701,16 @@ function dependencyEvidence(dependency: PackageDependency): ContextEvidence {
   };
 }
 
+function fileClassificationEvidence(path: string): ContextEvidence {
+  return {
+    kind: "FILE_CLASSIFICATION",
+    reference: {
+      kind: "FILE_CLASSIFICATION",
+      path
+    }
+  };
+}
+
 function sourceStructureEvidence(
   sourceStructures: readonly SourceFileStructure[]
 ): ContextEvidence[] {
@@ -616,6 +749,10 @@ function frameworkEvidenceReference(evidence: string): ContextEvidence {
       name: evidence.slice(separatorIndex + 1)
     }
   };
+}
+
+function uniqueEvidence(evidence: readonly ContextEvidence[]): ContextEvidence[] {
+  return [...new Map(evidence.map((item) => [JSON.stringify(item), item])).values()];
 }
 
 function compareDependencies(left: PackageDependency, right: PackageDependency): number {

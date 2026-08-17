@@ -44,6 +44,14 @@ type ModuleRelationshipClaimValue = {
   relationshipCount: number;
 };
 
+type SourceEntryPointCandidateClaimValue = {
+  type: "SOURCE_ENTRY_POINT_CANDIDATE";
+  entryPointId: string;
+  path: string;
+  outgoingRelationshipCount: number;
+  connectedSourceFileCount: number;
+};
+
 const generatedAt = new Date("2026-08-17T10:00:00.000Z");
 
 function baseAnalysis(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
@@ -151,6 +159,24 @@ function isModuleRelationshipClaim(
     "type" in claim.value &&
     claim.value.type === "MODULE_RELATIONSHIP"
   );
+}
+
+function isSourceEntryPointCandidateClaim(
+  claim: ContextClaim
+): claim is ContextClaim<SourceEntryPointCandidateClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "SOURCE_ENTRY_POINT_CANDIDATE"
+  );
+}
+
+function file(
+  path: string,
+  category: AnalysisResult["files"][number]["category"] = "SOURCE"
+): AnalysisResult["files"][number] {
+  return { path, category };
 }
 
 function sourceStructure(
@@ -582,6 +608,231 @@ describe("DeterministicContextGenerator", () => {
     expect(context.technology.claims).toEqual([]);
     expect(context.structure.claims).toEqual([]);
     expect(context.architecture.claims).toEqual([]);
+    expect(context.entryPoints.claims).toEqual([]);
+  });
+
+  it("does not promote generic Analysis scripts into runtime entry-point context", async () => {
+    const context = await generate(
+      baseAnalysis({
+        files: [
+          file("scripts/build.sh", "SCRIPT"),
+          file("tools/release.bash", "SCRIPT"),
+          file("scripts/seed.sh", "SCRIPT"),
+          file("scripts/migrate.sh", "SCRIPT"),
+          file("scripts/test-helper.sh", "SCRIPT"),
+          file("examples/demo/scripts/start.sh", "SCRIPT"),
+          file("fixtures/template/scripts/setup.sh", "SCRIPT")
+        ]
+      })
+    );
+
+    expect(context.entryPoints.claims).toEqual([]);
+    expect(JSON.stringify(context)).not.toContain("RUNTIME_SCRIPT");
+  });
+
+  it("infers a source entry-point candidate from a static dependency root", async () => {
+    const context = await generate(
+      baseAnalysis({
+        files: [file("src/main.ts"), file("src/app/service.ts"), file("src/app/repository.ts")],
+        sourceStructures: [
+          sourceStructure("src/main.ts"),
+          sourceStructure("src/app/service.ts"),
+          sourceStructure("src/app/repository.ts")
+        ],
+        relationships: [
+          relationship("src/main.ts", "src/app/service.ts", "./app/service"),
+          relationship("src/main.ts", "src/app/repository.ts", "./app/repository")
+        ]
+      })
+    );
+
+    expect(context.entryPoints.claims.filter(isSourceEntryPointCandidateClaim)).toEqual([
+      {
+        value: {
+          type: "SOURCE_ENTRY_POINT_CANDIDATE",
+          entryPointId: "entry-point:src/main.ts",
+          path: "src/main.ts",
+          outgoingRelationshipCount: 2,
+          connectedSourceFileCount: 2
+        },
+        kind: "INFERRED",
+        confidence: "MEDIUM",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "src/main.ts" }
+          },
+          {
+            kind: "RELATIONSHIP",
+            reference: {
+              kind: "RELATIONSHIP",
+              sourcePath: "src/main.ts",
+              specifier: "./app/repository"
+            }
+          },
+          {
+            kind: "RELATIONSHIP",
+            reference: {
+              kind: "RELATIONSHIP",
+              sourcePath: "src/main.ts",
+              specifier: "./app/service"
+            }
+          },
+          {
+            kind: "SOURCE_STRUCTURE",
+            reference: { kind: "SOURCE_STRUCTURE", path: "src/main.ts" }
+          }
+        ]
+      }
+    ]);
+  });
+
+  it("uses medium confidence for a limited source entry-point candidate", async () => {
+    const context = await generate(
+      baseAnalysis({
+        files: [file("src/main.ts"), file("src/app/service.ts")],
+        sourceStructures: [sourceStructure("src/main.ts"), sourceStructure("src/app/service.ts")],
+        relationships: [relationship("src/main.ts", "src/app/service.ts", "./app/service")]
+      })
+    );
+
+    expect(context.entryPoints.claims.filter(isSourceEntryPointCandidateClaim)).toEqual([
+      expect.objectContaining({
+        value: expect.objectContaining({
+          entryPointId: "entry-point:src/main.ts",
+          outgoingRelationshipCount: 1,
+          connectedSourceFileCount: 1
+        }),
+        kind: "INFERRED",
+        confidence: "MEDIUM"
+      })
+    ]);
+  });
+
+  it("does not infer entry points from declarations without relationships", async () => {
+    const context = await generate(
+      baseAnalysis({
+        files: [file("src/main.ts")],
+        sourceStructures: [sourceStructure("src/main.ts", 3)]
+      })
+    );
+
+    expect(context.entryPoints.claims).toEqual([]);
+  });
+
+  it("orders multiple entry-point candidates deterministically", async () => {
+    const analysis = baseAnalysis({
+      files: [
+        file("apps/web/src/main.ts"),
+        file("apps/web/src/app.ts"),
+        file("apps/api/src/main.ts"),
+        file("apps/api/src/app.ts")
+      ],
+      sourceStructures: [
+        sourceStructure("apps/web/src/main.ts"),
+        sourceStructure("apps/web/src/app.ts"),
+        sourceStructure("apps/api/src/main.ts"),
+        sourceStructure("apps/api/src/app.ts")
+      ],
+      relationships: [
+        relationship("apps/web/src/main.ts", "apps/web/src/app.ts", "./app"),
+        relationship("apps/api/src/main.ts", "apps/api/src/app.ts", "./app")
+      ]
+    });
+
+    const first = await generate(analysis);
+    const second = await generate(analysis);
+
+    expect(
+      first.entryPoints.claims.filter(isSourceEntryPointCandidateClaim).map((claim) => claim.value)
+    ).toEqual([
+      expect.objectContaining({
+        entryPointId: "entry-point:apps/api/src/main.ts",
+        path: "apps/api/src/main.ts"
+      }),
+      expect.objectContaining({
+        entryPointId: "entry-point:apps/web/src/main.ts",
+        path: "apps/web/src/main.ts"
+      })
+    ]);
+    expect({ ...first, generatedAt: null }).toEqual({ ...second, generatedAt: null });
+  });
+
+  it("ignores unresolved, package, self, and duplicate relationship evidence for entry-point candidates", async () => {
+    const context = await generate(
+      baseAnalysis({
+        files: [file("src/main.ts"), file("src/app/service.ts"), file("src/app/repository.ts")],
+        sourceStructures: [
+          sourceStructure("src/main.ts"),
+          sourceStructure("src/app/service.ts"),
+          sourceStructure("src/app/repository.ts")
+        ],
+        relationships: [
+          relationship("src/main.ts", "src/app/service.ts", "./app/service"),
+          relationship("src/main.ts", "src/app/service.ts", "./app/service"),
+          relationship("src/main.ts", "src/main.ts", "./main"),
+          unresolvedRelationship("src/main.ts", "./missing"),
+          packageRelationship("src/main.ts", "@nestjs/common"),
+          relationship("src/app/service.ts", "src/app/repository.ts", "./repository")
+        ]
+      })
+    );
+
+    expect(context.entryPoints.claims.filter(isSourceEntryPointCandidateClaim)).toEqual([
+      {
+        value: {
+          type: "SOURCE_ENTRY_POINT_CANDIDATE",
+          entryPointId: "entry-point:src/main.ts",
+          path: "src/main.ts",
+          outgoingRelationshipCount: 2,
+          connectedSourceFileCount: 1
+        },
+        kind: "INFERRED",
+        confidence: "MEDIUM",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "src/main.ts" }
+          },
+          {
+            kind: "RELATIONSHIP",
+            reference: {
+              kind: "RELATIONSHIP",
+              sourcePath: "src/main.ts",
+              specifier: "./app/service"
+            }
+          },
+          {
+            kind: "SOURCE_STRUCTURE",
+            reference: { kind: "SOURCE_STRUCTURE", path: "src/main.ts" }
+          }
+        ]
+      }
+    ]);
+    expect(JSON.stringify(context.entryPoints.claims)).not.toContain("./missing");
+    expect(JSON.stringify(context.entryPoints.claims)).not.toContain("@nestjs/common");
+  });
+
+  it("does not fabricate runtime-flow claims from static relationships", async () => {
+    const context = await generate(
+      baseAnalysis({
+        files: [file("src/main.ts"), file("src/app/service.ts"), file("src/app/repository.ts")],
+        sourceStructures: [
+          sourceStructure("src/main.ts"),
+          sourceStructure("src/app/service.ts"),
+          sourceStructure("src/app/repository.ts")
+        ],
+        relationships: [
+          relationship("src/main.ts", "src/app/service.ts", "./app/service"),
+          relationship("src/app/service.ts", "src/app/repository.ts", "./repository")
+        ]
+      })
+    );
+
+    expect(
+      context.entryPoints.claims.map((claim) => (claim.value as { type?: string }).type)
+    ).toEqual(["SOURCE_ENTRY_POINT_CANDIDATE"]);
+    expect(JSON.stringify(context.entryPoints.claims)).not.toContain("RUNTIME_FLOW");
   });
 
   it("uses medium confidence for tied primary-language inference", async () => {
