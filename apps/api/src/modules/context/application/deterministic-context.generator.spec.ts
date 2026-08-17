@@ -52,6 +52,23 @@ type SourceEntryPointCandidateClaimValue = {
   connectedSourceFileCount: number;
 };
 
+type TestFileClaimValue = {
+  type: "TEST_FILE";
+  path: string;
+};
+
+type TestSourceStructureClaimValue = {
+  type: "TEST_SOURCE_STRUCTURE";
+  path: string;
+  declarationCount: number;
+};
+
+type TestingArtifactsPresentClaimValue = {
+  type: "TESTING_ARTIFACTS_PRESENT";
+  testFileCount: number;
+  structuredTestFileCount: number;
+};
+
 const generatedAt = new Date("2026-08-17T10:00:00.000Z");
 
 function baseAnalysis(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
@@ -169,6 +186,37 @@ function isSourceEntryPointCandidateClaim(
     claim.value !== null &&
     "type" in claim.value &&
     claim.value.type === "SOURCE_ENTRY_POINT_CANDIDATE"
+  );
+}
+
+function isTestFileClaim(claim: ContextClaim): claim is ContextClaim<TestFileClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "TEST_FILE"
+  );
+}
+
+function isTestSourceStructureClaim(
+  claim: ContextClaim
+): claim is ContextClaim<TestSourceStructureClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "TEST_SOURCE_STRUCTURE"
+  );
+}
+
+function isTestingArtifactsPresentClaim(
+  claim: ContextClaim
+): claim is ContextClaim<TestingArtifactsPresentClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "TESTING_ARTIFACTS_PRESENT"
   );
 }
 
@@ -609,6 +657,203 @@ describe("DeterministicContextGenerator", () => {
     expect(context.structure.claims).toEqual([]);
     expect(context.architecture.claims).toEqual([]);
     expect(context.entryPoints.claims).toEqual([]);
+  });
+
+  it("does not fabricate testing context without Analysis test evidence", async () => {
+    const context = await generate(
+      baseAnalysis({
+        files: [file("src/main.ts", "SOURCE"), file("README.md", "DOCUMENTATION")],
+        sourceStructures: [sourceStructure("src/main.ts")]
+      })
+    );
+
+    expect(context.testing.claims).toEqual([]);
+    expect(JSON.stringify(context)).not.toContain("TEST_COVERAGE");
+    expect(JSON.stringify(context)).not.toContain("TESTS_PASS");
+    expect(JSON.stringify(context)).not.toContain("TESTS_FAIL");
+  });
+
+  it("generates observed testing claims from Analysis test classifications and structures", async () => {
+    const context = await generate(
+      baseAnalysis({
+        files: [
+          file("src/auth/auth.service.spec.ts", "TEST"),
+          file("tests/support/example.ts", "TEST")
+        ],
+        sourceStructures: [
+          sourceStructure("src/auth/auth.service.spec.ts", 2),
+          sourceStructure("tests/support/example.ts", 1)
+        ]
+      })
+    );
+
+    expect(context.testing.claims.filter(isTestingArtifactsPresentClaim)).toEqual([
+      {
+        value: {
+          type: "TESTING_ARTIFACTS_PRESENT",
+          testFileCount: 2,
+          structuredTestFileCount: 2
+        },
+        kind: "INFERRED",
+        confidence: "MEDIUM",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "src/auth/auth.service.spec.ts" }
+          },
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "tests/support/example.ts" }
+          },
+          {
+            kind: "SOURCE_STRUCTURE",
+            reference: { kind: "SOURCE_STRUCTURE", path: "src/auth/auth.service.spec.ts" }
+          },
+          {
+            kind: "SOURCE_STRUCTURE",
+            reference: { kind: "SOURCE_STRUCTURE", path: "tests/support/example.ts" }
+          }
+        ]
+      }
+    ]);
+    expect(context.testing.claims.filter(isTestFileClaim)).toEqual([
+      {
+        value: { type: "TEST_FILE", path: "src/auth/auth.service.spec.ts" },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "src/auth/auth.service.spec.ts" }
+          }
+        ]
+      },
+      {
+        value: { type: "TEST_FILE", path: "tests/support/example.ts" },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "tests/support/example.ts" }
+          }
+        ]
+      }
+    ]);
+    expect(context.testing.claims.filter(isTestSourceStructureClaim)).toEqual([
+      {
+        value: {
+          type: "TEST_SOURCE_STRUCTURE",
+          path: "src/auth/auth.service.spec.ts",
+          declarationCount: 2
+        },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "src/auth/auth.service.spec.ts" }
+          },
+          {
+            kind: "SOURCE_STRUCTURE",
+            reference: { kind: "SOURCE_STRUCTURE", path: "src/auth/auth.service.spec.ts" }
+          }
+        ]
+      },
+      {
+        value: {
+          type: "TEST_SOURCE_STRUCTURE",
+          path: "tests/support/example.ts",
+          declarationCount: 1
+        },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "tests/support/example.ts" }
+          },
+          {
+            kind: "SOURCE_STRUCTURE",
+            reference: { kind: "SOURCE_STRUCTURE", path: "tests/support/example.ts" }
+          }
+        ]
+      }
+    ]);
+  });
+
+  it("uses deterministic ordering and does not duplicate testing evidence", async () => {
+    const analysis = baseAnalysis({
+      files: [
+        file("tests/zeta.spec.ts", "TEST"),
+        file("src/alpha.test.ts", "TEST"),
+        file("src/alpha.test.ts", "TEST")
+      ],
+      sourceStructures: [
+        sourceStructure("tests/zeta.spec.ts"),
+        sourceStructure("src/alpha.test.ts")
+      ]
+    });
+
+    const first = await generate(analysis);
+    const second = await generate(analysis);
+    const testFileClaims = first.testing.claims.filter(isTestFileClaim);
+
+    expect(testFileClaims.map((claim) => claim.value.path)).toEqual([
+      "src/alpha.test.ts",
+      "tests/zeta.spec.ts"
+    ]);
+    expect(first.testing.claims.filter(isTestingArtifactsPresentClaim)).toEqual([
+      expect.objectContaining({
+        value: {
+          type: "TESTING_ARTIFACTS_PRESENT",
+          testFileCount: 2,
+          structuredTestFileCount: 2
+        },
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "src/alpha.test.ts" }
+          },
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "tests/zeta.spec.ts" }
+          },
+          {
+            kind: "SOURCE_STRUCTURE",
+            reference: { kind: "SOURCE_STRUCTURE", path: "src/alpha.test.ts" }
+          },
+          {
+            kind: "SOURCE_STRUCTURE",
+            reference: { kind: "SOURCE_STRUCTURE", path: "tests/zeta.spec.ts" }
+          }
+        ]
+      })
+    ]);
+    expect({ ...first, generatedAt: null }).toEqual({ ...second, generatedAt: null });
+  });
+
+  it("does not infer testing frameworks, dependencies, coverage, quality, or execution status", async () => {
+    const context = await generate(
+      nodePackageAnalysis({
+        dependencies: [
+          {
+            manifestPath: "package.json",
+            name: "vitest",
+            version: "^4.0.0",
+            type: "DEV_DEPENDENCY"
+          }
+        ]
+      })
+    );
+
+    expect(context.testing.claims).toEqual([]);
+    expect(JSON.stringify(context)).not.toContain("TEST_FRAMEWORK");
+    expect(JSON.stringify(context)).not.toContain("TEST_DEPENDENCY");
+    expect(JSON.stringify(context)).not.toContain("COVERAGE");
+    expect(JSON.stringify(context)).not.toContain("TEST_QUALITY");
+    expect(JSON.stringify(context)).not.toContain("TESTS_PASS");
+    expect(JSON.stringify(context)).not.toContain("TESTS_FAIL");
   });
 
   it("does not promote generic Analysis scripts into runtime entry-point context", async () => {

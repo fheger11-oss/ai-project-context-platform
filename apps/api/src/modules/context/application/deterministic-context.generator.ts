@@ -87,6 +87,22 @@ type EntryPointClaimValue = {
   connectedSourceFileCount: number;
 };
 
+type TestingClaimValue =
+  | {
+      type: "TEST_FILE";
+      path: string;
+    }
+  | {
+      type: "TEST_SOURCE_STRUCTURE";
+      path: string;
+      declarationCount: number;
+    }
+  | {
+      type: "TESTING_ARTIFACTS_PRESENT";
+      testFileCount: number;
+      structuredTestFileCount: number;
+    };
+
 type ModuleCandidate = {
   moduleId: string;
   name: string;
@@ -140,6 +156,9 @@ export class DeterministicContextGenerator implements ContextGenerator {
       },
       entryPoints: {
         claims: this.entryPointClaims(analysis)
+      },
+      testing: {
+        claims: this.testingClaims(analysis)
       }
     });
   }
@@ -364,6 +383,88 @@ export class DeterministicContextGenerator implements ContextGenerator {
 
   private entryPointClaims(analysis: AnalysisResult): ContextClaim<EntryPointClaimValue>[] {
     return this.sourceEntryPointCandidateClaims(analysis);
+  }
+
+  private testingClaims(analysis: AnalysisResult): ContextClaim<TestingClaimValue>[] {
+    const testFiles = [...analysis.files]
+      .filter((file) => file.category === "TEST")
+      .filter(uniqueFileClassification)
+      .sort(compareFileClassifications);
+    const testStructures = this.testSourceStructures(analysis, testFiles);
+
+    return [
+      ...this.testingPresenceClaims(testFiles, testStructures),
+      ...this.testFileClaims(testFiles),
+      ...this.testSourceStructureClaims(testStructures)
+    ];
+  }
+
+  private testingPresenceClaims(
+    testFiles: readonly { path: string }[],
+    testStructures: readonly SourceFileStructure[]
+  ): ContextClaim<TestingClaimValue>[] {
+    if (testFiles.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        value: {
+          type: "TESTING_ARTIFACTS_PRESENT",
+          testFileCount: testFiles.length,
+          structuredTestFileCount: testStructures.length
+        },
+        kind: "INFERRED",
+        confidence: "MEDIUM",
+        evidence: uniqueEvidence([
+          ...testFiles.slice(0, 3).map((file) => fileClassificationEvidence(file.path)),
+          ...sourceStructureEvidence(testStructures)
+        ]).sort(compareEvidence)
+      }
+    ];
+  }
+
+  private testFileClaims(
+    testFiles: readonly { path: string }[]
+  ): ContextClaim<TestingClaimValue>[] {
+    return testFiles.map((file) => ({
+      value: {
+        type: "TEST_FILE",
+        path: file.path
+      },
+      kind: "OBSERVED",
+      confidence: "HIGH",
+      evidence: [fileClassificationEvidence(file.path)]
+    }));
+  }
+
+  private testSourceStructureClaims(
+    testStructures: readonly SourceFileStructure[]
+  ): ContextClaim<TestingClaimValue>[] {
+    return testStructures.map((structure) => ({
+      value: {
+        type: "TEST_SOURCE_STRUCTURE",
+        path: structure.path,
+        declarationCount: structure.declarations.length
+      },
+      kind: "OBSERVED",
+      confidence: "HIGH",
+      evidence: [
+        fileClassificationEvidence(structure.path),
+        ...sourceStructureEvidence([structure])
+      ].sort(compareEvidence)
+    }));
+  }
+
+  private testSourceStructures(
+    analysis: AnalysisResult,
+    testFiles: readonly { path: string }[]
+  ): SourceFileStructure[] {
+    const testPaths = new Set(testFiles.map((file) => file.path));
+
+    return analysis.sourceStructures
+      .filter((structure) => testPaths.has(structure.path))
+      .sort((left, right) => left.path.localeCompare(right.path));
   }
 
   private sourceEntryPointCandidateClaims(
@@ -662,6 +763,23 @@ function appendRelationship(
     ...(relationshipsByModule.get(modulePath) ?? []),
     relationship
   ]);
+}
+
+function compareFileClassifications(
+  left: { path: string; category?: string },
+  right: { path: string; category?: string }
+): number {
+  return (
+    left.path.localeCompare(right.path) || (left.category ?? "").localeCompare(right.category ?? "")
+  );
+}
+
+function uniqueFileClassification(
+  file: { path: string; category?: string },
+  index: number,
+  files: readonly { path: string; category?: string }[]
+): boolean {
+  return files.findIndex((candidate) => candidate.path === file.path) === index;
 }
 
 function sortRelationshipMap(relationshipsByModule: Map<string, SourceRelationship[]>): void {
