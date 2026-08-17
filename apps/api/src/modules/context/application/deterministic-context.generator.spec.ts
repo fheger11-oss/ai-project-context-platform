@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AnalysisResult } from "../../analysis/domain/contracts/analysis-result.contract.js";
 import type { ContextClaim } from "../domain/context-claim.js";
+import type { ProjectContextSnapshot } from "../domain/project-context.js";
 import { CONTEXT_ENGINE_VERSION } from "./context-engine-version.js";
 import { DeterministicContextGenerator } from "./deterministic-context.generator.js";
 
@@ -282,6 +283,27 @@ function isConfigurationArtifactsPresentClaim(
     "type" in claim.value &&
     claim.value.type === "CONFIGURATION_ARTIFACTS_PRESENT"
   );
+}
+
+function claimTypes(claims: readonly ContextClaim[]): string[] {
+  return claims.map((claim) =>
+    typeof claim.value === "object" && claim.value !== null && "type" in claim.value
+      ? String(claim.value.type)
+      : ""
+  );
+}
+
+function allClaims(context: ProjectContextSnapshot): ContextClaim[] {
+  return [
+    ...context.project.claims,
+    ...context.technology.claims,
+    ...context.structure.claims,
+    ...context.architecture.claims,
+    ...context.entryPoints.claims,
+    ...context.testing.claims,
+    ...context.infrastructure.claims,
+    ...context.ambiguities
+  ];
 }
 
 function file(
@@ -1100,6 +1122,151 @@ describe("DeterministicContextGenerator", () => {
     expect(JSON.stringify(context.infrastructure.claims)).not.toContain("DEPLOYMENT_READY");
     expect(JSON.stringify(context.infrastructure.claims)).not.toContain("CONFIGURATION_VALID");
     expect(JSON.stringify(context.infrastructure.claims)).not.toContain("INFRASTRUCTURE_HEALTH");
+  });
+
+  it("integrates every supported context section with evidence, confidence, and deterministic semantics", async () => {
+    const analysis = nodePackageAnalysis({
+      frameworks: [
+        { framework: "NESTJS", evidence: ["apps/api/package.json:@nestjs/core"] },
+        { framework: "REACT", evidence: ["apps/web/package.json:react"] }
+      ],
+      manifests: [
+        { path: "apps/api/package.json", type: "PACKAGE_JSON", isPrimary: true },
+        { path: "apps/web/package.json", type: "PACKAGE_JSON", isPrimary: false }
+      ],
+      packages: [
+        {
+          path: "apps/api/package.json",
+          isPrimary: true,
+          name: "api",
+          version: "0.1.0",
+          dependencies: []
+        },
+        {
+          path: "apps/web/package.json",
+          isPrimary: false,
+          name: "web",
+          version: "0.1.0",
+          dependencies: []
+        }
+      ],
+      dependencies: [
+        {
+          manifestPath: "apps/api/package.json",
+          name: "@nestjs/core",
+          version: "^11.0.0",
+          type: "DEPENDENCY"
+        },
+        {
+          manifestPath: "apps/web/package.json",
+          name: "react",
+          version: "^19.0.0",
+          type: "DEPENDENCY"
+        }
+      ]
+    });
+    const completeAnalysis = baseAnalysis({
+      ...analysis,
+      files: [
+        file("src/main.ts"),
+        file("src/auth/controller.ts"),
+        file("src/auth/service.ts"),
+        file("src/users/service.ts"),
+        file("src/users/repository.ts"),
+        file("src/auth/service.spec.ts", "TEST"),
+        file("Dockerfile", "INFRASTRUCTURE"),
+        file("tsconfig.json", "CONFIG")
+      ],
+      sourceStructures: [
+        sourceStructure("src/main.ts"),
+        sourceStructure("src/auth/controller.ts"),
+        sourceStructure("src/auth/service.ts"),
+        sourceStructure("src/users/service.ts"),
+        sourceStructure("src/users/repository.ts"),
+        sourceStructure("src/auth/service.spec.ts")
+      ],
+      relationships: [
+        relationship("src/main.ts", "src/auth/controller.ts", "./auth/controller"),
+        relationship("src/auth/controller.ts", "src/auth/service.ts", "./service"),
+        relationship("src/auth/service.ts", "src/users/service.ts", "../users/service"),
+        relationship("src/users/service.ts", "src/users/repository.ts", "./repository")
+      ]
+    });
+
+    const first = await generate(completeAnalysis);
+    const second = await generate(completeAnalysis);
+
+    expect(claimTypes(first.project.claims)).toEqual(["APPLICATION_TYPE", "PRIMARY_LANGUAGE"]);
+    expect(claimTypes(first.technology.claims)).toEqual([
+      "ECOSYSTEM",
+      "ECOSYSTEM",
+      "LANGUAGE",
+      "LANGUAGE",
+      "FRAMEWORK",
+      "FRAMEWORK",
+      "PACKAGE_MANAGER",
+      "DEPENDENCY",
+      "DEPENDENCY"
+    ]);
+    expect(claimTypes(first.structure.claims)).toEqual(["SOURCE_GROUP", "SOURCE_GROUP"]);
+    expect(claimTypes(first.architecture.claims)).toEqual([
+      "MODULE_CANDIDATE",
+      "MODULE_CANDIDATE",
+      "MODULE_RELATIONSHIP"
+    ]);
+    expect(claimTypes(first.entryPoints.claims)).toEqual(["SOURCE_ENTRY_POINT_CANDIDATE"]);
+    expect(claimTypes(first.testing.claims)).toEqual([
+      "TESTING_ARTIFACTS_PRESENT",
+      "TEST_FILE",
+      "TEST_SOURCE_STRUCTURE"
+    ]);
+    expect(claimTypes(first.infrastructure.claims)).toEqual([
+      "INFRASTRUCTURE_ARTIFACTS_PRESENT",
+      "CONFIGURATION_ARTIFACTS_PRESENT",
+      "INFRASTRUCTURE_ARTIFACT",
+      "CONFIGURATION_ARTIFACT"
+    ]);
+
+    expect(allClaims(first).length).toBeGreaterThan(0);
+    for (const claim of allClaims(first)) {
+      expect(["OBSERVED", "INFERRED"]).toContain(claim.kind);
+      expect(["HIGH", "MEDIUM", "LOW"]).toContain(claim.confidence);
+      expect(claim.evidence.length).toBeGreaterThan(0);
+    }
+
+    expect(first.entryPoints.claims.filter(isSourceEntryPointCandidateClaim)).toEqual([
+      expect.objectContaining({
+        value: expect.objectContaining({
+          type: "SOURCE_ENTRY_POINT_CANDIDATE",
+          entryPointId: "entry-point:src/main.ts",
+          path: "src/main.ts"
+        }),
+        kind: "INFERRED",
+        confidence: "MEDIUM"
+      })
+    ]);
+    expect(first.architecture.claims.filter(isModuleRelationshipClaim)).toEqual([
+      expect.objectContaining({
+        value: {
+          type: "MODULE_RELATIONSHIP",
+          sourceModuleId: "module:src/auth",
+          targetModuleId: "module:src/users",
+          relationshipCount: 1
+        },
+        kind: "INFERRED",
+        confidence: "MEDIUM"
+      })
+    ]);
+
+    const serialized = JSON.stringify(first);
+    expect(serialized).not.toContain("MONOREPO");
+    expect(serialized).not.toContain("RUNTIME_SCRIPT");
+    expect(serialized).not.toContain("RUNTIME_ENTRY_POINT");
+    expect(serialized).not.toContain("TEST_FRAMEWORK");
+    expect(serialized).not.toContain("COVERAGE");
+    expect(serialized).not.toContain("DOCKER");
+    expect(serialized).not.toContain("CONFIGURATION_VALID");
+    expect({ ...first, generatedAt: null }).toEqual({ ...second, generatedAt: null });
   });
 
   it("does not promote generic Analysis scripts into runtime entry-point context", async () => {
