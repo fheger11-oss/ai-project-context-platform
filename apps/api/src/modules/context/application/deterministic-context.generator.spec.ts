@@ -69,6 +69,26 @@ type TestingArtifactsPresentClaimValue = {
   structuredTestFileCount: number;
 };
 
+type InfrastructureArtifactClaimValue = {
+  type: "INFRASTRUCTURE_ARTIFACT";
+  path: string;
+};
+
+type ConfigurationArtifactClaimValue = {
+  type: "CONFIGURATION_ARTIFACT";
+  path: string;
+};
+
+type InfrastructureArtifactsPresentClaimValue = {
+  type: "INFRASTRUCTURE_ARTIFACTS_PRESENT";
+  artifactCount: number;
+};
+
+type ConfigurationArtifactsPresentClaimValue = {
+  type: "CONFIGURATION_ARTIFACTS_PRESENT";
+  artifactCount: number;
+};
+
 const generatedAt = new Date("2026-08-17T10:00:00.000Z");
 
 function baseAnalysis(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
@@ -217,6 +237,50 @@ function isTestingArtifactsPresentClaim(
     claim.value !== null &&
     "type" in claim.value &&
     claim.value.type === "TESTING_ARTIFACTS_PRESENT"
+  );
+}
+
+function isInfrastructureArtifactClaim(
+  claim: ContextClaim
+): claim is ContextClaim<InfrastructureArtifactClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "INFRASTRUCTURE_ARTIFACT"
+  );
+}
+
+function isConfigurationArtifactClaim(
+  claim: ContextClaim
+): claim is ContextClaim<ConfigurationArtifactClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "CONFIGURATION_ARTIFACT"
+  );
+}
+
+function isInfrastructureArtifactsPresentClaim(
+  claim: ContextClaim
+): claim is ContextClaim<InfrastructureArtifactsPresentClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "INFRASTRUCTURE_ARTIFACTS_PRESENT"
+  );
+}
+
+function isConfigurationArtifactsPresentClaim(
+  claim: ContextClaim
+): claim is ContextClaim<ConfigurationArtifactsPresentClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "CONFIGURATION_ARTIFACTS_PRESENT"
   );
 }
 
@@ -657,6 +721,7 @@ describe("DeterministicContextGenerator", () => {
     expect(context.structure.claims).toEqual([]);
     expect(context.architecture.claims).toEqual([]);
     expect(context.entryPoints.claims).toEqual([]);
+    expect(context.infrastructure.claims).toEqual([]);
   });
 
   it("does not fabricate testing context without Analysis test evidence", async () => {
@@ -854,6 +919,187 @@ describe("DeterministicContextGenerator", () => {
     expect(JSON.stringify(context)).not.toContain("TEST_QUALITY");
     expect(JSON.stringify(context)).not.toContain("TESTS_PASS");
     expect(JSON.stringify(context)).not.toContain("TESTS_FAIL");
+  });
+
+  it("does not fabricate infrastructure or configuration context without Analysis evidence", async () => {
+    const context = await generate(
+      baseAnalysis({
+        files: [
+          file("src/main.ts", "SOURCE"),
+          file("README.md", "DOCUMENTATION"),
+          file("scripts/deploy.sh", "SCRIPT")
+        ],
+        sourceStructures: [sourceStructure("src/main.ts")]
+      })
+    );
+
+    expect(context.infrastructure.claims).toEqual([]);
+    expect(JSON.stringify(context)).not.toContain("DOCKER");
+    expect(JSON.stringify(context)).not.toContain("KUBERNETES");
+    expect(JSON.stringify(context)).not.toContain("TERRAFORM");
+    expect(JSON.stringify(context)).not.toContain("DEPLOYMENT_READY");
+    expect(JSON.stringify(context)).not.toContain("CONFIGURATION_VALID");
+  });
+
+  it("generates observed infrastructure and configuration artifacts from Analysis classifications", async () => {
+    const context = await generate(
+      baseAnalysis({
+        files: [
+          file("Dockerfile", "INFRASTRUCTURE"),
+          file("terraform/main.tf", "INFRASTRUCTURE"),
+          file(".env.example", "CONFIG"),
+          file("tsconfig.json", "CONFIG")
+        ]
+      })
+    );
+
+    expect(context.infrastructure.claims.filter(isInfrastructureArtifactsPresentClaim)).toEqual([
+      {
+        value: { type: "INFRASTRUCTURE_ARTIFACTS_PRESENT", artifactCount: 2 },
+        kind: "INFERRED",
+        confidence: "MEDIUM",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "Dockerfile" }
+          },
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "terraform/main.tf" }
+          }
+        ]
+      }
+    ]);
+    expect(context.infrastructure.claims.filter(isConfigurationArtifactsPresentClaim)).toEqual([
+      {
+        value: { type: "CONFIGURATION_ARTIFACTS_PRESENT", artifactCount: 2 },
+        kind: "INFERRED",
+        confidence: "MEDIUM",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: ".env.example" }
+          },
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "tsconfig.json" }
+          }
+        ]
+      }
+    ]);
+    expect(context.infrastructure.claims.filter(isInfrastructureArtifactClaim)).toEqual([
+      {
+        value: { type: "INFRASTRUCTURE_ARTIFACT", path: "Dockerfile" },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "Dockerfile" }
+          }
+        ]
+      },
+      {
+        value: { type: "INFRASTRUCTURE_ARTIFACT", path: "terraform/main.tf" },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "terraform/main.tf" }
+          }
+        ]
+      }
+    ]);
+    expect(context.infrastructure.claims.filter(isConfigurationArtifactClaim)).toEqual([
+      {
+        value: { type: "CONFIGURATION_ARTIFACT", path: ".env.example" },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: ".env.example" }
+          }
+        ]
+      },
+      {
+        value: { type: "CONFIGURATION_ARTIFACT", path: "tsconfig.json" },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "FILE_CLASSIFICATION",
+            reference: { kind: "FILE_CLASSIFICATION", path: "tsconfig.json" }
+          }
+        ]
+      }
+    ]);
+  });
+
+  it("orders and deduplicates infrastructure and configuration artifact evidence deterministically", async () => {
+    const analysis = baseAnalysis({
+      files: [
+        file("terraform/main.tf", "INFRASTRUCTURE"),
+        file("Dockerfile", "INFRASTRUCTURE"),
+        file("Dockerfile", "INFRASTRUCTURE"),
+        file("tsconfig.json", "CONFIG"),
+        file(".env.example", "CONFIG"),
+        file(".env.example", "CONFIG")
+      ]
+    });
+
+    const first = await generate(analysis);
+    const second = await generate(analysis);
+
+    expect(
+      first.infrastructure.claims.filter(isInfrastructureArtifactClaim).map((claim) => claim.value)
+    ).toEqual([
+      { type: "INFRASTRUCTURE_ARTIFACT", path: "Dockerfile" },
+      { type: "INFRASTRUCTURE_ARTIFACT", path: "terraform/main.tf" }
+    ]);
+    expect(
+      first.infrastructure.claims.filter(isConfigurationArtifactClaim).map((claim) => claim.value)
+    ).toEqual([
+      { type: "CONFIGURATION_ARTIFACT", path: ".env.example" },
+      { type: "CONFIGURATION_ARTIFACT", path: "tsconfig.json" }
+    ]);
+    expect(first.infrastructure.claims.filter(isInfrastructureArtifactsPresentClaim)).toEqual([
+      expect.objectContaining({
+        value: { type: "INFRASTRUCTURE_ARTIFACTS_PRESENT", artifactCount: 2 }
+      })
+    ]);
+    expect(first.infrastructure.claims.filter(isConfigurationArtifactsPresentClaim)).toEqual([
+      expect.objectContaining({
+        value: { type: "CONFIGURATION_ARTIFACTS_PRESENT", artifactCount: 2 }
+      })
+    ]);
+    expect({ ...first, generatedAt: null }).toEqual({ ...second, generatedAt: null });
+  });
+
+  it("does not infer specific infrastructure technologies, providers, readiness, or health", async () => {
+    const context = await generate(
+      baseAnalysis({
+        files: [
+          file("Dockerfile", "INFRASTRUCTURE"),
+          file("k8s/deployment.yaml", "INFRASTRUCTURE"),
+          file("terraform/main.tf", "INFRASTRUCTURE"),
+          file(".env.example", "CONFIG")
+        ]
+      })
+    );
+
+    expect(context.infrastructure.claims.length).toBeGreaterThan(0);
+    expect(JSON.stringify(context.infrastructure.claims)).not.toContain("DOCKER");
+    expect(JSON.stringify(context.infrastructure.claims)).not.toContain("KUBERNETES");
+    expect(JSON.stringify(context.infrastructure.claims)).not.toContain("TERRAFORM");
+    expect(JSON.stringify(context.infrastructure.claims)).not.toContain("AWS");
+    expect(JSON.stringify(context.infrastructure.claims)).not.toContain("GCP");
+    expect(JSON.stringify(context.infrastructure.claims)).not.toContain("AZURE");
+    expect(JSON.stringify(context.infrastructure.claims)).not.toContain("PRODUCTION_DEPLOYMENT");
+    expect(JSON.stringify(context.infrastructure.claims)).not.toContain("DEPLOYMENT_READY");
+    expect(JSON.stringify(context.infrastructure.claims)).not.toContain("CONFIGURATION_VALID");
+    expect(JSON.stringify(context.infrastructure.claims)).not.toContain("INFRASTRUCTURE_HEALTH");
   });
 
   it("does not promote generic Analysis scripts into runtime entry-point context", async () => {

@@ -103,6 +103,24 @@ type TestingClaimValue =
       structuredTestFileCount: number;
     };
 
+type InfrastructureClaimValue =
+  | {
+      type: "INFRASTRUCTURE_ARTIFACT";
+      path: string;
+    }
+  | {
+      type: "CONFIGURATION_ARTIFACT";
+      path: string;
+    }
+  | {
+      type: "INFRASTRUCTURE_ARTIFACTS_PRESENT";
+      artifactCount: number;
+    }
+  | {
+      type: "CONFIGURATION_ARTIFACTS_PRESENT";
+      artifactCount: number;
+    };
+
 type ModuleCandidate = {
   moduleId: string;
   name: string;
@@ -159,6 +177,9 @@ export class DeterministicContextGenerator implements ContextGenerator {
       },
       testing: {
         claims: this.testingClaims(analysis)
+      },
+      infrastructure: {
+        claims: this.infrastructureClaims(analysis)
       }
     });
   }
@@ -465,6 +486,102 @@ export class DeterministicContextGenerator implements ContextGenerator {
     return analysis.sourceStructures
       .filter((structure) => testPaths.has(structure.path))
       .sort((left, right) => left.path.localeCompare(right.path));
+  }
+
+  private infrastructureClaims(analysis: AnalysisResult): ContextClaim<InfrastructureClaimValue>[] {
+    const infrastructureFiles = this.filesByCategory(analysis, "INFRASTRUCTURE");
+    const configurationFiles = this.filesByCategory(analysis, "CONFIG");
+
+    return [
+      ...this.infrastructurePresenceClaims(infrastructureFiles),
+      ...this.configurationPresenceClaims(configurationFiles),
+      ...this.infrastructureArtifactClaims(infrastructureFiles),
+      ...this.configurationArtifactClaims(configurationFiles)
+    ];
+  }
+
+  private filesByCategory(
+    analysis: AnalysisResult,
+    category: AnalysisResult["files"][number]["category"]
+  ): { path: string; category?: string }[] {
+    return [...analysis.files]
+      .filter((file) => file.category === category)
+      .filter(uniqueFileClassification)
+      .sort(compareFileClassifications);
+  }
+
+  private infrastructurePresenceClaims(
+    infrastructureFiles: readonly { path: string }[]
+  ): ContextClaim<InfrastructureClaimValue>[] {
+    if (infrastructureFiles.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        value: {
+          type: "INFRASTRUCTURE_ARTIFACTS_PRESENT",
+          artifactCount: infrastructureFiles.length
+        },
+        kind: "INFERRED",
+        confidence: "MEDIUM",
+        evidence: infrastructureFiles
+          .slice(0, 3)
+          .map((file) => fileClassificationEvidence(file.path))
+          .sort(compareEvidence)
+      }
+    ];
+  }
+
+  private configurationPresenceClaims(
+    configurationFiles: readonly { path: string }[]
+  ): ContextClaim<InfrastructureClaimValue>[] {
+    if (configurationFiles.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        value: {
+          type: "CONFIGURATION_ARTIFACTS_PRESENT",
+          artifactCount: configurationFiles.length
+        },
+        kind: "INFERRED",
+        confidence: "MEDIUM",
+        evidence: configurationFiles
+          .slice(0, 3)
+          .map((file) => fileClassificationEvidence(file.path))
+          .sort(compareEvidence)
+      }
+    ];
+  }
+
+  private infrastructureArtifactClaims(
+    infrastructureFiles: readonly { path: string }[]
+  ): ContextClaim<InfrastructureClaimValue>[] {
+    return infrastructureFiles.map((file) => ({
+      value: {
+        type: "INFRASTRUCTURE_ARTIFACT",
+        path: file.path
+      },
+      kind: "OBSERVED",
+      confidence: "HIGH",
+      evidence: [fileClassificationEvidence(file.path)]
+    }));
+  }
+
+  private configurationArtifactClaims(
+    configurationFiles: readonly { path: string }[]
+  ): ContextClaim<InfrastructureClaimValue>[] {
+    return configurationFiles.map((file) => ({
+      value: {
+        type: "CONFIGURATION_ARTIFACT",
+        path: file.path
+      },
+      kind: "OBSERVED",
+      confidence: "HIGH",
+      evidence: [fileClassificationEvidence(file.path)]
+    }));
   }
 
   private sourceEntryPointCandidateClaims(
