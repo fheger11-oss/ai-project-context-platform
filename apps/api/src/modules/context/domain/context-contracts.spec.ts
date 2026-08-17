@@ -7,6 +7,10 @@ import type {
 } from "./contracts/analysis-context-reader.contract.js";
 import type { ContextGenerator } from "./contracts/context-generator.contract.js";
 import type { ContextInput } from "./contracts/context-input.contract.js";
+import type {
+  PersistedProjectContext,
+  ProjectContextRepository
+} from "./contracts/project-context-repository.contract.js";
 import type { ProjectContext } from "./project-context.js";
 
 describe("Context contracts", () => {
@@ -41,6 +45,27 @@ describe("Context contracts", () => {
   it("defines the future deterministic generation boundary", () => {
     expectTypeOf<ContextGenerator>().toMatchTypeOf<{
       generate(input: ContextInput): Promise<ProjectContext>;
+    }>();
+  });
+
+  it("defines ProjectContext persistence without exposing Prisma records", () => {
+    expectTypeOf<PersistedProjectContext>().toMatchTypeOf<{
+      id: string;
+      contextId: string;
+      analysisId: string;
+      scanId: string;
+      repositoryId: string;
+      commitSha: string;
+      contextVersion: string;
+      generatedAt: Date;
+      createdAt: Date;
+      context: ProjectContext;
+    }>();
+    expectTypeOf<ProjectContextRepository>().toMatchTypeOf<{
+      save(context: ProjectContext): Promise<PersistedProjectContext>;
+      findById(id: string): Promise<PersistedProjectContext | null>;
+      listByAnalysisId(analysisId: string): Promise<PersistedProjectContext[]>;
+      findLatestByAnalysisId(analysisId: string): Promise<PersistedProjectContext | null>;
     }>();
   });
 

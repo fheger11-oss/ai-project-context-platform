@@ -112,6 +112,7 @@ model Repository {
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   scans Scan[]
   analyses Analysis[]
+  projectContexts ProjectContext[]
 
   @@unique([userId, githubId])
   @@index([userId])
@@ -135,6 +136,7 @@ model Scan {
   repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   files      ScanFile[]
   analyses   Analysis[]
+  projectContexts ProjectContext[]
 
   @@index([repositoryId])
   @@index([repositoryId, createdAt, id])
@@ -164,11 +166,36 @@ model Analysis {
 
   scan       Scan       @relation(fields: [scanId], references: [id], onDelete: Cascade)
   repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  projectContexts ProjectContext[]
 
   @@index([scanId])
   @@index([repositoryId])
   @@index([scanId, analyzerVersion])
   @@map("analyses")
+}
+
+model ProjectContext {
+  id             String   @id @default(cuid())
+  contextId      String   @map("context_id")
+  analysisId     String   @map("analysis_id")
+  scanId         String   @map("scan_id")
+  repositoryId   String   @map("repository_id")
+  commitSha      String   @map("commit_sha")
+  contextVersion String   @map("context_version")
+  generatedAt    DateTime @map("generated_at")
+  snapshot       Json
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  analysis   Analysis   @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  scan       Scan       @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@index([contextId])
+  @@index([analysisId, generatedAt, createdAt, id])
+  @@index([scanId])
+  @@index([repositoryId])
+  @@index([contextVersion])
+  @@map("project_contexts")
 }
 
 model ScanFile {
