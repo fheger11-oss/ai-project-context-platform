@@ -5,6 +5,7 @@ import { RequestLoggerMiddleware } from "../../shared/middleware/request-logger.
 import { AnalysisModule } from "../analysis/analysis.module.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { AppConfigModule } from "../config/app-config.module.js";
+import { ContextModule } from "../context/context.module.js";
 import { HealthModule } from "../health/health.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { RepositoriesModule } from "../repositories/repositories.module.js";
@@ -20,6 +21,7 @@ import { UsersModule } from "../users/users.module.js";
     RepositoriesModule,
     ScanModule,
     AnalysisModule,
+    ContextModule,
     HealthModule
   ]
 })
