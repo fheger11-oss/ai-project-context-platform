@@ -9,6 +9,7 @@ import { PersistProjectContextService } from "./application/persist-project-cont
 import { ReadContextInputService } from "./application/read-context-input.service.js";
 import { ANALYSIS_CONTEXT_READER } from "./domain/contracts/analysis-context-reader.contract.js";
 import { CONTEXT_GENERATOR } from "./domain/contracts/context-generator.contract.js";
+import { PROJECT_CONTEXT_READER } from "./domain/contracts/project-context-reader.contract.js";
 import { PROJECT_CONTEXT_REPOSITORY } from "./domain/contracts/project-context-repository.contract.js";
 import { AnalysisResultContextReader } from "./infrastructure/analysis-result-context.reader.js";
 import { PrismaProjectContextRepository } from "./infrastructure/prisma-project-context.repository.js";
@@ -39,6 +40,10 @@ import { ScanModule } from "../scan/scan.module.js";
     {
       provide: PROJECT_CONTEXT_REPOSITORY,
       useClass: PrismaProjectContextRepository
+    },
+    {
+      provide: PROJECT_CONTEXT_READER,
+      useExisting: PersistProjectContextService
     }
   ],
   exports: [
@@ -50,6 +55,7 @@ import { ScanModule } from "../scan/scan.module.js";
     ReadContextInputService,
     ANALYSIS_CONTEXT_READER,
     CONTEXT_GENERATOR,
+    PROJECT_CONTEXT_READER,
     PROJECT_CONTEXT_REPOSITORY
   ]
 })

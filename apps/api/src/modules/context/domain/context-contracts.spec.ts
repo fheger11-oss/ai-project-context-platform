@@ -11,6 +11,10 @@ import type {
   PersistedProjectContext,
   ProjectContextRepository
 } from "./contracts/project-context-repository.contract.js";
+import type {
+  ProjectContextReader,
+  ReadProjectContextInput
+} from "./contracts/project-context-reader.contract.js";
 import type { ProjectContext } from "./project-context.js";
 
 describe("Context contracts", () => {
@@ -45,6 +49,15 @@ describe("Context contracts", () => {
   it("defines the future deterministic generation boundary", () => {
     expectTypeOf<ContextGenerator>().toMatchTypeOf<{
       generate(input: ContextInput): Promise<ProjectContext>;
+    }>();
+  });
+
+  it("defines a ProjectContext reader boundary without persistence details", () => {
+    expectTypeOf<ReadProjectContextInput>().toEqualTypeOf<{
+      contextId: string;
+    }>();
+    expectTypeOf<ProjectContextReader>().toMatchTypeOf<{
+      readProjectContext(input: ReadProjectContextInput): Promise<ProjectContext | null>;
     }>();
   });
 
