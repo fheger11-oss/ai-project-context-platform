@@ -11,6 +11,7 @@ import {
   getProjectContextHistory
 } from "@/features/context/api/context-api";
 import type { ProjectContextHistoryItem } from "@/features/context/api/context-api";
+import { DocumentGenerationPanel } from "@/features/documents/components/document-generation-panel";
 import { ProjectContextDetails } from "./project-context-details";
 
 type ProjectContextPanelProps = {
@@ -121,7 +122,12 @@ export function ProjectContextPanel({ accessToken, analysisId }: ProjectContextP
             </p>
           ) : null}
 
-          {activeContext ? <ProjectContextDetails context={activeContext} /> : null}
+          {activeContext ? (
+            <>
+              <ProjectContextDetails context={activeContext} />
+              <DocumentGenerationPanel accessToken={accessToken} contextId={activeContext.id} />
+            </>
+          ) : null}
         </div>
       </div>
 

@@ -133,6 +133,12 @@ vi.mock("@/features/context/api/context-api", async (importOriginal) => {
   };
 });
 
+vi.mock("@/features/documents/components/document-generation-panel", () => ({
+  DocumentGenerationPanel: ({ contextId }: { contextId: string }) => (
+    <section>Document Generation for {contextId}</section>
+  )
+}));
+
 describe("ProjectContextPanel", () => {
   beforeEach(() => {
     latestQuery = { data: context };
@@ -154,6 +160,7 @@ describe("ProjectContextPanel", () => {
     expect(markup).toContain("Project Context");
     expect(markup).toContain("Generate Again");
     expect(markup).toContain("APPLICATION_TYPE");
+    expect(markup).toContain("Document Generation for project_context_1");
     expect(markup).toContain("Context History");
     expect(markup).toContain("context-engine@5.7.1");
   });
