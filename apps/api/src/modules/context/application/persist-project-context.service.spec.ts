@@ -30,10 +30,10 @@ const persisted: PersistedProjectContext = {
   context
 };
 
-function createService(options: { found?: PersistedProjectContext | null } = {}) {
+function createService() {
   const repository = {
     save: vi.fn(async () => persisted),
-    findById: vi.fn(async () => (Object.hasOwn(options, "found") ? options.found : persisted)),
+    findById: vi.fn(async () => persisted),
     listByAnalysisId: vi.fn(async () => [persisted]),
     findLatestByAnalysisId: vi.fn(async () => persisted)
   } as unknown as ProjectContextRepository;
@@ -61,20 +61,5 @@ describe("PersistProjectContextService", () => {
     expect(repository.findById).toHaveBeenCalledWith("project_context_1");
     expect(repository.listByAnalysisId).toHaveBeenCalledWith("analysis_1");
     expect(repository.findLatestByAnalysisId).toHaveBeenCalledWith("analysis_1");
-  });
-
-  it("implements the provider-neutral ProjectContext reader contract", async () => {
-    const { service, repository } = createService();
-
-    await expect(service.readProjectContext({ contextId: "project_context_1" })).resolves.toBe(
-      context
-    );
-    expect(repository.findById).toHaveBeenCalledWith("project_context_1");
-  });
-
-  it("returns null from the reader contract when ProjectContext is unavailable", async () => {
-    const { service } = createService({ found: null });
-
-    await expect(service.readProjectContext({ contextId: "missing" })).resolves.toBeNull();
   });
 });

@@ -81,4 +81,44 @@ describe("GetProjectContextService", () => {
       ForbiddenException
     );
   });
+
+  it("implements the provider-neutral ProjectContext reader contract with ownership enforcement", async () => {
+    const { service, persistProjectContextService, repositoryOwnershipVerifier } = createService();
+
+    await expect(
+      service.readProjectContext({ userId: "user_1", contextId: "project_context_1" })
+    ).resolves.toEqual({
+      projectContextId: "project_context_1",
+      projectContext: context
+    });
+    expect(persistProjectContextService.findById).toHaveBeenCalledWith("project_context_1");
+    expect(repositoryOwnershipVerifier.verifyRepositoryOwnership).toHaveBeenCalledWith({
+      userId: "user_1",
+      repositoryId: "repository_1"
+    });
+  });
+
+  it("returns null from the reader contract when ProjectContext is missing", async () => {
+    const { service, repositoryOwnershipVerifier } = createService({ found: null });
+
+    await expect(
+      service.readProjectContext({ userId: "user_1", contextId: "missing" })
+    ).resolves.toBeNull();
+    expect(repositoryOwnershipVerifier.verifyRepositoryOwnership).not.toHaveBeenCalled();
+  });
+
+  it("rejects cross-user access through the provider-neutral reader contract", async () => {
+    const { service, persistProjectContextService, repositoryOwnershipVerifier } = createService({
+      forbidden: true
+    });
+
+    await expect(
+      service.readProjectContext({ userId: "user_2", contextId: "project_context_1" })
+    ).rejects.toThrow(ForbiddenException);
+    expect(persistProjectContextService.findById).toHaveBeenCalledWith("project_context_1");
+    expect(repositoryOwnershipVerifier.verifyRepositoryOwnership).toHaveBeenCalledWith({
+      userId: "user_2",
+      repositoryId: "repository_1"
+    });
+  });
 });

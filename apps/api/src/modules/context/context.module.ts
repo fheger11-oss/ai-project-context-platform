@@ -43,7 +43,7 @@ import { ScanModule } from "../scan/scan.module.js";
     },
     {
       provide: PROJECT_CONTEXT_READER,
-      useExisting: PersistProjectContextService
+      useExisting: GetProjectContextService
     }
   ],
   exports: [

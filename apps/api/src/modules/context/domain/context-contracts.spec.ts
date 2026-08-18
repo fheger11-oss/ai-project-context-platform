@@ -13,7 +13,8 @@ import type {
 } from "./contracts/project-context-repository.contract.js";
 import type {
   ProjectContextReader,
-  ReadProjectContextInput
+  ReadProjectContextInput,
+  ReadProjectContextResult
 } from "./contracts/project-context-reader.contract.js";
 import type { ProjectContext } from "./project-context.js";
 
@@ -54,10 +55,15 @@ describe("Context contracts", () => {
 
   it("defines a ProjectContext reader boundary without persistence details", () => {
     expectTypeOf<ReadProjectContextInput>().toEqualTypeOf<{
+      userId: string;
       contextId: string;
     }>();
+    expectTypeOf<ReadProjectContextResult>().toEqualTypeOf<{
+      projectContextId: string;
+      projectContext: ProjectContext;
+    }>();
     expectTypeOf<ProjectContextReader>().toMatchTypeOf<{
-      readProjectContext(input: ReadProjectContextInput): Promise<ProjectContext | null>;
+      readProjectContext(input: ReadProjectContextInput): Promise<ReadProjectContextResult | null>;
     }>();
   });
 

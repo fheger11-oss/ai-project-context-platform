@@ -51,6 +51,6 @@ describe("Document generation application boundaries", () => {
   it("does not introduce LLM, queue, job, rendering, or document persistence infrastructure", () => {
     expect(source).not.toMatch(/openai|anthropic|gemini|embedding|vector|prompt/i);
     expect(source).not.toMatch(/redis|queue|job/i);
-    expect(source).not.toMatch(/MarkdownRenderer|DocumentRepository|PrismaDocument/);
+    expect(source).not.toMatch(/MarkdownRenderer|PrismaDocument|PrismaDocumentRepository/);
   });
 });

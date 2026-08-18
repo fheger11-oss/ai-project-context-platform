@@ -57,6 +57,13 @@ export type {
   ProjectContextResponse
 } from "./context.js";
 
+export type {
+  DocumentFormat,
+  DocumentType,
+  GeneratedDocumentResponse,
+  GenerateDocumentRequest
+} from "./documents.js";
+
 export type RepositoryVisibility = "PUBLIC" | "PRIVATE" | "INTERNAL";
 
 export type RepositorySummary = {

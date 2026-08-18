@@ -1,11 +1,15 @@
 import type { ProjectContextReader } from "../../context/domain/contracts/project-context-reader.contract.js";
 import type { DocumentGenerator } from "../domain/contracts/document-generator.contract.js";
+import type {
+  DocumentRepository,
+  PersistedGeneratedDocument
+} from "../domain/contracts/document-repository.contract.js";
 import type { DocumentFormat } from "../domain/document-format.js";
 import type { DocumentType } from "../domain/document-type.js";
-import type { GeneratedDocument } from "../domain/generated-document.js";
 import { ProjectContextNotFoundForDocumentGenerationError } from "./errors/project-context-not-found-for-document-generation.error.js";
 
 export type GenerateDocumentCommand = {
+  userId: string;
   contextId: string;
   documentType: DocumentType;
   format: DocumentFormat;
@@ -15,23 +19,30 @@ export type GenerateDocumentCommand = {
 export class GenerateDocumentUseCase {
   constructor(
     private readonly projectContextReader: ProjectContextReader,
-    private readonly documentGenerator: DocumentGenerator
+    private readonly documentGenerator: DocumentGenerator,
+    private readonly documentRepository: DocumentRepository
   ) {}
 
-  async execute(command: GenerateDocumentCommand): Promise<GeneratedDocument> {
-    const projectContext = await this.projectContextReader.readProjectContext({
+  async execute(command: GenerateDocumentCommand): Promise<PersistedGeneratedDocument> {
+    const context = await this.projectContextReader.readProjectContext({
+      userId: command.userId,
       contextId: command.contextId
     });
 
-    if (!projectContext) {
+    if (!context) {
       throw new ProjectContextNotFoundForDocumentGenerationError(command.contextId);
     }
 
-    return this.documentGenerator.generate({
-      projectContext,
+    const document = await this.documentGenerator.generate({
+      projectContext: context.projectContext,
       documentType: command.documentType,
       format: command.format,
       generatorVersion: command.generatorVersion
+    });
+
+    return this.documentRepository.save({
+      projectContextId: context.projectContextId,
+      document
     });
   }
 }

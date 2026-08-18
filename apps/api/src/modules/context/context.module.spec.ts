@@ -60,7 +60,7 @@ describe("ContextModule", () => {
       },
       {
         provide: PROJECT_CONTEXT_READER,
-        useExisting: PersistProjectContextService
+        useExisting: GetProjectContextService
       }
     ]);
     expect(Reflect.getMetadata(MODULE_EXPORTS_METADATA, ContextModule) ?? []).toEqual([
