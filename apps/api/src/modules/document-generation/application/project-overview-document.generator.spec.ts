@@ -151,6 +151,132 @@ describe("ProjectOverviewDocumentGenerator", () => {
     );
   });
 
+  it("renders known ProjectContext claim values as deterministic project overview prose", async () => {
+    const projectContext = ProjectContext.create({
+      contextId: "context_1",
+      analysisId: "analysis_1",
+      scanId: "scan_1",
+      repositoryId: "repository_1",
+      commitSha: "abc123",
+      contextVersion: "context-engine@1",
+      generatedAt,
+      project: {
+        claims: [claim({ type: "PRIMARY_LANGUAGE", language: "TYPESCRIPT" }, "INFERRED", "HIGH")]
+      },
+      technology: {
+        claims: [
+          claim({ type: "FRAMEWORK", framework: "NESTJS" }, "OBSERVED", "HIGH"),
+          claim({ type: "LANGUAGE", language: "TYPESCRIPT", fileCount: 12 }, "OBSERVED", "HIGH")
+        ]
+      },
+      structure: {
+        claims: [
+          claim(
+            {
+              type: "SOURCE_GROUP",
+              moduleId: "src/api",
+              path: "src/api",
+              sourceFileCount: 4,
+              declarationCount: 10
+            },
+            "OBSERVED",
+            "HIGH"
+          )
+        ]
+      },
+      architecture: {
+        claims: [
+          claim(
+            {
+              type: "MODULE_CANDIDATE",
+              moduleId: "src/api",
+              name: "api",
+              path: "src/api",
+              sourceFileCount: 4,
+              declarationCount: 10,
+              internalRelationshipCount: 2,
+              incomingRelationshipCount: 1,
+              outgoingRelationshipCount: 3
+            },
+            "INFERRED",
+            "MEDIUM"
+          )
+        ]
+      },
+      entryPoints: {
+        claims: [
+          claim(
+            {
+              type: "SOURCE_ENTRY_POINT_CANDIDATE",
+              entryPointId: "src/main.ts",
+              path: "src/main.ts",
+              outgoingRelationshipCount: 3,
+              connectedSourceFileCount: 5
+            },
+            "INFERRED",
+            "MEDIUM"
+          )
+        ]
+      },
+      testing: {
+        claims: [claim({ type: "TEST_FILE", path: "src/app.spec.ts" }, "OBSERVED", "HIGH")]
+      },
+      infrastructure: {
+        claims: [
+          claim({ type: "CONFIGURATION_ARTIFACT", path: "eslint.config.js" }, "OBSERVED", "HIGH")
+        ]
+      },
+      ambiguities: [claim("Multiple entry points are plausible", "INFERRED", "LOW")]
+    });
+
+    const result = await generator().generate({
+      projectContext,
+      documentType: "PROJECT_OVERVIEW",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+
+    expect(result.content).toBe(
+      [
+        "# Project Overview",
+        "",
+        "## Project",
+        "",
+        "- Inferred: primary language is TYPESCRIPT.",
+        "",
+        "## Technology",
+        "",
+        "- Observed: TYPESCRIPT appears in 12 files.",
+        "- Observed: framework NESTJS is present.",
+        "",
+        "## Structure",
+        "",
+        "- Observed: source group src/api contains 4 source files and 10 declarations.",
+        "",
+        "## Architecture",
+        "",
+        "- Likely inferred: module candidate api at src/api contains 4 source files, 10 declarations, 2 internal relationships, 1 incoming relationship, and 3 outgoing relationships.",
+        "",
+        "## Entry Points",
+        "",
+        "- Likely inferred: entry point candidate src/main.ts reaches 5 connected source files with 3 outgoing relationships.",
+        "",
+        "## Testing",
+        "",
+        "- Observed: test file src/app.spec.ts is present.",
+        "",
+        "## Infrastructure",
+        "",
+        "- Observed: configuration artifact eslint.config.js is present.",
+        "",
+        "## Ambiguities",
+        "",
+        "- Possible inference with low confidence: Multiple entry points are plausible.",
+        ""
+      ].join("\n")
+    );
+  });
+
   it("preserves observed, inferred, and low-confidence distinctions", async () => {
     const projectContext = ProjectContext.create({
       contextId: "context_1",
