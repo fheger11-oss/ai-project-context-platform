@@ -87,6 +87,7 @@ describe("Document generation contracts", () => {
     expectTypeOf<DocumentRepository>().toMatchTypeOf<{
       save(input: SaveGeneratedDocumentInput): Promise<PersistedGeneratedDocument>;
       findById(id: string): Promise<PersistedGeneratedDocument | null>;
+      listByProjectContextId(projectContextId: string): Promise<PersistedGeneratedDocument[]>;
     }>();
     expectTypeOf<DocumentRepository>().not.toHaveProperty("update");
     expectTypeOf<DocumentRepository>().not.toHaveProperty("delete");

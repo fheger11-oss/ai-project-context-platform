@@ -58,6 +58,7 @@ export type {
 } from "./context.js";
 
 export type {
+  DocumentHistoryResponse,
   DocumentFormat,
   DocumentType,
   GeneratedDocumentResponse,

@@ -49,6 +49,7 @@ function createRepository(
   options: {
     createResult?: unknown;
     findUniqueResult?: unknown;
+    findManyResult?: unknown;
   } = {}
 ) {
   const create = vi.fn(async () =>
@@ -57,9 +58,18 @@ function createRepository(
   const findUnique = vi.fn(async () =>
     Object.hasOwn(options, "findUniqueResult") ? options.findUniqueResult : stored()
   );
+  const findMany = vi.fn(async () =>
+    Object.hasOwn(options, "findManyResult")
+      ? options.findManyResult
+      : [
+          stored({ id: "document_2", createdAt: new Date("2026-08-18T11:00:00.000Z") }),
+          stored({ id: "document_1", createdAt: new Date("2026-08-18T10:00:00.000Z") })
+        ]
+  );
   const documentDelegate = {
     create,
-    findUnique
+    findUnique,
+    findMany
   };
   const prisma = {
     document: documentDelegate
@@ -124,6 +134,20 @@ describe("PrismaDocumentRepository", () => {
     const { repository } = createRepository({ findUniqueResult: null });
 
     await expect(repository.findById("missing")).resolves.toBeNull();
+  });
+
+  it("lists document history for one ProjectContext with deterministic ordering", async () => {
+    const { repository, document } = createRepository();
+
+    const history = await repository.listByProjectContextId("project_context_1");
+
+    expect(document.findMany).toHaveBeenCalledWith({
+      where: { projectContextId: "project_context_1" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }]
+    });
+    expect(history.map((item) => item.id)).toEqual(["document_2", "document_1"]);
+    expect(history.every((item) => item.projectContextId === "project_context_1")).toBe(true);
+    expect(history.map((item) => item.content)).toEqual([markdownContent, markdownContent]);
   });
 
   it("does not expose update behavior through the immutable repository adapter", async () => {

@@ -4,6 +4,7 @@ import type {
   AnalysisHistoryResponse,
   AnalysisResultResponse,
   CreateAnalysisRequest,
+  DocumentHistoryResponse,
   GeneratedDocumentResponse,
   GenerateDocumentRequest
 } from "./index.js";
@@ -23,5 +24,6 @@ describe("contracts package exports", () => {
       .toEqualTypeOf<"PROJECT_OVERVIEW">();
     expectTypeOf<GeneratedDocumentResponse>().toHaveProperty("id").toEqualTypeOf<string>();
     expectTypeOf<GeneratedDocumentResponse>().toHaveProperty("content").toEqualTypeOf<string>();
+    expectTypeOf<DocumentHistoryResponse["documents"]>().toMatchTypeOf<readonly unknown[]>();
   });
 });

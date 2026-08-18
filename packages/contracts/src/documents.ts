@@ -19,3 +19,7 @@ export type GeneratedDocumentResponse = {
   content: string;
   createdAt: string;
 };
+
+export type DocumentHistoryResponse = {
+  documents: GeneratedDocumentResponse[];
+};

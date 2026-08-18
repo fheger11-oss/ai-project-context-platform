@@ -35,6 +35,15 @@ export class PrismaDocumentRepository implements DocumentRepository {
 
     return stored ? toPersistedGeneratedDocument(stored) : null;
   }
+
+  async listByProjectContextId(projectContextId: string): Promise<PersistedGeneratedDocument[]> {
+    const stored = await this.prisma.document.findMany({
+      where: { projectContextId },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }]
+    });
+
+    return stored.map((document) => toPersistedGeneratedDocument(document));
+  }
 }
 
 function toPersistedGeneratedDocument(stored: PrismaDocumentModel): PersistedGeneratedDocument {

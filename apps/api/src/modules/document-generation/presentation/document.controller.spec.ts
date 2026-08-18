@@ -6,8 +6,12 @@ import { describe, expect, it, vi } from "vitest";
 import { JwtAuthGuard } from "../../auth/guards/jwt-auth.guard.js";
 import { RolesGuard } from "../../auth/guards/roles.guard.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
+import { DocumentNotFoundError } from "../application/errors/document-not-found.error.js";
 import { ProjectContextNotFoundForDocumentGenerationError } from "../application/errors/project-context-not-found-for-document-generation.error.js";
 import type { GenerateDocumentUseCase } from "../application/generate-document.use-case.js";
+import type { GetDocumentUseCase } from "../application/get-document.use-case.js";
+import type { ListDocumentHistoryUseCase } from "../application/list-document-history.use-case.js";
+import type { RegenerateDocumentUseCase } from "../application/regenerate-document.use-case.js";
 import { InvalidDocumentFormatError } from "../domain/errors/invalid-document-format.error.js";
 import { InvalidDocumentTypeError } from "../domain/errors/invalid-document-type.error.js";
 import type { PersistedGeneratedDocument } from "../domain/contracts/document-repository.contract.js";
@@ -46,10 +50,45 @@ function createController(options: { result?: PersistedGeneratedDocument; error?
       return options.result ?? persistedDocument;
     })
   } as unknown as GenerateDocumentUseCase;
+  const getDocumentUseCase = {
+    execute: vi.fn(async () => {
+      if (options.error) {
+        throw options.error;
+      }
+
+      return options.result ?? persistedDocument;
+    })
+  } as unknown as GetDocumentUseCase;
+  const listDocumentHistoryUseCase = {
+    execute: vi.fn(async () => {
+      if (options.error) {
+        throw options.error;
+      }
+
+      return [options.result ?? persistedDocument];
+    })
+  } as unknown as ListDocumentHistoryUseCase;
+  const regenerateDocumentUseCase = {
+    execute: vi.fn(async () => {
+      if (options.error) {
+        throw options.error;
+      }
+
+      return options.result ?? { ...persistedDocument, id: "document_2" };
+    })
+  } as unknown as RegenerateDocumentUseCase;
 
   return {
     generateDocumentUseCase,
-    controller: new DocumentController(generateDocumentUseCase)
+    getDocumentUseCase,
+    listDocumentHistoryUseCase,
+    regenerateDocumentUseCase,
+    controller: new DocumentController(
+      generateDocumentUseCase,
+      getDocumentUseCase,
+      listDocumentHistoryUseCase,
+      regenerateDocumentUseCase
+    )
   };
 }
 
@@ -113,6 +152,57 @@ describe("DocumentController", () => {
     expect(response.content).toBe(exactContent);
   });
 
+  it("retrieves one generated document through the application use case", async () => {
+    const { controller, getDocumentUseCase } = createController();
+
+    await expect(controller.getById(user, { documentId: "document_1" })).resolves.toMatchObject({
+      id: "document_1",
+      content
+    });
+    expect(getDocumentUseCase.execute).toHaveBeenCalledWith({
+      userId: "user_1",
+      documentId: "document_1"
+    });
+  });
+
+  it("lists document history through the application use case", async () => {
+    const { controller, listDocumentHistoryUseCase } = createController();
+
+    await expect(
+      controller.listByContext(user, { contextId: "project_context_1" })
+    ).resolves.toEqual({
+      documents: [
+        {
+          id: "document_1",
+          projectContextId: "project_context_1",
+          contextId: "context:analysis_1:context-engine@1",
+          documentType: "PROJECT_OVERVIEW",
+          format: "MARKDOWN",
+          generatorVersion: "document-generator@1",
+          content,
+          createdAt: "2026-08-18T10:00:00.000Z"
+        }
+      ]
+    });
+    expect(listDocumentHistoryUseCase.execute).toHaveBeenCalledWith({
+      userId: "user_1",
+      contextId: "project_context_1"
+    });
+  });
+
+  it("regenerates a new generated document through the application use case", async () => {
+    const { controller, regenerateDocumentUseCase } = createController();
+
+    await expect(controller.regenerate(user, { documentId: "document_1" })).resolves.toMatchObject({
+      id: "document_2",
+      content
+    });
+    expect(regenerateDocumentUseCase.execute).toHaveBeenCalledWith({
+      userId: "user_1",
+      documentId: "document_1"
+    });
+  });
+
   it("maps missing ProjectContext to NotFoundException", async () => {
     const { controller } = createController({
       error: new ProjectContextNotFoundForDocumentGenerationError("missing")
@@ -126,6 +216,16 @@ describe("DocumentController", () => {
         generatorVersion: "document-generator@1"
       })
     ).rejects.toThrow(NotFoundException);
+  });
+
+  it("maps missing documents to NotFoundException", async () => {
+    const { controller } = createController({
+      error: new DocumentNotFoundError("missing")
+    });
+
+    await expect(controller.getById(user, { documentId: "missing" })).rejects.toThrow(
+      NotFoundException
+    );
   });
 
   it("preserves the existing forbidden ownership behavior for inaccessible ProjectContexts", async () => {

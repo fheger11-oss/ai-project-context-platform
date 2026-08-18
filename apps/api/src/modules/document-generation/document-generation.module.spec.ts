@@ -8,7 +8,10 @@ import type { ProjectContextReader } from "../context/domain/contracts/project-c
 import { PROJECT_CONTEXT_READER } from "../context/domain/contracts/project-context-reader.contract.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { GenerateDocumentUseCase } from "./application/generate-document.use-case.js";
+import { GetDocumentUseCase } from "./application/get-document.use-case.js";
+import { ListDocumentHistoryUseCase } from "./application/list-document-history.use-case.js";
 import { ProjectOverviewDocumentGenerator } from "./application/project-overview-document.generator.js";
+import { RegenerateDocumentUseCase } from "./application/regenerate-document.use-case.js";
 import { DocumentGenerationModule } from "./document-generation.module.js";
 import {
   DOCUMENT_GENERATOR,
@@ -55,10 +58,28 @@ describe("DocumentGenerationModule", () => {
         provide: GenerateDocumentUseCase,
         useFactory: expect.any(Function),
         inject: [PROJECT_CONTEXT_READER, DOCUMENT_GENERATOR, DOCUMENT_REPOSITORY]
+      },
+      {
+        provide: GetDocumentUseCase,
+        useFactory: expect.any(Function),
+        inject: [PROJECT_CONTEXT_READER, DOCUMENT_REPOSITORY]
+      },
+      {
+        provide: ListDocumentHistoryUseCase,
+        useFactory: expect.any(Function),
+        inject: [PROJECT_CONTEXT_READER, DOCUMENT_REPOSITORY]
+      },
+      {
+        provide: RegenerateDocumentUseCase,
+        useFactory: expect.any(Function),
+        inject: [PROJECT_CONTEXT_READER, DOCUMENT_GENERATOR, DOCUMENT_REPOSITORY]
       }
     ]);
     expect(Reflect.getMetadata(MODULE_EXPORTS_METADATA, DocumentGenerationModule) ?? []).toEqual([
       GenerateDocumentUseCase,
+      GetDocumentUseCase,
+      ListDocumentHistoryUseCase,
+      RegenerateDocumentUseCase,
       DOCUMENT_GENERATOR,
       DOCUMENT_RENDERER,
       DOCUMENT_REPOSITORY
@@ -88,6 +109,15 @@ describe("DocumentGenerationModule", () => {
     const useCaseProvider = providers.find(
       (provider) => provider.provide === GenerateDocumentUseCase
     );
+    const getUseCaseProvider = providers.find(
+      (provider) => provider.provide === GetDocumentUseCase
+    );
+    const historyUseCaseProvider = providers.find(
+      (provider) => provider.provide === ListDocumentHistoryUseCase
+    );
+    const regenerateUseCaseProvider = providers.find(
+      (provider) => provider.provide === RegenerateDocumentUseCase
+    );
     const projectContextReader = {} as ProjectContextReader;
     const documentGenerator = {} as DocumentGenerator;
     const documentRepository = {} as DocumentRepository;
@@ -97,8 +127,21 @@ describe("DocumentGenerationModule", () => {
       documentGenerator,
       documentRepository
     );
+    const getUseCase = getUseCaseProvider?.useFactory?.(projectContextReader, documentRepository);
+    const historyUseCase = historyUseCaseProvider?.useFactory?.(
+      projectContextReader,
+      documentRepository
+    );
+    const regenerateUseCase = regenerateUseCaseProvider?.useFactory?.(
+      projectContextReader,
+      documentGenerator,
+      documentRepository
+    );
 
     expect(useCase).toBeInstanceOf(GenerateDocumentUseCase);
+    expect(getUseCase).toBeInstanceOf(GetDocumentUseCase);
+    expect(historyUseCase).toBeInstanceOf(ListDocumentHistoryUseCase);
+    expect(regenerateUseCase).toBeInstanceOf(RegenerateDocumentUseCase);
   });
 
   it("is registered with the application module", () => {

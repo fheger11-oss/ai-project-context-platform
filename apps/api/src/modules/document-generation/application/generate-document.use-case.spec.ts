@@ -54,7 +54,8 @@ function createUseCase(
   };
   const documentRepository: DocumentRepository = {
     save: vi.fn(async () => persistedDocument),
-    findById: vi.fn()
+    findById: vi.fn(),
+    listByProjectContextId: vi.fn()
   };
 
   return {

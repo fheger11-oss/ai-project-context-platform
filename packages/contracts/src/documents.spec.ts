@@ -1,6 +1,10 @@
 import { describe, expectTypeOf, it } from "vitest";
 
-import type { GeneratedDocumentResponse, GenerateDocumentRequest } from "./documents.js";
+import type {
+  DocumentHistoryResponse,
+  GeneratedDocumentResponse,
+  GenerateDocumentRequest
+} from "./documents.js";
 
 describe("Document API contracts", () => {
   it("exports the generate document request contract", () => {
@@ -22,6 +26,12 @@ describe("Document API contracts", () => {
       generatorVersion: string;
       content: string;
       createdAt: string;
+    }>();
+  });
+
+  it("models document history as serialized generated document artifacts", () => {
+    expectTypeOf<DocumentHistoryResponse>().toEqualTypeOf<{
+      documents: GeneratedDocumentResponse[];
     }>();
   });
 });

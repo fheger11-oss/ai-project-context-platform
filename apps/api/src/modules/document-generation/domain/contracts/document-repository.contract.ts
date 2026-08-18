@@ -16,4 +16,5 @@ export const DOCUMENT_REPOSITORY = Symbol("DOCUMENT_REPOSITORY");
 export interface DocumentRepository {
   save(input: SaveGeneratedDocumentInput): Promise<PersistedGeneratedDocument>;
   findById(id: string): Promise<PersistedGeneratedDocument | null>;
+  listByProjectContextId(projectContextId: string): Promise<PersistedGeneratedDocument[]>;
 }

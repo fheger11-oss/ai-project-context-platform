@@ -4,7 +4,10 @@ import { PROJECT_CONTEXT_READER } from "../context/domain/contracts/project-cont
 import { ContextModule } from "../context/context.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { GenerateDocumentUseCase } from "./application/generate-document.use-case.js";
+import { GetDocumentUseCase } from "./application/get-document.use-case.js";
+import { ListDocumentHistoryUseCase } from "./application/list-document-history.use-case.js";
 import { ProjectOverviewDocumentGenerator } from "./application/project-overview-document.generator.js";
+import { RegenerateDocumentUseCase } from "./application/regenerate-document.use-case.js";
 import {
   DOCUMENT_GENERATOR,
   type DocumentGenerator
@@ -49,9 +52,43 @@ import { DocumentController } from "./presentation/document.controller.js";
       ) =>
         createGenerateDocumentUseCase(projectContextReader, documentGenerator, documentRepository),
       inject: [PROJECT_CONTEXT_READER, DOCUMENT_GENERATOR, DOCUMENT_REPOSITORY]
+    },
+    {
+      provide: GetDocumentUseCase,
+      useFactory: (
+        projectContextReader: ConstructorParameters<typeof GetDocumentUseCase>[0],
+        documentRepository: DocumentRepository
+      ) => new GetDocumentUseCase(projectContextReader, documentRepository),
+      inject: [PROJECT_CONTEXT_READER, DOCUMENT_REPOSITORY]
+    },
+    {
+      provide: ListDocumentHistoryUseCase,
+      useFactory: (
+        projectContextReader: ConstructorParameters<typeof ListDocumentHistoryUseCase>[0],
+        documentRepository: DocumentRepository
+      ) => new ListDocumentHistoryUseCase(projectContextReader, documentRepository),
+      inject: [PROJECT_CONTEXT_READER, DOCUMENT_REPOSITORY]
+    },
+    {
+      provide: RegenerateDocumentUseCase,
+      useFactory: (
+        projectContextReader: ConstructorParameters<typeof RegenerateDocumentUseCase>[0],
+        documentGenerator: DocumentGenerator,
+        documentRepository: DocumentRepository
+      ) =>
+        new RegenerateDocumentUseCase(projectContextReader, documentGenerator, documentRepository),
+      inject: [PROJECT_CONTEXT_READER, DOCUMENT_GENERATOR, DOCUMENT_REPOSITORY]
     }
   ],
-  exports: [GenerateDocumentUseCase, DOCUMENT_GENERATOR, DOCUMENT_RENDERER, DOCUMENT_REPOSITORY]
+  exports: [
+    GenerateDocumentUseCase,
+    GetDocumentUseCase,
+    ListDocumentHistoryUseCase,
+    RegenerateDocumentUseCase,
+    DOCUMENT_GENERATOR,
+    DOCUMENT_RENDERER,
+    DOCUMENT_REPOSITORY
+  ]
 })
 export class DocumentGenerationModule {}
 
