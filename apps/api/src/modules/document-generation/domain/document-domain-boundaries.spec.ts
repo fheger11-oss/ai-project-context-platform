@@ -51,10 +51,12 @@ describe("Document generation domain boundaries", () => {
     expect(source).not.toMatch(/package\.json|AST|sourceCode|source code/i);
   });
 
-  it("does not introduce LLM, queue, job, renderer implementation, or document persistence concepts", () => {
+  it("does not introduce LLM, queue, job, renderer implementation, or normalized persistence concepts", () => {
     expect(source).not.toMatch(/openai|anthropic|gemini|embedding|vector|prompt/i);
     expect(source).not.toMatch(/redis|queue|job/i);
     expect(source).not.toMatch(/MarkdownRenderer|implements\s+DocumentRenderer/);
-    expect(source).not.toMatch(/DocumentRepository|createdAt|databaseId/);
+    expect(source).not.toMatch(/DocumentSectionRepository|DocumentBlockRepository/);
+    expect(source).not.toMatch(/DocumentParagraphRepository|DocumentClaimRepository/);
+    expect(source).not.toMatch(/DocumentEvidenceRepository|databaseId/);
   });
 });

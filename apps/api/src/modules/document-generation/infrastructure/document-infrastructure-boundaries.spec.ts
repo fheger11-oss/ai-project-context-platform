@@ -4,7 +4,10 @@ import { describe, expect, it } from "vitest";
 
 const infrastructureDirectory = new URL(".", import.meta.url);
 
-function readInfrastructureSources(directory: URL | string): string {
+function readInfrastructureSources(
+  directory: URL | string,
+  options: { excludeFiles?: readonly string[] } = {}
+): string {
   return readdirSync(directory, { withFileTypes: true })
     .flatMap((entry) => {
       if (entry.isDirectory()) {
@@ -13,10 +16,14 @@ function readInfrastructureSources(directory: URL | string): string {
             ? new URL(`${entry.name}/`, directory)
             : join(directory, entry.name);
 
-        return readInfrastructureSources(entryPath);
+        return readInfrastructureSources(entryPath, options);
       }
 
-      if (!entry.name.endsWith(".ts") || entry.name.endsWith(".spec.ts")) {
+      if (
+        !entry.name.endsWith(".ts") ||
+        entry.name.endsWith(".spec.ts") ||
+        options.excludeFiles?.includes(entry.name)
+      ) {
         return [];
       }
 
@@ -30,15 +37,18 @@ function readInfrastructureSources(directory: URL | string): string {
 
 describe("Document generation infrastructure boundaries", () => {
   const source = readInfrastructureSources(infrastructureDirectory);
+  const nonPersistenceSource = readInfrastructureSources(infrastructureDirectory, {
+    excludeFiles: ["prisma-document.repository.ts"]
+  });
 
-  it("keeps renderer infrastructure deterministic and provider-free", () => {
-    expect(source).not.toMatch(/@nestjs\//);
-    expect(source).not.toMatch(/@prisma\//i);
-    expect(source).not.toMatch(/generated\/prisma/i);
-    expect(source).not.toMatch(/github/i);
-    expect(source).not.toMatch(/\bhttp\b/i);
-    expect(source).not.toMatch(/node:fs|node:path/);
-    expect(source).not.toMatch(/Date\.now|new Date|Math\.random|crypto/i);
+  it("keeps non-persistence infrastructure deterministic and provider-free", () => {
+    expect(nonPersistenceSource).not.toMatch(/@nestjs\//);
+    expect(nonPersistenceSource).not.toMatch(/@prisma\//i);
+    expect(nonPersistenceSource).not.toMatch(/generated\/prisma/i);
+    expect(nonPersistenceSource).not.toMatch(/github/i);
+    expect(nonPersistenceSource).not.toMatch(/\bhttp\b/i);
+    expect(nonPersistenceSource).not.toMatch(/node:fs|node:path/);
+    expect(nonPersistenceSource).not.toMatch(/Date\.now|new Date|Math\.random|crypto/i);
   });
 
   it("does not access upstream engines, persistence, credentials, LLMs, queues, or jobs", () => {
@@ -48,5 +58,10 @@ describe("Document generation infrastructure boundaries", () => {
     expect(source).not.toMatch(/authorization|credential|accessToken|refreshToken|githubToken/i);
     expect(source).not.toMatch(/openai|anthropic|gemini|embedding|vector|prompt/i);
     expect(source).not.toMatch(/redis|queue|job/i);
+  });
+
+  it("limits Prisma usage to the generated document persistence adapter", () => {
+    expect(source).toMatch(/class PrismaDocumentRepository/);
+    expect(nonPersistenceSource).not.toMatch(/PrismaService|generated\/prisma|@prisma\//i);
   });
 });

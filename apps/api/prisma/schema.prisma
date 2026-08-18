@@ -34,6 +34,14 @@ enum AnalysisStatus {
   CANCELLED
 }
 
+enum DocumentType {
+  PROJECT_OVERVIEW
+}
+
+enum DocumentFormat {
+  MARKDOWN
+}
+
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
@@ -189,6 +197,7 @@ model ProjectContext {
   analysis   Analysis   @relation(fields: [analysisId], references: [id], onDelete: Cascade)
   scan       Scan       @relation(fields: [scanId], references: [id], onDelete: Cascade)
   repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  documents  Document[]
 
   @@index([contextId])
   @@index([analysisId, generatedAt, createdAt, id])
@@ -196,6 +205,25 @@ model ProjectContext {
   @@index([repositoryId])
   @@index([contextVersion])
   @@map("project_contexts")
+}
+
+model Document {
+  id               String         @id @default(cuid())
+  projectContextId String         @map("project_context_id")
+  contextId        String         @map("context_id")
+  documentType     DocumentType   @map("document_type")
+  format           DocumentFormat
+  generatorVersion String         @map("generator_version")
+  content          String         @db.Text
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  projectContext ProjectContext @relation(fields: [projectContextId], references: [id], onDelete: Cascade)
+
+  @@index([projectContextId])
+  @@index([contextId])
+  @@index([documentType, format])
+  @@index([generatorVersion])
+  @@map("documents")
 }
 
 model ScanFile {

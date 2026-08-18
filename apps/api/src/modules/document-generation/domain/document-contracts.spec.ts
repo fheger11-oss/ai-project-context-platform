@@ -3,6 +3,11 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import type { ProjectContext } from "../../context/domain/project-context.js";
 import type { DocumentGenerator } from "./contracts/document-generator.contract.js";
 import type { DocumentGenerationInput } from "./contracts/document-generation-input.contract.js";
+import type {
+  DocumentRepository,
+  PersistedGeneratedDocument,
+  SaveGeneratedDocumentInput
+} from "./contracts/document-repository.contract.js";
 import type { DocumentRenderer } from "./contracts/document-renderer.contract.js";
 import {
   assertSupportedDocumentFormat,
@@ -65,6 +70,28 @@ describe("Document generation contracts", () => {
     expectTypeOf<GeneratedDocument>().not.toHaveProperty("id");
     expectTypeOf<GeneratedDocument>().not.toHaveProperty("createdAt");
     expectTypeOf<GeneratedDocument>().not.toHaveProperty("prisma");
+  });
+
+  it("defines GeneratedDocument persistence without exposing Prisma records", () => {
+    expectTypeOf<SaveGeneratedDocumentInput>().toEqualTypeOf<{
+      projectContextId: string;
+      document: GeneratedDocument;
+    }>();
+    expectTypeOf<PersistedGeneratedDocument>().toEqualTypeOf<
+      GeneratedDocument & {
+        id: string;
+        projectContextId: string;
+        createdAt: Date;
+      }
+    >();
+    expectTypeOf<DocumentRepository>().toMatchTypeOf<{
+      save(input: SaveGeneratedDocumentInput): Promise<PersistedGeneratedDocument>;
+      findById(id: string): Promise<PersistedGeneratedDocument | null>;
+    }>();
+    expectTypeOf<DocumentRepository>().not.toHaveProperty("update");
+    expectTypeOf<DocumentRepository>().not.toHaveProperty("delete");
+    expectTypeOf<DocumentRepository>().not.toHaveProperty("listAll");
+    expectTypeOf<PersistedGeneratedDocument>().not.toHaveProperty("prisma");
   });
 
   it("defines a DocumentGenerator contract implementable without infrastructure", async () => {
