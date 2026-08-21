@@ -61,4 +61,35 @@ describe("MarkdownDocumentRenderer", () => {
       "# Project Overview\n"
     );
   });
+
+  it("renders deterministic Markdown tables and escapes table delimiters", async () => {
+    const model: DocumentModel = {
+      title: "Project Overview",
+      sections: [
+        {
+          heading: "Available Scripts",
+          blocks: [
+            {
+              kind: "table",
+              columns: ["Manifest", "Script", "Command"],
+              rows: [["package.json", "build", "`echo one | two`"]]
+            }
+          ]
+        }
+      ]
+    };
+
+    await expect(new MarkdownDocumentRenderer().render(model)).resolves.toBe(
+      [
+        "# Project Overview",
+        "",
+        "## Available Scripts",
+        "",
+        "| Manifest | Script | Command |",
+        "| --- | --- | --- |",
+        "| package.json | build | `echo one \\| two` |",
+        ""
+      ].join("\n")
+    );
+  });
 });

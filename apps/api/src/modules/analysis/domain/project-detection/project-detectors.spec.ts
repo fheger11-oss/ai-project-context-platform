@@ -119,6 +119,12 @@ describe("Project detection domain detectors", () => {
         content: JSON.stringify({
           name: "project",
           version: "1.2.3",
+          scripts: {
+            test: "vitest",
+            build: "vite build",
+            dev: "vite",
+            ignored: 123
+          },
           dependencies: {
             react: "^19.0.0"
           },
@@ -141,6 +147,23 @@ describe("Project detection domain detectors", () => {
         isPrimary: true,
         name: "project",
         version: "1.2.3",
+        scripts: [
+          {
+            manifestPath: "package.json",
+            name: "build",
+            command: "vite build"
+          },
+          {
+            manifestPath: "package.json",
+            name: "dev",
+            command: "vite"
+          },
+          {
+            manifestPath: "package.json",
+            name: "test",
+            command: "vitest"
+          }
+        ],
         dependencies: [
           {
             manifestPath: "package.json",
@@ -171,6 +194,39 @@ describe("Project detection domain detectors", () => {
             name: "sharp",
             version: "^0.33.0",
             type: "OPTIONAL_DEPENDENCY"
+          }
+        ]
+      }
+    });
+  });
+
+  it("does not invent scripts when package.json has no scripts object", () => {
+    const parser = new PackageJsonParser();
+
+    expect(
+      parser.parse({
+        path: "package.json",
+        isPrimary: true,
+        content: JSON.stringify({
+          name: "project",
+          dependencies: {
+            react: "^19.0.0"
+          }
+        })
+      })
+    ).toEqual({
+      status: "PARSED",
+      packageJson: {
+        path: "package.json",
+        isPrimary: true,
+        name: "project",
+        version: null,
+        dependencies: [
+          {
+            manifestPath: "package.json",
+            name: "react",
+            version: "^19.0.0",
+            type: "DEPENDENCY"
           }
         ]
       }

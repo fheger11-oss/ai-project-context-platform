@@ -16,4 +16,9 @@ export type DocumentBlock =
   | {
       kind: "unordered-list";
       items: readonly string[];
+    }
+  | {
+      kind: "table";
+      columns: readonly string[];
+      rows: readonly (readonly string[])[];
     };

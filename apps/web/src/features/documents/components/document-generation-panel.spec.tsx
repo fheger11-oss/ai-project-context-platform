@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DocumentHistoryResponse, GeneratedDocumentResponse } from "@ai-context/contracts";
 
 import {
+  createGenerateDocumentRequest,
   DocumentApiRequestError,
   generateDocument,
   regenerateDocument
@@ -62,6 +63,13 @@ const secondDocument: GeneratedDocumentResponse = {
   id: "document_2",
   content: "# Project Overview\n\n- Observed: regenerated artifact.\n",
   createdAt: "2026-08-18T11:00:00.000Z"
+};
+const technicalDocument: GeneratedDocumentResponse = {
+  ...firstDocument,
+  id: "document_technical_1",
+  documentType: "TECHNICAL_DOCUMENTATION",
+  content: "# Technical Documentation\n\n## Technology Stack\n",
+  createdAt: "2026-08-18T12:00:00.000Z"
 };
 
 vi.mock("@tanstack/react-query", () => ({
@@ -123,8 +131,12 @@ describe("DocumentGenerationPanel", () => {
     );
 
     expect(markup).toContain("Document Generation");
+    expect(markup).toContain("Document type");
+    expect(markup).toContain('<option value="PROJECT_OVERVIEW" selected="">Project Overview');
+    expect(markup).toContain('<option value="TECHNICAL_DOCUMENTATION">Technical Documentation');
     expect(markup).toContain("No documents generated yet.");
     expect(markup).toContain("Generate Project Overview");
+    expect(markup).toContain("Generate a Project Overview or Technical Documentation");
   });
 
   it("generates a Project Overview through the document API", async () => {
@@ -143,6 +155,47 @@ describe("DocumentGenerationPanel", () => {
       generatorVersion: "document-generator@1"
     });
     expect(setQueryData).toHaveBeenCalledWith(["document", "document_1"], firstDocument);
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["document-history", "project_context_1"]
+    });
+  });
+
+  it("creates the Technical Documentation request body for the existing document API", () => {
+    expect(createGenerateDocumentRequest("project_context_1", "TECHNICAL_DOCUMENTATION")).toEqual({
+      contextId: "project_context_1",
+      documentType: "TECHNICAL_DOCUMENTATION",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+  });
+
+  it("generates Technical Documentation through the existing document API when selected", async () => {
+    vi.mocked(generateDocument).mockResolvedValue(technicalDocument);
+    const markup = renderToStaticMarkup(
+      <DocumentGenerationPanel
+        accessToken="access_token"
+        contextId="project_context_1"
+        initialDocumentType="TECHNICAL_DOCUMENTATION"
+      />
+    );
+
+    await mutationOptions[0]?.mutationFn();
+    await mutationOptions[0]?.onSuccess?.(technicalDocument);
+
+    expect(markup).toContain("Generate Technical Documentation");
+    expect(markup).toContain(
+      '<option value="TECHNICAL_DOCUMENTATION" selected="">Technical Documentation'
+    );
+    expect(generateDocument).toHaveBeenCalledWith("access_token", {
+      contextId: "project_context_1",
+      documentType: "TECHNICAL_DOCUMENTATION",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+    expect(setQueryData).toHaveBeenCalledWith(
+      ["document", "document_technical_1"],
+      technicalDocument
+    );
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["document-history", "project_context_1"]
     });
@@ -171,6 +224,19 @@ describe("DocumentGenerationPanel", () => {
     expect(markup).toContain("- Observed: first artifact.");
     expect(markup).toContain("document-generator@1");
     expect(markup).toContain("context:analysis_1:context-engine@1");
+  });
+
+  it("displays Technical Documentation artifacts through the existing viewer and history UI", () => {
+    historyQuery = { data: { documents: [technicalDocument] } };
+
+    const markup = renderToStaticMarkup(
+      <DocumentGenerationPanel accessToken="access_token" contextId="project_context_1" />
+    );
+
+    expect(markup).toContain("Technical Documentation");
+    expect(markup).toContain("# Technical Documentation");
+    expect(markup).toContain("## Technology Stack");
+    expect(markup).toContain("document_technical_1");
   });
 
   it("renders multiple immutable history artifacts", () => {

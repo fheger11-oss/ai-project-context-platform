@@ -49,6 +49,10 @@ function createInput(options?: {
     "package.json": JSON.stringify({
       name: "root",
       version: "0.1.0",
+      scripts: {
+        build: "turbo build",
+        dev: "turbo dev"
+      },
       dependencies: {
         react: "^19.0.0"
       },
@@ -58,6 +62,9 @@ function createInput(options?: {
     }),
     "apps/api/package.json": JSON.stringify({
       name: "api",
+      scripts: {
+        test: "vitest"
+      },
       dependencies: {
         "@nestjs/core": "^11.0.0"
       },
@@ -67,6 +74,9 @@ function createInput(options?: {
     }),
     "apps/web/package.json": JSON.stringify({
       name: "web",
+      scripts: {
+        dev: "vite --host 0.0.0.0"
+      },
       dependencies: {
         next: "^15.0.0"
       },
@@ -138,6 +148,18 @@ describe("ProjectDetectionService", () => {
           isPrimary: true,
           name: "root",
           version: "0.1.0",
+          scripts: [
+            {
+              manifestPath: "package.json",
+              name: "build",
+              command: "turbo build"
+            },
+            {
+              manifestPath: "package.json",
+              name: "dev",
+              command: "turbo dev"
+            }
+          ],
           dependencies: [
             {
               manifestPath: "package.json",
@@ -158,6 +180,13 @@ describe("ProjectDetectionService", () => {
           isPrimary: false,
           name: "api",
           version: null,
+          scripts: [
+            {
+              manifestPath: "apps/api/package.json",
+              name: "test",
+              command: "vitest"
+            }
+          ],
           dependencies: [
             {
               manifestPath: "apps/api/package.json",
@@ -178,6 +207,13 @@ describe("ProjectDetectionService", () => {
           isPrimary: false,
           name: "web",
           version: null,
+          scripts: [
+            {
+              manifestPath: "apps/web/package.json",
+              name: "dev",
+              command: "vite --host 0.0.0.0"
+            }
+          ],
           dependencies: [
             {
               manifestPath: "apps/web/package.json",

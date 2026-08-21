@@ -54,12 +54,19 @@ export type PackageDependency = {
   type: PackageDependencyType;
 };
 
+export type PackageScript = {
+  manifestPath: string;
+  name: string;
+  command: string;
+};
+
 export type PackageJsonPackage = {
   path: string;
   isPrimary: boolean;
   name: string | null;
   version: string | null;
   dependencies: readonly PackageDependency[];
+  scripts?: readonly PackageScript[];
 };
 
 export type ProjectDetectionIssue = {

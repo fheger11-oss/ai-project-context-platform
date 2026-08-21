@@ -26,10 +26,11 @@ import { InvalidDocumentTypeError } from "./errors/invalid-document-type.error.j
 import type { GeneratedDocument } from "./generated-document.js";
 
 describe("Document generation contracts", () => {
-  it("defines PROJECT_OVERVIEW as the supported MVP document type", () => {
-    expect(SUPPORTED_DOCUMENT_TYPES).toEqual(["PROJECT_OVERVIEW"]);
-    expectTypeOf<DocumentType>().toEqualTypeOf<"PROJECT_OVERVIEW">();
+  it("defines the supported MVP document types", () => {
+    expect(SUPPORTED_DOCUMENT_TYPES).toEqual(["PROJECT_OVERVIEW", "TECHNICAL_DOCUMENTATION"]);
+    expectTypeOf<DocumentType>().toEqualTypeOf<"PROJECT_OVERVIEW" | "TECHNICAL_DOCUMENTATION">();
     expect(isSupportedDocumentType("PROJECT_OVERVIEW")).toBe(true);
+    expect(isSupportedDocumentType("TECHNICAL_DOCUMENTATION")).toBe(true);
   });
 
   it("defines MARKDOWN as the supported MVP document format", () => {

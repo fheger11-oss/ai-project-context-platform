@@ -2,6 +2,7 @@ import type {
   PackageDependency,
   PackageDependencyType,
   PackageJsonPackage,
+  PackageScript,
   ProjectDetectionIssue
 } from "./project-profile.js";
 
@@ -42,6 +43,7 @@ export class PackageJsonParser {
     const dependencies = DEPENDENCY_SECTIONS.flatMap(({ field, type }) =>
       this.parseDependencySection(input.path, payload[field], type)
     );
+    const scripts = this.parseScripts(input.path, payload.scripts);
 
     return {
       status: "PARSED",
@@ -50,7 +52,8 @@ export class PackageJsonParser {
         isPrimary: input.isPrimary,
         name: typeof payload.name === "string" ? payload.name : null,
         version: typeof payload.version === "string" ? payload.version : null,
-        dependencies
+        dependencies,
+        ...(scripts.length > 0 ? { scripts } : {})
       }
     };
   }
@@ -71,6 +74,21 @@ export class PackageJsonParser {
         name,
         version,
         type
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  private parseScripts(manifestPath: string, value: unknown): PackageScript[] {
+    if (!this.isRecord(value)) {
+      return [];
+    }
+
+    return Object.entries(value)
+      .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+      .map(([name, command]) => ({
+        manifestPath,
+        name,
+        command
       }))
       .sort((left, right) => left.name.localeCompare(right.name));
   }

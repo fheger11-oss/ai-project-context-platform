@@ -1,13 +1,19 @@
 import { Injectable } from "@nestjs/common";
 
-import type { AnalysisResult } from "../../analysis/domain/contracts/analysis-result.contract.js";
+import type {
+  AnalysisIssue,
+  AnalysisResult
+} from "../../analysis/domain/contracts/analysis-result.contract.js";
 import type { SourceRelationship } from "../../analysis/domain/relationships/source-relationship.js";
 import type { SourceFileStructure } from "../../analysis/domain/source-structure/source-file-structure.js";
 import type {
   DetectedFramework,
   PackageDependency,
+  PackageJsonPackage,
+  PackageScript,
   ProjectEcosystem,
   ProjectFramework,
+  ProjectManifest,
   ProjectLanguage
 } from "../../analysis/domain/project-detection/project-profile.js";
 import type { ContextClaim, ContextEvidence } from "../domain/context-claim.js";
@@ -26,6 +32,13 @@ type ProjectIdentityClaimValue =
   | {
       type: "PRIMARY_LANGUAGE";
       language: ProjectLanguage;
+    }
+  | {
+      type: "PROJECT_PACKAGE";
+      path: string;
+      name: string | null;
+      version: string | null;
+      isPrimary: boolean;
     };
 
 type TechnologyClaimValue =
@@ -47,9 +60,23 @@ type TechnologyClaimValue =
       packageManager: "PNPM" | "NPM" | "YARN";
     }
   | {
+      type: "MANIFEST";
+      path: string;
+      manifestType: ProjectManifest["type"];
+      isPrimary: boolean;
+    }
+  | {
       type: "DEPENDENCY";
       name: string;
+      version: string;
       dependencyType: PackageDependency["type"];
+      manifestPath: string;
+    }
+  | {
+      type: "PACKAGE_SCRIPT";
+      manifestPath: string;
+      name: string;
+      command: string;
     };
 
 type SourceGroupClaimValue = {
@@ -121,6 +148,15 @@ type InfrastructureClaimValue =
       artifactCount: number;
     };
 
+type AmbiguityClaimValue = {
+  type: "ANALYSIS_ISSUE";
+  stage: AnalysisIssue["stage"];
+  path: string;
+  code: string;
+  message?: string;
+  specifier?: string;
+};
+
 type ModuleCandidate = {
   moduleId: string;
   name: string;
@@ -180,7 +216,8 @@ export class DeterministicContextGenerator implements ContextGenerator {
       },
       infrastructure: {
         claims: this.infrastructureClaims(analysis)
-      }
+      },
+      ambiguities: this.ambiguityClaims(analysis)
     });
   }
 
@@ -189,7 +226,11 @@ export class DeterministicContextGenerator implements ContextGenerator {
   }
 
   private projectClaims(analysis: AnalysisResult): ContextClaim<ProjectIdentityClaimValue>[] {
-    return [...this.applicationTypeClaims(analysis), ...this.primaryLanguageClaims(analysis)];
+    return [
+      ...this.applicationTypeClaims(analysis),
+      ...this.primaryLanguageClaims(analysis),
+      ...this.projectPackageClaims(analysis)
+    ];
   }
 
   private technologyClaims(analysis: AnalysisResult): ContextClaim<TechnologyClaimValue>[] {
@@ -198,7 +239,9 @@ export class DeterministicContextGenerator implements ContextGenerator {
       ...this.languageClaims(analysis),
       ...this.frameworkClaims(analysis),
       ...this.packageManagerClaims(analysis),
-      ...this.dependencyClaims(analysis)
+      ...this.manifestClaims(analysis),
+      ...this.dependencyClaims(analysis),
+      ...this.packageScriptClaims(analysis)
     ];
   }
 
@@ -314,6 +357,23 @@ export class DeterministicContextGenerator implements ContextGenerator {
     ];
   }
 
+  private projectPackageClaims(
+    analysis: AnalysisResult
+  ): ContextClaim<ProjectIdentityClaimValue>[] {
+    return uniquePackages(analysis.project.packages).map((packageJson) => ({
+      value: {
+        type: "PROJECT_PACKAGE",
+        path: packageJson.path,
+        name: packageJson.name,
+        version: packageJson.version,
+        isPrimary: packageJson.isPrimary
+      },
+      kind: "OBSERVED",
+      confidence: "HIGH",
+      evidence: [manifestEvidence(packageJson.path)]
+    }));
+  }
+
   private ecosystemClaims(analysis: AnalysisResult): ContextClaim<TechnologyClaimValue>[] {
     return uniqueBy([...analysis.project.ecosystems], (ecosystem) => ecosystem)
       .sort()
@@ -379,23 +439,66 @@ export class DeterministicContextGenerator implements ContextGenerator {
     ];
   }
 
+  private manifestClaims(analysis: AnalysisResult): ContextClaim<TechnologyClaimValue>[] {
+    return uniqueManifests(analysis.project.manifests).map((manifest) => ({
+      value: {
+        type: "MANIFEST",
+        path: manifest.path,
+        manifestType: manifest.type,
+        isPrimary: manifest.isPrimary
+      },
+      kind: "OBSERVED",
+      confidence: "HIGH",
+      evidence: [manifestEvidence(manifest.path)]
+    }));
+  }
+
   private dependencyClaims(analysis: AnalysisResult): ContextClaim<TechnologyClaimValue>[] {
     return uniqueBy(
       analysis.project.dependencies,
-      (dependency) => `${dependency.manifestPath}\0${dependency.name}\0${dependency.type}`
+      (dependency) =>
+        `${dependency.manifestPath}\0${dependency.name}\0${dependency.version}\0${dependency.type}`
     )
-      .filter((dependency) => dependency.type === "DEPENDENCY")
       .sort(compareDependencies)
       .map((dependency) => ({
         value: {
           type: "DEPENDENCY",
           name: dependency.name,
-          dependencyType: dependency.type
+          version: dependency.version,
+          dependencyType: dependency.type,
+          manifestPath: dependency.manifestPath
         },
         kind: "OBSERVED",
         confidence: "HIGH",
         evidence: [dependencyEvidence(dependency)]
       }));
+  }
+
+  private packageScriptClaims(analysis: AnalysisResult): ContextClaim<TechnologyClaimValue>[] {
+    return uniqueScripts(
+      analysis.project.packages.flatMap((packageJson) => packageJson.scripts ?? [])
+    )
+      .sort(comparePackageScripts)
+      .map((script) => ({
+        value: {
+          type: "PACKAGE_SCRIPT",
+          manifestPath: script.manifestPath,
+          name: script.name,
+          command: script.command
+        },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [manifestEvidence(script.manifestPath)]
+      }));
+  }
+
+  private ambiguityClaims(analysis: AnalysisResult): ContextClaim<AmbiguityClaimValue>[] {
+    return [...analysis.issues].sort(compareAnalysisIssues).map((issue) => ({
+      value: analysisIssueValue(issue),
+      kind: "OBSERVED",
+      confidence: "HIGH",
+      evidence: [issueEvidence(issue)]
+    }));
   }
 
   private entryPointClaims(analysis: AnalysisResult): ContextClaim<EntryPointClaimValue>[] {
@@ -935,6 +1038,46 @@ function dependencyEvidence(dependency: PackageDependency): ContextEvidence {
   };
 }
 
+function issueEvidence(issue: AnalysisIssue): ContextEvidence {
+  return {
+    kind: "ISSUE",
+    reference: {
+      kind: "ISSUE",
+      stage: issue.stage,
+      path: issue.path,
+      code: issue.code
+    }
+  };
+}
+
+function analysisIssueValue(issue: AnalysisIssue): AmbiguityClaimValue {
+  switch (issue.stage) {
+    case "PROJECT_DETECTION":
+      return {
+        type: "ANALYSIS_ISSUE",
+        stage: issue.stage,
+        path: issue.path,
+        code: issue.code
+      };
+    case "SOURCE_STRUCTURE":
+      return {
+        type: "ANALYSIS_ISSUE",
+        stage: issue.stage,
+        path: issue.path,
+        code: issue.code,
+        message: issue.message
+      };
+    case "RELATIONSHIP_ANALYSIS":
+      return {
+        type: "ANALYSIS_ISSUE",
+        stage: issue.stage,
+        path: issue.path,
+        code: issue.code,
+        specifier: issue.specifier
+      };
+  }
+}
+
 function fileClassificationEvidence(path: string): ContextEvidence {
   return {
     kind: "FILE_CLASSIFICATION",
@@ -1024,6 +1167,42 @@ function uniqueFrameworks(frameworks: readonly DetectedFramework[]): DetectedFra
     .sort((left, right) => left.framework.localeCompare(right.framework));
 }
 
+function uniquePackages(packages: readonly PackageJsonPackage[]): PackageJsonPackage[] {
+  return uniqueBy(
+    [...packages].sort(
+      (left, right) =>
+        Number(right.isPrimary) - Number(left.isPrimary) ||
+        left.path.localeCompare(right.path) ||
+        (left.name ?? "").localeCompare(right.name ?? "") ||
+        (left.version ?? "").localeCompare(right.version ?? "")
+    ),
+    (packageJson) =>
+      `${packageJson.path}\0${packageJson.name ?? ""}\0${packageJson.version ?? ""}\0${
+        packageJson.isPrimary ? "primary" : "secondary"
+      }`
+  );
+}
+
+function uniqueManifests(manifests: readonly ProjectManifest[]): ProjectManifest[] {
+  return uniqueBy(
+    [...manifests].sort(
+      (left, right) =>
+        left.path.localeCompare(right.path) ||
+        left.type.localeCompare(right.type) ||
+        Number(right.isPrimary) - Number(left.isPrimary)
+    ),
+    (manifest) =>
+      `${manifest.path}\0${manifest.type}\0${manifest.isPrimary ? "primary" : "secondary"}`
+  );
+}
+
+function uniqueScripts(scripts: readonly PackageScript[]): PackageScript[] {
+  return uniqueBy(
+    [...scripts].sort(comparePackageScripts),
+    (script) => `${script.manifestPath}\0${script.name}\0${script.command}`
+  );
+}
+
 function uniqueSourceStructures(
   sourceStructures: readonly SourceFileStructure[]
 ): SourceFileStructure[] {
@@ -1036,8 +1215,29 @@ function uniqueSourceStructures(
 function compareDependencies(left: PackageDependency, right: PackageDependency): number {
   return (
     left.manifestPath.localeCompare(right.manifestPath) ||
+    left.type.localeCompare(right.type) ||
     left.name.localeCompare(right.name) ||
-    left.type.localeCompare(right.type)
+    left.version.localeCompare(right.version)
+  );
+}
+
+function comparePackageScripts(left: PackageScript, right: PackageScript): number {
+  return (
+    left.manifestPath.localeCompare(right.manifestPath) ||
+    left.name.localeCompare(right.name) ||
+    left.command.localeCompare(right.command)
+  );
+}
+
+function compareAnalysisIssues(left: AnalysisIssue, right: AnalysisIssue): number {
+  return (
+    left.stage.localeCompare(right.stage) ||
+    left.path.localeCompare(right.path) ||
+    left.code.localeCompare(right.code) ||
+    ("specifier" in left ? left.specifier : "").localeCompare(
+      "specifier" in right ? right.specifier : ""
+    ) ||
+    ("message" in left ? left.message : "").localeCompare("message" in right ? right.message : "")
   );
 }
 

@@ -12,10 +12,40 @@ type LanguageClaimValue = {
   fileCount: number;
 };
 
+type ProjectPackageClaimValue = {
+  type: "PROJECT_PACKAGE";
+  path: string;
+  name: string | null;
+  version: string | null;
+  isPrimary: boolean;
+};
+
 type MonorepoClaimValue = {
   type: "MONOREPO";
   manifestCount: number;
   packageCount: number;
+};
+
+type ManifestClaimValue = {
+  type: "MANIFEST";
+  path: string;
+  manifestType: string;
+  isPrimary: boolean;
+};
+
+type DependencyClaimValue = {
+  type: "DEPENDENCY";
+  name: string;
+  version: string;
+  dependencyType: string;
+  manifestPath: string;
+};
+
+type PackageScriptClaimValue = {
+  type: "PACKAGE_SCRIPT";
+  manifestPath: string;
+  name: string;
+  command: string;
 };
 
 type SourceGroupClaimValue = {
@@ -90,6 +120,15 @@ type ConfigurationArtifactsPresentClaimValue = {
   artifactCount: number;
 };
 
+type AnalysisIssueClaimValue = {
+  type: "ANALYSIS_ISSUE";
+  stage: string;
+  path: string;
+  code: string;
+  message?: string;
+  specifier?: string;
+};
+
 const generatedAt = new Date("2026-08-17T10:00:00.000Z");
 
 function baseAnalysis(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
@@ -159,12 +198,50 @@ function isLanguageClaim(claim: ContextClaim): claim is ContextClaim<LanguageCla
   );
 }
 
+function isProjectPackageClaim(
+  claim: ContextClaim
+): claim is ContextClaim<ProjectPackageClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "PROJECT_PACKAGE"
+  );
+}
+
 function isMonorepoClaim(claim: ContextClaim): claim is ContextClaim<MonorepoClaimValue> {
   return (
     typeof claim.value === "object" &&
     claim.value !== null &&
     "type" in claim.value &&
     claim.value.type === "MONOREPO"
+  );
+}
+
+function isManifestClaim(claim: ContextClaim): claim is ContextClaim<ManifestClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "MANIFEST"
+  );
+}
+
+function isDependencyClaim(claim: ContextClaim): claim is ContextClaim<DependencyClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "DEPENDENCY"
+  );
+}
+
+function isPackageScriptClaim(claim: ContextClaim): claim is ContextClaim<PackageScriptClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "PACKAGE_SCRIPT"
   );
 }
 
@@ -282,6 +359,15 @@ function isConfigurationArtifactsPresentClaim(
     claim.value !== null &&
     "type" in claim.value &&
     claim.value.type === "CONFIGURATION_ARTIFACTS_PRESENT"
+  );
+}
+
+function isAnalysisIssueClaim(claim: ContextClaim): claim is ContextClaim<AnalysisIssueClaimValue> {
+  return (
+    typeof claim.value === "object" &&
+    claim.value !== null &&
+    "type" in claim.value &&
+    claim.value.type === "ANALYSIS_ISSUE"
   );
 }
 
@@ -456,6 +542,23 @@ describe("DeterministicContextGenerator", () => {
         }
       ]
     });
+    expect(context.project.claims).toContainEqual({
+      value: {
+        type: "PROJECT_PACKAGE",
+        path: "package.json",
+        name: "api",
+        version: "0.1.0",
+        isPrimary: true
+      },
+      kind: "OBSERVED",
+      confidence: "HIGH",
+      evidence: [
+        {
+          kind: "MANIFEST",
+          reference: { kind: "MANIFEST", path: "package.json" }
+        }
+      ]
+    });
     expect(context.technology.claims).toEqual(
       expect.arrayContaining([
         {
@@ -479,6 +582,43 @@ describe("DeterministicContextGenerator", () => {
               reference: { kind: "MANIFEST", path: "pnpm-lock.yaml" }
             }
           ])
+        },
+        {
+          value: {
+            type: "MANIFEST",
+            path: "package.json",
+            manifestType: "PACKAGE_JSON",
+            isPrimary: true
+          },
+          kind: "OBSERVED",
+          confidence: "HIGH",
+          evidence: [
+            {
+              kind: "MANIFEST",
+              reference: { kind: "MANIFEST", path: "package.json" }
+            }
+          ]
+        },
+        {
+          value: {
+            type: "DEPENDENCY",
+            name: "@nestjs/core",
+            version: "^11.0.0",
+            dependencyType: "DEPENDENCY",
+            manifestPath: "package.json"
+          },
+          kind: "OBSERVED",
+          confidence: "HIGH",
+          evidence: [
+            {
+              kind: "DEPENDENCY",
+              reference: {
+                kind: "DEPENDENCY",
+                manifestPath: "package.json",
+                name: "@nestjs/core"
+              }
+            }
+          ]
         }
       ])
     );
@@ -516,6 +656,214 @@ describe("DeterministicContextGenerator", () => {
         confidence: "HIGH"
       })
     );
+  });
+
+  it("preserves package identity, manifest inventory, and dependency metadata from Analysis", async () => {
+    const context = await generate(
+      nodePackageAnalysis({
+        manifests: [
+          { path: "package.json", type: "PACKAGE_JSON", isPrimary: true },
+          { path: "apps/api/package.json", type: "PACKAGE_JSON", isPrimary: false },
+          { path: "pnpm-lock.yaml", type: "PNPM_LOCK", isPrimary: false }
+        ],
+        packages: [
+          {
+            path: "package.json",
+            isPrimary: true,
+            name: "root",
+            version: "0.1.0",
+            dependencies: []
+          },
+          {
+            path: "apps/api/package.json",
+            isPrimary: false,
+            name: "api",
+            version: null,
+            dependencies: []
+          }
+        ],
+        dependencies: [
+          {
+            manifestPath: "apps/api/package.json",
+            name: "vitest",
+            version: "^4.0.0",
+            type: "DEV_DEPENDENCY"
+          },
+          {
+            manifestPath: "package.json",
+            name: "react",
+            version: "^19.0.0",
+            type: "PEER_DEPENDENCY"
+          }
+        ]
+      })
+    );
+
+    expect(
+      context.project.claims.filter(isProjectPackageClaim).map((claim) => claim.value)
+    ).toEqual([
+      {
+        type: "PROJECT_PACKAGE",
+        path: "package.json",
+        name: "root",
+        version: "0.1.0",
+        isPrimary: true
+      },
+      {
+        type: "PROJECT_PACKAGE",
+        path: "apps/api/package.json",
+        name: "api",
+        version: null,
+        isPrimary: false
+      }
+    ]);
+    expect(context.technology.claims.filter(isManifestClaim).map((claim) => claim.value)).toEqual([
+      {
+        type: "MANIFEST",
+        path: "apps/api/package.json",
+        manifestType: "PACKAGE_JSON",
+        isPrimary: false
+      },
+      {
+        type: "MANIFEST",
+        path: "package.json",
+        manifestType: "PACKAGE_JSON",
+        isPrimary: true
+      },
+      {
+        type: "MANIFEST",
+        path: "pnpm-lock.yaml",
+        manifestType: "PNPM_LOCK",
+        isPrimary: false
+      }
+    ]);
+    expect(context.technology.claims.filter(isDependencyClaim).map((claim) => claim.value)).toEqual(
+      [
+        {
+          type: "DEPENDENCY",
+          name: "vitest",
+          version: "^4.0.0",
+          dependencyType: "DEV_DEPENDENCY",
+          manifestPath: "apps/api/package.json"
+        },
+        {
+          type: "DEPENDENCY",
+          name: "react",
+          version: "^19.0.0",
+          dependencyType: "PEER_DEPENDENCY",
+          manifestPath: "package.json"
+        }
+      ]
+    );
+    expect(context.technology.claims.filter(isDependencyClaim)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "OBSERVED",
+          confidence: "HIGH",
+          evidence: [
+            {
+              kind: "DEPENDENCY",
+              reference: {
+                kind: "DEPENDENCY",
+                manifestPath: "apps/api/package.json",
+                name: "vitest"
+              }
+            }
+          ]
+        })
+      ])
+    );
+  });
+
+  it("preserves package scripts as observed manifest-backed Context claims", async () => {
+    const context = await generate(
+      nodePackageAnalysis({
+        packages: [
+          {
+            path: "package.json",
+            isPrimary: true,
+            name: "root",
+            version: "0.1.0",
+            dependencies: [],
+            scripts: [
+              {
+                manifestPath: "package.json",
+                name: "dev",
+                command: "vite"
+              },
+              {
+                manifestPath: "package.json",
+                name: "build",
+                command: "vite build"
+              }
+            ]
+          },
+          {
+            path: "apps/api/package.json",
+            isPrimary: false,
+            name: "api",
+            version: null,
+            dependencies: [],
+            scripts: [
+              {
+                manifestPath: "apps/api/package.json",
+                name: "build",
+                command: "nest build"
+              }
+            ]
+          }
+        ]
+      })
+    );
+
+    expect(
+      context.technology.claims.filter(isPackageScriptClaim).map((claim) => claim.value)
+    ).toEqual([
+      {
+        type: "PACKAGE_SCRIPT",
+        manifestPath: "apps/api/package.json",
+        name: "build",
+        command: "nest build"
+      },
+      {
+        type: "PACKAGE_SCRIPT",
+        manifestPath: "package.json",
+        name: "build",
+        command: "vite build"
+      },
+      {
+        type: "PACKAGE_SCRIPT",
+        manifestPath: "package.json",
+        name: "dev",
+        command: "vite"
+      }
+    ]);
+    expect(context.technology.claims.filter(isPackageScriptClaim)).toEqual(
+      expect.arrayContaining([
+        {
+          value: {
+            type: "PACKAGE_SCRIPT",
+            manifestPath: "package.json",
+            name: "dev",
+            command: "vite"
+          },
+          kind: "OBSERVED",
+          confidence: "HIGH",
+          evidence: [
+            {
+              kind: "MANIFEST",
+              reference: {
+                kind: "MANIFEST",
+                path: "package.json"
+              }
+            }
+          ]
+        }
+      ])
+    );
+    expect(JSON.stringify(context)).not.toContain("DEV_COMMAND");
+    expect(JSON.stringify(context)).not.toContain("BUILD_COMMAND");
+    expect(JSON.stringify(context)).not.toContain("TEST_COMMAND");
   });
 
   it("infers full-stack identity when React and NestJS are both observed", async () => {
@@ -943,6 +1291,100 @@ describe("DeterministicContextGenerator", () => {
     expect(JSON.stringify(context)).not.toContain("TESTS_FAIL");
   });
 
+  it("preserves Analysis issues as observed ambiguity claims with issue evidence", async () => {
+    const context = await generate(
+      baseAnalysis({
+        issues: [
+          {
+            stage: "RELATIONSHIP_ANALYSIS",
+            path: "src/app.ts",
+            specifier: "./missing",
+            code: "UNRESOLVED_LOCAL_MODULE"
+          },
+          {
+            stage: "PROJECT_DETECTION",
+            path: "package.json",
+            code: "MALFORMED_PACKAGE_JSON"
+          },
+          {
+            stage: "SOURCE_STRUCTURE",
+            path: "src/broken.ts",
+            code: "PARSE_ERROR",
+            message: "Unexpected token"
+          }
+        ]
+      })
+    );
+
+    expect(context.ambiguities.filter(isAnalysisIssueClaim)).toEqual([
+      {
+        value: {
+          type: "ANALYSIS_ISSUE",
+          stage: "PROJECT_DETECTION",
+          path: "package.json",
+          code: "MALFORMED_PACKAGE_JSON"
+        },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "ISSUE",
+            reference: {
+              kind: "ISSUE",
+              stage: "PROJECT_DETECTION",
+              path: "package.json",
+              code: "MALFORMED_PACKAGE_JSON"
+            }
+          }
+        ]
+      },
+      {
+        value: {
+          type: "ANALYSIS_ISSUE",
+          stage: "RELATIONSHIP_ANALYSIS",
+          path: "src/app.ts",
+          code: "UNRESOLVED_LOCAL_MODULE",
+          specifier: "./missing"
+        },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "ISSUE",
+            reference: {
+              kind: "ISSUE",
+              stage: "RELATIONSHIP_ANALYSIS",
+              path: "src/app.ts",
+              code: "UNRESOLVED_LOCAL_MODULE"
+            }
+          }
+        ]
+      },
+      {
+        value: {
+          type: "ANALYSIS_ISSUE",
+          stage: "SOURCE_STRUCTURE",
+          path: "src/broken.ts",
+          code: "PARSE_ERROR",
+          message: "Unexpected token"
+        },
+        kind: "OBSERVED",
+        confidence: "HIGH",
+        evidence: [
+          {
+            kind: "ISSUE",
+            reference: {
+              kind: "ISSUE",
+              stage: "SOURCE_STRUCTURE",
+              path: "src/broken.ts",
+              code: "PARSE_ERROR"
+            }
+          }
+        ]
+      }
+    ]);
+  });
+
   it("does not fabricate infrastructure or configuration context without Analysis evidence", async () => {
     const context = await generate(
       baseAnalysis({
@@ -1196,7 +1638,12 @@ describe("DeterministicContextGenerator", () => {
     const first = await generate(completeAnalysis);
     const second = await generate(completeAnalysis);
 
-    expect(claimTypes(first.project.claims)).toEqual(["APPLICATION_TYPE", "PRIMARY_LANGUAGE"]);
+    expect(claimTypes(first.project.claims)).toEqual([
+      "APPLICATION_TYPE",
+      "PRIMARY_LANGUAGE",
+      "PROJECT_PACKAGE",
+      "PROJECT_PACKAGE"
+    ]);
     expect(claimTypes(first.technology.claims)).toEqual([
       "ECOSYSTEM",
       "ECOSYSTEM",
@@ -1205,6 +1652,8 @@ describe("DeterministicContextGenerator", () => {
       "FRAMEWORK",
       "FRAMEWORK",
       "PACKAGE_MANAGER",
+      "MANIFEST",
+      "MANIFEST",
       "DEPENDENCY",
       "DEPENDENCY"
     ]);
@@ -1312,6 +1761,7 @@ describe("DeterministicContextGenerator", () => {
       "LANGUAGE",
       "FRAMEWORK",
       "PACKAGE_MANAGER",
+      "MANIFEST",
       "DEPENDENCY"
     ]);
     expect(context.technology.claims.filter(isLanguageClaim).map((claim) => claim.value)).toEqual([

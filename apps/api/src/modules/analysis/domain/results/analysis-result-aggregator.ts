@@ -6,7 +6,7 @@ import type {
   AnalysisResultContext
 } from "../contracts/analysis-result.contract.js";
 import { InconsistentAnalysisResultContextError } from "../errors/inconsistent-analysis-result-context.error.js";
-import type { ProjectProfile } from "../project-detection/project-profile.js";
+import type { PackageJsonPackage, ProjectProfile } from "../project-detection/project-profile.js";
 import type {
   DependencyEdge,
   RelationshipAnalysisResult,
@@ -93,7 +93,9 @@ function normalizeProjectProfile(project: ProjectProfile): ProjectProfile {
     manifests: [...project.manifests].sort(
       (left, right) => left.path.localeCompare(right.path) || left.type.localeCompare(right.type)
     ),
-    packages: [...project.packages].sort((left, right) => left.path.localeCompare(right.path)),
+    packages: [...project.packages]
+      .map(normalizePackageJsonPackage)
+      .sort((left, right) => left.path.localeCompare(right.path)),
     dependencies: [...project.dependencies].sort(
       (left, right) =>
         left.manifestPath.localeCompare(right.manifestPath) ||
@@ -103,6 +105,28 @@ function normalizeProjectProfile(project: ProjectProfile): ProjectProfile {
     issues: [...project.issues].sort(
       (left, right) => left.path.localeCompare(right.path) || left.code.localeCompare(right.code)
     )
+  };
+}
+
+function normalizePackageJsonPackage(packageJson: PackageJsonPackage): PackageJsonPackage {
+  const scripts = packageJson.scripts
+    ? [...packageJson.scripts].sort(
+        (left, right) =>
+          left.manifestPath.localeCompare(right.manifestPath) ||
+          left.name.localeCompare(right.name) ||
+          left.command.localeCompare(right.command)
+      )
+    : undefined;
+
+  return {
+    ...packageJson,
+    dependencies: [...packageJson.dependencies].sort(
+      (left, right) =>
+        left.manifestPath.localeCompare(right.manifestPath) ||
+        left.name.localeCompare(right.name) ||
+        left.type.localeCompare(right.type)
+    ),
+    ...(scripts && scripts.length > 0 ? { scripts } : {})
   };
 }
 

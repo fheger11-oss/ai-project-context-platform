@@ -14,11 +14,22 @@ async function validateDto(input: unknown) {
 }
 
 describe("GenerateDocumentDto", () => {
-  it("accepts the current document generation transport contract", async () => {
+  it("accepts project overview generation requests", async () => {
     await expect(
       validateDto({
         contextId: "project_context_1",
         documentType: "PROJECT_OVERVIEW",
+        format: "MARKDOWN",
+        generatorVersion: "document-generator@1"
+      })
+    ).resolves.toHaveLength(0);
+  });
+
+  it("accepts technical documentation generation requests", async () => {
+    await expect(
+      validateDto({
+        contextId: "project_context_1",
+        documentType: "TECHNICAL_DOCUMENTATION",
         format: "MARKDOWN",
         generatorVersion: "document-generator@1"
       })

@@ -10,7 +10,7 @@ describe("Document API contracts", () => {
   it("exports the generate document request contract", () => {
     expectTypeOf<GenerateDocumentRequest>().toEqualTypeOf<{
       contextId: string;
-      documentType: "PROJECT_OVERVIEW";
+      documentType: "PROJECT_OVERVIEW" | "TECHNICAL_DOCUMENTATION";
       format: "MARKDOWN";
       generatorVersion: string;
     }>();
@@ -21,7 +21,7 @@ describe("Document API contracts", () => {
       id: string;
       projectContextId: string;
       contextId: string;
-      documentType: "PROJECT_OVERVIEW";
+      documentType: "PROJECT_OVERVIEW" | "TECHNICAL_DOCUMENTATION";
       format: "MARKDOWN";
       generatorVersion: string;
       content: string;

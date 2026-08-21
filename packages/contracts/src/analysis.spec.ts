@@ -4,6 +4,8 @@ import type {
   AnalysisDependencyEdge,
   AnalysisHistoryResponse,
   AnalysisIssue,
+  AnalysisPackageJsonPackage,
+  AnalysisPackageScript,
   AnalysisProjectProfile,
   AnalysisResultResponse,
   AnalysisSourceFileStructure,
@@ -55,6 +57,22 @@ describe("Analysis API contracts", () => {
       relationships: readonly AnalysisSourceRelationship[];
       dependencies: readonly AnalysisDependencyEdge[];
       issues: readonly AnalysisIssue[];
+    }>();
+  });
+
+  it("models package scripts as exact manifest-backed package facts", () => {
+    expectTypeOf<AnalysisPackageScript>().toEqualTypeOf<{
+      manifestPath: string;
+      name: string;
+      command: string;
+    }>();
+    expectTypeOf<AnalysisPackageJsonPackage>().toMatchTypeOf<{
+      path: string;
+      isPrimary: boolean;
+      name: string | null;
+      version: string | null;
+      dependencies: readonly unknown[];
+      scripts?: readonly AnalysisPackageScript[];
     }>();
   });
 });

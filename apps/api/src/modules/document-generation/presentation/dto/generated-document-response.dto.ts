@@ -3,7 +3,7 @@ import type { GeneratedDocumentResponse as GeneratedDocumentResponseContract } f
 
 import type { PersistedGeneratedDocument } from "../../domain/contracts/document-repository.contract.js";
 import { SUPPORTED_DOCUMENT_FORMATS } from "../../domain/document-format.js";
-import { SUPPORTED_DOCUMENT_TYPES } from "../../domain/document-type.js";
+import { SUPPORTED_DOCUMENT_TYPES, type DocumentType } from "../../domain/document-type.js";
 
 export type GeneratedDocumentResponse = GeneratedDocumentResponseContract;
 
@@ -18,7 +18,7 @@ export class GeneratedDocumentResponseDto implements GeneratedDocumentResponseCo
   contextId!: string;
 
   @ApiProperty({ enum: SUPPORTED_DOCUMENT_TYPES })
-  documentType!: "PROJECT_OVERVIEW";
+  documentType!: DocumentType;
 
   @ApiProperty({ enum: SUPPORTED_DOCUMENT_FORMATS })
   format!: "MARKDOWN";

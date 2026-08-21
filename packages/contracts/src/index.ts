@@ -16,6 +16,7 @@ export type {
   AnalysisPackageManager,
   AnalysisPackageManagerCandidate,
   AnalysisPackageManagerDetection,
+  AnalysisPackageScript,
   AnalysisProjectDetectionIssue,
   AnalysisProjectEcosystem,
   AnalysisProjectFramework,

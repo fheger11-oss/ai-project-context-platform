@@ -59,6 +59,18 @@ export function generateDocument(
   });
 }
 
+export function createGenerateDocumentRequest(
+  contextId: string,
+  documentType: GenerateDocumentRequest["documentType"]
+): GenerateDocumentRequest {
+  return {
+    contextId,
+    documentType,
+    format: "MARKDOWN",
+    generatorVersion: "document-generator@1"
+  };
+}
+
 export function getDocument(
   accessToken: string,
   documentId: string

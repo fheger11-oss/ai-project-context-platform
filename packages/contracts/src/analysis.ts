@@ -89,12 +89,19 @@ export type AnalysisPackageDependency = {
   type: AnalysisPackageDependencyType;
 };
 
+export type AnalysisPackageScript = {
+  manifestPath: string;
+  name: string;
+  command: string;
+};
+
 export type AnalysisPackageJsonPackage = {
   path: string;
   isPrimary: boolean;
   name: string | null;
   version: string | null;
   dependencies: readonly AnalysisPackageDependency[];
+  scripts?: readonly AnalysisPackageScript[];
 };
 
 export type AnalysisProjectDetectionIssue = {

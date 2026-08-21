@@ -10,7 +10,7 @@ import { PrismaModule } from "../prisma/prisma.module.js";
 import { GenerateDocumentUseCase } from "./application/generate-document.use-case.js";
 import { GetDocumentUseCase } from "./application/get-document.use-case.js";
 import { ListDocumentHistoryUseCase } from "./application/list-document-history.use-case.js";
-import { ProjectOverviewDocumentGenerator } from "./application/project-overview-document.generator.js";
+import { DocumentGeneratorRouter } from "./application/document-generator.router.js";
 import { RegenerateDocumentUseCase } from "./application/regenerate-document.use-case.js";
 import { DocumentGenerationModule } from "./document-generation.module.js";
 import {
@@ -98,7 +98,7 @@ describe("DocumentGenerationModule", () => {
     const generator = generatorProvider?.useFactory?.(renderer);
 
     expect(renderer).toBeInstanceOf(MarkdownDocumentRenderer);
-    expect(generator).toBeInstanceOf(ProjectOverviewDocumentGenerator);
+    expect(generator).toBeInstanceOf(DocumentGeneratorRouter);
   });
 
   it("resolves the use case provider from the registered contract dependencies", () => {

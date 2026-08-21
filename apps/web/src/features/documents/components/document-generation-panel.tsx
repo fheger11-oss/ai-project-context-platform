@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  createGenerateDocumentRequest,
   DocumentApiRequestError,
   generateDocument,
   getDocument,
@@ -12,14 +13,17 @@ import {
   regenerateDocument
 } from "@/features/documents/api/document-api";
 import type { GeneratedDocumentResponse } from "@/features/documents/api/document-api";
+import type { GenerateDocumentRequest } from "@ai-context/contracts";
 
-const DOCUMENT_TYPE = "PROJECT_OVERVIEW";
-const DOCUMENT_FORMAT = "MARKDOWN";
-const GENERATOR_VERSION = "document-generator@1";
+const DOCUMENT_TYPE_OPTIONS: readonly GenerateDocumentRequest["documentType"][] = [
+  "PROJECT_OVERVIEW",
+  "TECHNICAL_DOCUMENTATION"
+];
 
 type DocumentGenerationPanelProps = {
   accessToken: string;
   contextId: string;
+  initialDocumentType?: GenerateDocumentRequest["documentType"];
 };
 
 function documentErrorMessage(error: unknown): string {
@@ -51,11 +55,21 @@ function labelForDocumentType(value: GeneratedDocumentResponse["documentType"]):
     return "Project Overview";
   }
 
+  if (value === "TECHNICAL_DOCUMENTATION") {
+    return "Technical Documentation";
+  }
+
   return value;
 }
 
-export function DocumentGenerationPanel({ accessToken, contextId }: DocumentGenerationPanelProps) {
+export function DocumentGenerationPanel({
+  accessToken,
+  contextId,
+  initialDocumentType = "PROJECT_OVERVIEW"
+}: DocumentGenerationPanelProps) {
   const queryClient = useQueryClient();
+  const [selectedDocumentType, setSelectedDocumentType] =
+    useState<GenerateDocumentRequest["documentType"]>(initialDocumentType);
   const [selectedDocument, setSelectedDocument] = useState<{
     contextId: string;
     documentId: string;
@@ -79,12 +93,7 @@ export function DocumentGenerationPanel({ accessToken, contextId }: DocumentGene
   const activeDocument = selectedDocumentQuery.data ?? selectedFromHistory ?? documents[0] ?? null;
   const generateMutation = useMutation({
     mutationFn: () =>
-      generateDocument(accessToken, {
-        contextId,
-        documentType: DOCUMENT_TYPE,
-        format: DOCUMENT_FORMAT,
-        generatorVersion: GENERATOR_VERSION
-      }),
+      generateDocument(accessToken, createGenerateDocumentRequest(contextId, selectedDocumentType)),
     onSuccess: async (document) => {
       setSelectedDocument({ contextId, documentId: document.id });
       queryClient.setQueryData(["document", document.id], document);
@@ -101,6 +110,7 @@ export function DocumentGenerationPanel({ accessToken, contextId }: DocumentGene
   });
   const isGenerating = generateMutation.isPending;
   const isRegenerating = regenerateMutation.isPending;
+  const selectedDocumentTypeLabel = labelForDocumentType(selectedDocumentType);
   const canGenerate = Boolean(accessToken && contextId && !isGenerating);
   const canRegenerate = Boolean(activeDocument && !isRegenerating);
 
@@ -133,6 +143,25 @@ export function DocumentGenerationPanel({ accessToken, contextId }: DocumentGene
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="grid gap-1 text-xs text-muted-foreground">
+            <span>Document type</span>
+            <select
+              className="h-9 rounded-md border bg-background px-3 text-sm text-foreground"
+              value={selectedDocumentType}
+              disabled={isGenerating}
+              onChange={(event) =>
+                setSelectedDocumentType(
+                  event.currentTarget.value as GenerateDocumentRequest["documentType"]
+                )
+              }
+            >
+              {DOCUMENT_TYPE_OPTIONS.map((documentType) => (
+                <option key={documentType} value={documentType}>
+                  {labelForDocumentType(documentType)}
+                </option>
+              ))}
+            </select>
+          </label>
           <Button
             type="button"
             size="sm"
@@ -141,7 +170,7 @@ export function DocumentGenerationPanel({ accessToken, contextId }: DocumentGene
             onClick={handleGenerate}
           >
             {isGenerating ? <RotateCw /> : <Sparkles />}
-            {isGenerating ? "Generating" : "Generate Project Overview"}
+            {isGenerating ? "Generating" : `Generate ${selectedDocumentTypeLabel}`}
           </Button>
           <Button
             type="button"
@@ -193,7 +222,7 @@ export function DocumentGenerationPanel({ accessToken, contextId }: DocumentGene
             <div className="rounded-md border border-dashed p-5">
               <p className="text-sm font-medium">No documents generated yet.</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Generate a Project Overview from this Context.
+                Generate a Project Overview or Technical Documentation from this Context.
               </p>
             </div>
           ) : null}
