@@ -672,7 +672,9 @@ function titleCaseIdentifier(value: string): string {
 }
 
 function code(value: string): string {
-  return `\`${value}\``;
+  const delimiter = value.includes("`") ? "``" : "`";
+
+  return `${delimiter}${value}${delimiter}`;
 }
 
 function compareRows(left: readonly string[], right: readonly string[]): number {

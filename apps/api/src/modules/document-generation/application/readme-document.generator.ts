@@ -667,7 +667,9 @@ function booleanValue(value: Record<string, unknown>, key: string): boolean | nu
 }
 
 function code(value: string): string {
-  return `\`${value}\``;
+  const delimiter = value.includes("`") ? "``" : "`";
+
+  return `${delimiter}${value}${delimiter}`;
 }
 
 function evidenceLabel(evidence: ContextEvidence): string {

@@ -689,7 +689,9 @@ function compareRows(left: readonly string[], right: readonly string[]): number 
 }
 
 function code(value: string): string {
-  return `\`${value}\``;
+  const delimiter = value.includes("`") ? "``" : "`";
+
+  return `${delimiter}${value}${delimiter}`;
 }
 
 function isPresent<TValue>(value: TValue | null | undefined): value is TValue {

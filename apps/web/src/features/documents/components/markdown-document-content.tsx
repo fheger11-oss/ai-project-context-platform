@@ -228,12 +228,30 @@ function isTableDivider(line: string): boolean {
 }
 
 function parseTableRow(line: string): string[] {
-  return line
-    .trim()
-    .replace(/^\|/, "")
-    .replace(/\|$/, "")
-    .split("|")
-    .map((cell) => cell.trim());
+  const value = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  const cells: string[] = [];
+  let cell = "";
+
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index] ?? "";
+    const previousCharacter = index > 0 ? value[index - 1] : null;
+
+    if (character === "|" && previousCharacter !== "\\") {
+      cells.push(unescapeTableCell(cell.trim()));
+      cell = "";
+      continue;
+    }
+
+    cell += character;
+  }
+
+  cells.push(unescapeTableCell(cell.trim()));
+
+  return cells;
+}
+
+function unescapeTableCell(value: string): string {
+  return value.replaceAll("\\|", "|");
 }
 
 function renderInlineMarkdown(value: string): ReactNode[] {

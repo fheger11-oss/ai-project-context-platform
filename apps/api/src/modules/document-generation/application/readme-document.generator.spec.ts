@@ -458,6 +458,37 @@ describe("ReadmeDocumentGenerator", () => {
     expect(result.content).not.toContain("package-12");
   });
 
+  it("renders context values containing backticks without breaking inline code spans", async () => {
+    const projectContext = baseContext({
+      technology: {
+        claims: [
+          claim(
+            {
+              type: "PACKAGE_SCRIPT",
+              manifestPath: "package.json",
+              name: "build`docs",
+              command: "node -e `compile`"
+            },
+            "OBSERVED",
+            "HIGH",
+            [manifestEvidence("package.json")]
+          )
+        ]
+      }
+    });
+
+    const result = await generator().generate({
+      projectContext,
+      documentType: "README",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+
+    expect(result.content).toContain(
+      "| ``build`docs`` | ``node -e `compile``` | `package.json` | Observed |"
+    );
+  });
+
   it("renders the same ProjectContext byte-for-byte identically", async () => {
     const projectContext = baseContext({
       technology: {

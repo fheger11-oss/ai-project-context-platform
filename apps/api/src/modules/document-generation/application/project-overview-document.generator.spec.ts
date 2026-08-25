@@ -673,6 +673,35 @@ describe("ProjectOverviewDocumentGenerator", () => {
     expect(result.content).toContain("Sources:");
   });
 
+  it("renders context values containing backticks without breaking inline code spans", async () => {
+    const projectContext = baseContext({
+      technology: {
+        claims: [
+          claim(
+            {
+              type: "PACKAGE_SCRIPT",
+              manifestPath: "package.json",
+              name: "build`docs",
+              command: "node -e `compile`"
+            },
+            "OBSERVED",
+            "HIGH",
+            [manifestEvidence("package.json")]
+          )
+        ]
+      }
+    });
+
+    const result = await generator().generate({
+      projectContext,
+      documentType: "PROJECT_OVERVIEW",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+
+    expect(result.content).toContain("| package.json | build`docs | ``node -e `compile``` |");
+  });
+
   it("renders the same input exactly the same way", async () => {
     const projectContext = baseContext({
       technology: {
