@@ -26,9 +26,9 @@ export function RepositoryListView() {
   return (
     <>
       <PageHeading
-        eyebrow="Repository Engine"
-        title="Repositories"
-        description="Connected GitHub repositories available to future engines."
+        eyebrow="Projects"
+        title="Connected repositories"
+        description="Repositories available for scanning, analysis, context generation, and documentation."
         actions={
           <Button asChild>
             <Link to="/repositories/connect">
@@ -62,7 +62,7 @@ export function RepositoryListView() {
       {apiAccessToken && repositoriesQuery.isSuccess && repositories.length === 0 ? (
         <RepositoryState
           title="No repositories connected"
-          description="Connect a GitHub repository to make it available to the next engine."
+          description="Connect a GitHub repository to scan its structure and generate project intelligence."
           action={
             <Button asChild>
               <Link to="/repositories/connect">

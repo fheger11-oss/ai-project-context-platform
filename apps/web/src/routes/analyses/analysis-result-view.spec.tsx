@@ -131,7 +131,7 @@ describe("AnalysisResultView", () => {
 
     const markup = renderToStaticMarkup(<AnalysisResultView />);
 
-    expect(markup).toContain("Analysis result");
+    expect(markup).toContain("Project analysis");
     expect(markup).toContain("analysis_1");
     expect(markup).toContain("Repository");
   });

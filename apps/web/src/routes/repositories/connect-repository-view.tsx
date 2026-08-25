@@ -133,7 +133,7 @@ export function ConnectRepositoryView() {
                       </div>
                       <Button
                         type="button"
-                        variant={repository.isConnected ? "outline" : "default"}
+                        variant={repository.isConnected ? "destructive" : "default"}
                         disabled={
                           isRepositoryMutationPending ||
                           (repository.isConnected && !repository.connectedRepositoryId)

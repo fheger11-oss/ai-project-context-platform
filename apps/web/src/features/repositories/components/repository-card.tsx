@@ -1,7 +1,9 @@
-import { Archive, GitFork, Star } from "lucide-react";
+import { Archive, ArrowRight, GitBranch, GitFork, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { StatusDot } from "@/components/shared/status-dot";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { RepositorySummary } from "@/features/repositories/api/repositories-api";
 import { RepositoryScanAction } from "@/features/scans/components/repository-scan-action";
@@ -12,16 +14,21 @@ type RepositoryCardProps = {
 };
 
 export function RepositoryCard({ accessToken, repository }: RepositoryCardProps) {
+  const [owner, name] = repository.fullName.includes("/")
+    ? repository.fullName.split("/")
+    : [repository.owner, repository.fullName];
+
   return (
-    <article className="grid gap-3 rounded-md border bg-card/70 p-4">
+    <article className="grid gap-4 rounded-md border border-border bg-card/70 p-4 transition-[background-color,border-color,box-shadow] duration-150 hover:border-border-strong hover:bg-surface-raised">
       <Link
         to={`/repositories/${repository.id}`}
-        className="group block transition-colors hover:text-primary"
+        className="group block rounded-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        aria-label={`Open ${repository.fullName}`}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="truncate text-sm font-medium">{repository.fullName}</h2>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="truncate">{owner}</span>
               <Badge tone={repository.visibility === "PRIVATE" ? "muted" : "success"}>
                 {repository.visibility.toLowerCase()}
               </Badge>
@@ -32,20 +39,31 @@ export function RepositoryCard({ accessToken, repository }: RepositoryCardProps)
                 </span>
               ) : null}
             </div>
+            <h2 className="mt-1 truncate text-base font-semibold text-foreground transition-colors group-hover:text-primary">
+              {name}
+            </h2>
             <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted-foreground">
               {repository.description ?? "No description provided."}
             </p>
           </div>
-          <span className="shrink-0 text-xs text-muted-foreground">
+          <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">
             {new Date(repository.githubUpdatedAt).toLocaleDateString()}
           </span>
         </div>
       </Link>
-      <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-        <span className={cn("font-medium", repository.language && "text-foreground")}>
-          {repository.language ?? "Unknown"}
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border/70 pt-3 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <StatusDot active tone="success" />
+          Connected
         </span>
-        <span>{repository.defaultBranch}</span>
+        <span className="inline-flex min-w-0 items-center gap-1.5">
+          <GitBranch className="size-3.5" />
+          <span className="truncate">{repository.defaultBranch}</span>
+        </span>
+        <span className={cn("font-medium", repository.language && "text-subtle-foreground")}>
+          {repository.language ?? "Unknown language"}
+        </span>
         <span className="inline-flex items-center gap-1">
           <Star className="size-3" />
           {repository.stars}
@@ -55,7 +73,17 @@ export function RepositoryCard({ accessToken, repository }: RepositoryCardProps)
           {repository.forks}
         </span>
       </div>
+
       <RepositoryScanAction accessToken={accessToken} repositoryId={repository.id} />
+
+      <div className="flex justify-end border-t border-border/70 pt-3">
+        <Button asChild size="sm" variant="outline">
+          <Link to={`/repositories/${repository.id}`}>
+            Open project
+            <ArrowRight />
+          </Link>
+        </Button>
+      </div>
     </article>
   );
 }

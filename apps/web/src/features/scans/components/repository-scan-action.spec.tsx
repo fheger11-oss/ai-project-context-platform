@@ -185,8 +185,8 @@ describe("RepositoryScanAction", () => {
   it("displays a successful backend ScanSnapshot", () => {
     const markup = staticMarkup(renderAction({ data: completedScan }));
 
-    expect(markup).toContain("Scan result received.");
-    expect(markup).toContain("COMPLETED");
+    expect(markup).toContain("Repository snapshot captured.");
+    expect(markup).toContain("Completed");
     expect(markup).toContain("fffed9f5ecab4ebb9a861f357e134b8e16bb4d92");
     expect(markup).toContain("91");
     expect(markup).toContain("563302 bytes");

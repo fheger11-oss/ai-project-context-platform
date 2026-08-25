@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { StatusDot } from "@/components/shared/status-dot";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser, getGitHubLoginUrl, logout } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
@@ -82,9 +83,10 @@ export function AuthUserSection({ collapsed = false }: AuthUserSectionProps) {
     <div className={cn("grid gap-3", collapsed && "md:place-items-center")}>
       <div
         className={cn(
-          "flex min-w-0 items-center gap-3 rounded-md border bg-card/60 p-3",
+          "flex min-w-0 items-center gap-3 rounded-md border border-border bg-card/70 p-3",
           collapsed && "md:size-11 md:justify-center md:p-0"
         )}
+        title={collapsed ? displayName : undefined}
       >
         {avatarUrl ? (
           <img
@@ -102,16 +104,17 @@ export function AuthUserSection({ collapsed = false }: AuthUserSectionProps) {
           <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
           <p className="truncate text-xs text-muted-foreground">{username}</p>
           <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-primary">
-            <span className="size-1.5 rounded-full bg-primary shadow-[0_0_12px_var(--primary)]" />
+            <StatusDot active tone="success" />
             Connected with GitHub
           </p>
         </div>
       </div>
       <Button
         type="button"
-        variant="outline"
+        variant="utility"
         className={cn("w-full justify-start", collapsed && "md:size-9 md:px-0")}
         aria-label="Log out"
+        title={collapsed ? "Log out" : undefined}
         disabled={logoutMutation.isPending}
         onClick={() => logoutMutation.mutate()}
       >

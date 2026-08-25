@@ -27,6 +27,48 @@ function scanErrorMessage(error: unknown): string {
   return "Network problem. Check your connection and try again.";
 }
 
+function scanStatusTone(
+  status: ScanSnapshot["status"]
+): "error" | "muted" | "pending" | "running" | "success" {
+  if (status === "COMPLETED") {
+    return "success";
+  }
+
+  if (status === "FAILED") {
+    return "error";
+  }
+
+  if (status === "RUNNING") {
+    return "running";
+  }
+
+  if (status === "PENDING") {
+    return "pending";
+  }
+
+  return "muted";
+}
+
+function scanStatusLabel(status: ScanSnapshot["status"]): string {
+  if (status === "COMPLETED") {
+    return "Completed";
+  }
+
+  if (status === "RUNNING") {
+    return "Running";
+  }
+
+  if (status === "PENDING") {
+    return "Pending";
+  }
+
+  if (status === "FAILED") {
+    return "Failed";
+  }
+
+  return "Cancelled";
+}
+
 export function RepositoryScanAction({ accessToken, repositoryId }: RepositoryScanActionProps) {
   const queryClient = useQueryClient();
   const canStartScan = Boolean(accessToken);
@@ -48,11 +90,11 @@ export function RepositoryScanAction({ accessToken, repositoryId }: RepositorySc
   }
 
   return (
-    <div className="grid gap-3 rounded-md border bg-card/70 p-4">
+    <div className="grid gap-3 rounded-md border border-border bg-surface/70 p-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-sm font-medium">Scan</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Start a backend repository snapshot.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Capture the repository for analysis.</p>
         </div>
         <Button
           type="button"
@@ -83,7 +125,7 @@ export function RepositoryScanAction({ accessToken, repositoryId }: RepositorySc
 
       {scan ? (
         <div className="grid gap-2" role="status" aria-live="polite">
-          <p className="text-sm font-medium text-primary">Scan result received.</p>
+          <p className="text-sm font-medium text-primary">Repository snapshot captured.</p>
           <ScanSnapshotSummary scan={scan} />
         </div>
       ) : null}
@@ -103,7 +145,7 @@ function ScanSnapshotSummary({ scan }: { scan: ScanSnapshot }) {
       <div className="flex items-center justify-between gap-3">
         <dt className="text-muted-foreground">Status</dt>
         <dd>
-          <Badge tone={scan.status === "COMPLETED" ? "success" : "muted"}>{scan.status}</Badge>
+          <Badge tone={scanStatusTone(scan.status)}>{scanStatusLabel(scan.status)}</Badge>
         </dd>
       </div>
       <div className="grid gap-1">

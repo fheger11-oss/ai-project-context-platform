@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { StatePanel } from "@/components/shared/state-panel";
 import { Button } from "@/components/ui/button";
 
 type RepositoryStateProps = {
@@ -10,12 +11,14 @@ type RepositoryStateProps = {
 
 export function RepositoryState({ action, description, title }: RepositoryStateProps) {
   return (
-    <div className="grid min-h-[320px] place-items-center rounded-md border bg-card/60 px-6 py-10 text-center">
-      <div className="max-w-md">
-        <h2 className="text-sm font-medium">{title}</h2>
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
-        {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
-      </div>
+    <div className="grid min-h-[320px] place-items-center rounded-md border border-dashed bg-card/60 px-6 py-10 text-center">
+      <StatePanel
+        action={action}
+        className="w-full max-w-md border-none bg-transparent p-0"
+        description={description}
+        title={title}
+        tone="empty"
+      />
     </div>
   );
 }

@@ -195,7 +195,7 @@ describe("ScanHistory", () => {
   it("renders the scan history component", () => {
     const markup = renderHistory({ data: historyResponse([]) });
 
-    expect(markup).toContain("Scan History");
+    expect(markup).toContain("Project activity");
   });
 
   it("uses the repository id and authenticated access token for history requests", async () => {
@@ -235,7 +235,7 @@ describe("ScanHistory", () => {
   it("shows a loading state while history is loading", () => {
     const markup = renderHistory({ isLoading: true });
 
-    expect(markup).toContain("Loading scan history.");
+    expect(markup).toContain("Loading project activity");
   });
 
   it("renders backend scan history items without reordering or recalculating values", () => {
@@ -246,8 +246,8 @@ describe("ScanHistory", () => {
     expect(markup.indexOf("fffed9f5ecab4ebb9a861f357e134b8e16bb4d92")).toBeLessThan(
       markup.indexOf("abc123failed")
     );
-    expect(markup).toContain("COMPLETED");
-    expect(markup).toContain("FAILED");
+    expect(markup).toContain("Completed");
+    expect(markup).toContain("Failed");
     expect(markup).toContain("91");
     expect(markup).toContain("563302 bytes");
     expect(markup).toContain("6864 ms");
@@ -266,7 +266,7 @@ describe("ScanHistory", () => {
       data: historyResponse([completedScan])
     });
 
-    expect(markup).toContain("No analysis yet.");
+    expect(markup).toContain("Ready for analysis");
     expect(markup).toContain("Analyze Scan scan_completed");
     expect(markup).not.toContain("View Analysis");
   });
@@ -319,9 +319,7 @@ describe("ScanHistory", () => {
       isLoading: true
     });
 
-    expect(renderHistory({ data: historyResponse([completedScan]) })).toContain(
-      "Loading analysis history."
-    );
+    expect(renderHistory({ data: historyResponse([completedScan]) })).toContain("Loading analysis");
 
     analysisQueryStates.set("scan_completed", {
       error: new Error("Authorization Bearer secret-token"),
@@ -341,7 +339,7 @@ describe("ScanHistory", () => {
       data: historyResponse([], 1, 0)
     });
 
-    expect(markup).toContain("No scans yet.");
+    expect(markup).toContain("No scans yet");
   });
 
   it("renders a safe error message without credential details", () => {

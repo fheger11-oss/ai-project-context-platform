@@ -42,19 +42,22 @@ describe("ProjectContextDetails", () => {
   it("renders Context metadata, claims, confidence, kind, and evidence", () => {
     const markup = renderToStaticMarkup(<ProjectContextDetails context={context} />);
 
-    expect(markup).toContain("Context Overview");
+    expect(markup).toContain("Structured project knowledge");
     expect(markup).toContain("context-engine@5.7.1");
-    expect(markup).toContain("PRIMARY_LANGUAGE");
-    expect(markup).toContain("INFERRED");
-    expect(markup).toContain("MEDIUM");
-    expect(markup).toContain("PROJECT_METADATA");
+    expect(markup).toContain("Evidence references");
+    expect(markup).toContain("Primary Language");
+    expect(markup).toContain("Inferred");
+    expect(markup).toContain("Medium confidence");
+    expect(markup).toContain("Evidence (1)");
+    expect(markup).toContain("Raw claim");
+    expect(markup).toContain("Project Metadata");
     expect(markup).toContain("languages");
   });
 
-  it("renders empty sections without fabricating claims", () => {
+  it("omits unsupported sections without fabricating claims", () => {
     const markup = renderToStaticMarkup(<ProjectContextDetails context={context} />);
 
-    expect(markup).toContain("No Context claims in this section.");
+    expect(markup).not.toContain("No claims");
     expect(markup).not.toContain("RUNTIME_SCRIPT");
     expect(markup).not.toContain("TEST_FRAMEWORK");
   });

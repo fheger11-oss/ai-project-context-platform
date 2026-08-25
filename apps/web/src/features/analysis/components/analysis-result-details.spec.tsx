@@ -162,24 +162,24 @@ describe("AnalysisResultDetails", () => {
   it("renders all AnalysisResult sections from backend-owned data", () => {
     const markup = renderToStaticMarkup(<AnalysisResultDetails result={result} />);
 
-    expect(markup).toContain("Overview");
-    expect(markup).toContain("Project");
+    expect(markup).toContain("Project intelligence");
+    expect(markup).toContain("Technology stack");
     expect(markup).toContain("Files");
-    expect(markup).toContain("Source Structure");
+    expect(markup).toContain("Source structures");
     expect(markup).toContain("Relationships");
     expect(markup).toContain("Dependencies");
     expect(markup).toContain("Issues");
     expect(markup).toContain("analysis_1234567890_long_value");
-    expect(markup).toContain("NODE_JS");
-    expect(markup).toContain("PNPM");
-    expect(markup).toContain("REACT");
+    expect(markup).toContain("Node Js");
+    expect(markup).toContain("Pnpm");
+    expect(markup).toContain("React");
     expect(markup).toContain("src/main.ts");
-    expect(markup).toContain("SOURCE");
-    expect(markup).toContain("FUNCTION bootstrap L1");
+    expect(markup).toContain("Source");
+    expect(markup).toContain("Function bootstrap L1");
     expect(markup).toContain("./app");
     expect(markup).toContain("src/app.ts");
     expect(markup).toContain("unknown-package");
-    expect(markup).toContain("UNKNOWN_PACKAGE_DEPENDENCY");
+    expect(markup).toContain("Unknown Package Dependency");
   });
 
   it("renders empty collections as empty states rather than errors", () => {

@@ -159,9 +159,9 @@ describe("ProjectContextPanel", () => {
 
     expect(markup).toContain("Project Context");
     expect(markup).toContain("Generate Again");
-    expect(markup).toContain("APPLICATION_TYPE");
+    expect(markup).toContain("Application Type");
     expect(markup).toContain("Document Generation for project_context_1");
-    expect(markup).toContain("Context History");
+    expect(markup).toContain("Context history");
     expect(markup).toContain("context-engine@5.7.1");
   });
 
@@ -177,7 +177,7 @@ describe("ProjectContextPanel", () => {
     );
 
     expect(markup).toContain("No Context has been generated for this analysis yet.");
-    expect(markup).toContain("No Context history yet.");
+    expect(markup).toContain("No Context history yet");
   });
 
   it("generates Context through the API and refreshes latest/history queries", async () => {

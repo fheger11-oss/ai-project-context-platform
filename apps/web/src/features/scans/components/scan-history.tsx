@@ -1,10 +1,22 @@
-import { BarChart3, ChevronLeft, ChevronRight, Eye, History, RotateCw } from "lucide-react";
+import {
+  BarChart3,
+  CalendarClock,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  FileCode2,
+  History,
+  RotateCw,
+  ScanLine
+} from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
+import { StatePanel } from "@/components/shared/state-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AnalysisApiRequestError, getAnalysisHistory } from "@/features/analysis/api/analysis-api";
 import { StartAnalysisButton } from "@/features/analysis/components/start-analysis-button";
 import { getScanHistory, ScanApiRequestError } from "@/features/scans/api/scan-api";
@@ -42,16 +54,48 @@ function historyErrorMessage(error: unknown): string {
   return "Scan history could not be loaded.";
 }
 
-function scanStatusTone(status: ScanStatus): "neutral" | "success" | "muted" {
+function scanStatusTone(status: ScanStatus): "error" | "muted" | "pending" | "running" | "success" {
   if (status === "COMPLETED") {
     return "success";
+  }
+
+  if (status === "FAILED") {
+    return "error";
+  }
+
+  if (status === "RUNNING") {
+    return "running";
+  }
+
+  if (status === "PENDING") {
+    return "pending";
   }
 
   if (status === "CANCELLED") {
     return "muted";
   }
 
-  return "neutral";
+  return "muted";
+}
+
+function scanStatusLabel(status: ScanStatus): string {
+  if (status === "COMPLETED") {
+    return "Completed";
+  }
+
+  if (status === "RUNNING") {
+    return "Running";
+  }
+
+  if (status === "PENDING") {
+    return "Pending";
+  }
+
+  if (status === "FAILED") {
+    return "Failed";
+  }
+
+  return "Cancelled";
 }
 
 function displayDate(value: string | null): string {
@@ -111,42 +155,46 @@ export function ScanHistoryContent({
   const showPagination = Boolean(pagination && pagination.totalPages > 0);
 
   return (
-    <section className="rounded-md border bg-card/70">
-      <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-        <div className="min-w-0">
-          <h2 className="inline-flex items-center gap-2 text-sm font-medium">
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <div>
+          <CardTitle className="inline-flex items-center gap-2">
             <History className="size-4" />
-            Scan History
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Previous backend repository snapshots.
-          </p>
+            Project activity
+          </CardTitle>
+          <CardDescription>Repository scans and available analysis actions.</CardDescription>
         </div>
         {isFetching && !isLoading ? (
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-            <RotateCw className="size-3.5" />
+            <RotateCw className="size-3.5 animate-spin" />
             Refreshing
           </span>
         ) : null}
-      </div>
+      </CardHeader>
 
-      <div className="grid gap-3 p-4">
+      <CardContent className="grid gap-3">
         {isLoading ? (
-          <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-            Loading scan history.
-          </div>
+          <StatePanel
+            description="Loading previous repository scans for this project."
+            title="Loading project activity"
+            tone="loading"
+          />
         ) : null}
 
         {isError ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-            {historyErrorMessage(error)}
-          </div>
+          <StatePanel
+            description={historyErrorMessage(error)}
+            title="Project activity unavailable"
+            tone="error"
+          />
         ) : null}
 
         {!isLoading && !isError && scans.length === 0 ? (
-          <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-            No scans yet.
-          </div>
+          <StatePanel
+            description="Start a scan to capture the repository snapshot that can be analyzed next."
+            title="No scans yet"
+            tone="empty"
+          />
         ) : null}
 
         {!isLoading && !isError
@@ -184,8 +232,8 @@ export function ScanHistoryContent({
             </div>
           </div>
         ) : null}
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -197,41 +245,71 @@ function ScanHistoryItem({ accessToken, scan }: { accessToken: string; scan: Sca
   });
 
   return (
-    <article className="grid gap-3 rounded-md border bg-background/70 p-4">
+    <article className="grid gap-3 rounded-md border border-border bg-surface/70 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Badge tone={scanStatusTone(scan.status)}>{scan.status}</Badge>
-        <span className="text-xs text-muted-foreground">Created {displayDate(scan.createdAt)}</span>
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid size-9 shrink-0 place-items-center rounded-md border bg-background/50">
+            <ScanLine className="size-4 text-primary" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium text-foreground">
+              Scan {scanStatusLabel(scan.status).toLowerCase()}
+            </h3>
+            <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CalendarClock className="size-3.5" />
+              Created {displayDate(scan.createdAt)}
+            </p>
+          </div>
+        </div>
+        <Badge tone={scanStatusTone(scan.status)}>{scanStatusLabel(scan.status)}</Badge>
       </div>
 
-      <div className="grid gap-1">
-        <p className="text-xs uppercase text-muted-foreground">Commit</p>
-        <p className="truncate font-mono text-xs" title={scan.commitSha}>
-          {scan.commitSha}
-        </p>
-      </div>
-
-      <dl className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-        <div>
+      <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+        <div className="min-w-0 rounded-md border bg-background/45 p-3">
           <dt className="text-xs text-muted-foreground">Files</dt>
-          <dd>{scan.totalFiles}</dd>
+          <dd className="mt-1 inline-flex items-center gap-1.5 text-foreground">
+            <FileCode2 className="size-3.5 text-muted-foreground" />
+            {scan.totalFiles}
+          </dd>
         </div>
-        <div>
+        <div className="min-w-0 rounded-md border bg-background/45 p-3">
           <dt className="text-xs text-muted-foreground">Size</dt>
-          <dd>{scan.totalSize} bytes</dd>
+          <dd className="mt-1 text-foreground">{scan.totalSize} bytes</dd>
         </div>
-        <div>
+        <div className="min-w-0 rounded-md border bg-background/45 p-3">
           <dt className="text-xs text-muted-foreground">Duration</dt>
-          <dd>{displayDuration(scan.durationMs)}</dd>
+          <dd className="mt-1 text-foreground">{displayDuration(scan.durationMs)}</dd>
         </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Started</dt>
-          <dd>{displayDate(scan.startedAt)}</dd>
-        </div>
-        <div>
+        <div className="min-w-0 rounded-md border bg-background/45 p-3">
           <dt className="text-xs text-muted-foreground">Completed</dt>
-          <dd>{displayDate(scan.completedAt)}</dd>
+          <dd className="mt-1 truncate text-foreground" title={displayDate(scan.completedAt)}>
+            {displayDate(scan.completedAt)}
+          </dd>
         </div>
       </dl>
+
+      <details className="rounded-md border border-border bg-background/35">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+          Technical provenance
+        </summary>
+        <dl className="grid gap-3 border-t p-3 text-xs sm:grid-cols-2">
+          <div className="min-w-0">
+            <dt className="text-muted-foreground">Commit</dt>
+            <dd className="mt-1 truncate font-mono text-subtle-foreground" title={scan.commitSha}>
+              {scan.commitSha}
+            </dd>
+          </div>
+          <div className="min-w-0">
+            <dt className="text-muted-foreground">Started</dt>
+            <dd
+              className="mt-1 truncate text-subtle-foreground"
+              title={displayDate(scan.startedAt)}
+            >
+              {displayDate(scan.startedAt)}
+            </dd>
+          </div>
+        </dl>
+      </details>
 
       {scan.status === "COMPLETED" ? (
         <div className="border-t pt-3">
@@ -268,9 +346,12 @@ function AnalysisActions({
 
   if (isLoading) {
     return (
-      <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
-        Loading analysis history.
-      </div>
+      <StatePanel
+        className="p-3"
+        description="Checking whether this scan already has analysis results."
+        title="Loading analysis"
+        tone="loading"
+      />
     );
   }
 
@@ -287,8 +368,11 @@ function AnalysisActions({
 
   if (!latest) {
     return (
-      <div className="grid gap-2">
-        <p className="text-sm text-muted-foreground">No analysis yet.</p>
+      <div className="grid gap-2 rounded-md border border-dashed p-3">
+        <p className="text-sm font-medium text-foreground">Ready for analysis</p>
+        <p className="text-sm text-muted-foreground">
+          Analyze this completed scan to detect structure and dependencies.
+        </p>
         <StartAnalysisButton accessToken={accessToken} scanId={scanId} />
       </div>
     );
@@ -300,7 +384,7 @@ function AnalysisActions({
         <div className="min-w-0">
           <p className="inline-flex items-center gap-2 text-sm font-medium">
             <BarChart3 className="size-4" />
-            Analysis
+            Analysis available
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             Analyzed {displayDate(latest.generatedAt)}

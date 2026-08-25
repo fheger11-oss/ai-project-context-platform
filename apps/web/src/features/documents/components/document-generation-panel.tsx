@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import {
   createGenerateDocumentRequest,
   DocumentApiRequestError,
@@ -161,8 +162,7 @@ export function DocumentGenerationPanel({
         <div className="flex flex-wrap items-center gap-2">
           <label className="grid gap-1 text-xs text-muted-foreground">
             <span>Document type</span>
-            <select
-              className="h-9 rounded-md border bg-background px-3 text-sm text-foreground"
+            <Select
               value={selectedDocumentType}
               disabled={isGenerating}
               onChange={(event) =>
@@ -176,7 +176,7 @@ export function DocumentGenerationPanel({
                   {labelForDocumentType(documentType)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <Button
             type="button"
