@@ -85,6 +85,14 @@ const moduleDocument: GeneratedDocumentResponse = {
   content: "# Module Documentation\n\n## Module Index\n",
   createdAt: "2026-08-18T14:00:00.000Z"
 };
+const readmeDocument: GeneratedDocumentResponse = {
+  ...firstDocument,
+  id: "document_readme_1",
+  documentType: "README",
+  content:
+    "# sample-app\n\n**Important** *note* [docs](https://example.com/docs)\n\n## Available Scripts\n\n| Command | Value |\n| --- | --- |\n| `build` | `vite build` |\n\n```bash\npnpm build\n```\n",
+  createdAt: "2026-08-18T15:00:00.000Z"
+};
 
 vi.mock("@tanstack/react-query", () => ({
   useMutation: (options: MutationOptions) => {
@@ -150,10 +158,11 @@ describe("DocumentGenerationPanel", () => {
     expect(markup).toContain('<option value="TECHNICAL_DOCUMENTATION">Technical Documentation');
     expect(markup).toContain('<option value="ARCHITECTURE_DOCUMENT">Architecture Documentation');
     expect(markup).toContain('<option value="MODULE_DOCUMENTATION">Module Documentation');
+    expect(markup).toContain('<option value="README">README');
     expect(markup).toContain("No documents generated yet.");
     expect(markup).toContain("Generate Project Overview");
     expect(markup).toContain(
-      "Generate Project Overview, Technical Documentation, Architecture Documentation, or Module Documentation"
+      "Generate Project Overview, Technical Documentation, Architecture Documentation, Module Documentation, or README"
     );
   });
 
@@ -200,6 +209,15 @@ describe("DocumentGenerationPanel", () => {
     expect(createGenerateDocumentRequest("project_context_1", "MODULE_DOCUMENTATION")).toEqual({
       contextId: "project_context_1",
       documentType: "MODULE_DOCUMENTATION",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+  });
+
+  it("creates the README request body for the existing document API", () => {
+    expect(createGenerateDocumentRequest("project_context_1", "README")).toEqual({
+      contextId: "project_context_1",
+      documentType: "README",
       format: "MARKDOWN",
       generatorVersion: "document-generator@1"
     });
@@ -298,6 +316,33 @@ describe("DocumentGenerationPanel", () => {
     });
   });
 
+  it("generates README through the existing document API when selected", async () => {
+    vi.mocked(generateDocument).mockResolvedValue(readmeDocument);
+    const markup = renderToStaticMarkup(
+      <DocumentGenerationPanel
+        accessToken="access_token"
+        contextId="project_context_1"
+        initialDocumentType="README"
+      />
+    );
+
+    await mutationOptions[0]?.mutationFn();
+    await mutationOptions[0]?.onSuccess?.(readmeDocument);
+
+    expect(markup).toContain("Generate README");
+    expect(markup).toContain('<option value="README" selected="">README');
+    expect(generateDocument).toHaveBeenCalledWith("access_token", {
+      contextId: "project_context_1",
+      documentType: "README",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+    expect(setQueryData).toHaveBeenCalledWith(["document", "document_readme_1"], readmeDocument);
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["document-history", "project_context_1"]
+    });
+  });
+
   it("shows loading state that disables duplicate generation", () => {
     mutationStates = [{ isError: false, isPending: true }];
 
@@ -317,10 +362,12 @@ describe("DocumentGenerationPanel", () => {
       <DocumentGenerationPanel accessToken="access_token" contextId="project_context_1" />
     );
 
-    expect(markup).toContain("# Project Overview");
-    expect(markup).toContain("- Observed: first artifact.");
+    expect(markup).toContain("<h1");
+    expect(markup).toContain("Project Overview");
+    expect(markup).toContain("Observed: first artifact.");
     expect(markup).toContain("document-generator@1");
     expect(markup).toContain("context:analysis_1:context-engine@1");
+    expect(markup).not.toContain("<pre");
   });
 
   it("displays Technical Documentation artifacts through the existing viewer and history UI", () => {
@@ -331,8 +378,8 @@ describe("DocumentGenerationPanel", () => {
     );
 
     expect(markup).toContain("Technical Documentation");
-    expect(markup).toContain("# Technical Documentation");
-    expect(markup).toContain("## Technology Stack");
+    expect(markup).toContain("<h1");
+    expect(markup).toContain("Technology Stack");
     expect(markup).toContain("document_technical_1");
   });
 
@@ -345,8 +392,8 @@ describe("DocumentGenerationPanel", () => {
 
     expect(markup).toContain("Architecture Documentation");
     expect(markup).toContain("Architecture Documentation - MARKDOWN");
-    expect(markup).toContain("# Architecture Documentation");
-    expect(markup).toContain("## Modules");
+    expect(markup).toContain("<h1");
+    expect(markup).toContain("Modules");
     expect(markup).toContain("document_architecture_1");
   });
 
@@ -359,9 +406,32 @@ describe("DocumentGenerationPanel", () => {
 
     expect(markup).toContain("Module Documentation");
     expect(markup).toContain("Module Documentation - MARKDOWN");
-    expect(markup).toContain("# Module Documentation");
-    expect(markup).toContain("## Module Index");
+    expect(markup).toContain("<h1");
+    expect(markup).toContain("Module Index");
     expect(markup).toContain("document_module_1");
+  });
+
+  it("displays README artifacts with a readable label and rendered Markdown", () => {
+    historyQuery = { data: { documents: [readmeDocument] } };
+
+    const markup = renderToStaticMarkup(
+      <DocumentGenerationPanel accessToken="access_token" contextId="project_context_1" />
+    );
+
+    expect(markup).toContain("README");
+    expect(markup).toContain("README - MARKDOWN");
+    expect(markup).toContain("<h1");
+    expect(markup).toContain("sample-app");
+    expect(markup).toContain("<h2");
+    expect(markup).toContain("Available Scripts");
+    expect(markup).toContain("<table");
+    expect(markup).toContain("<code");
+    expect(markup).toContain("<strong");
+    expect(markup).toContain("<em");
+    expect(markup).toContain('href="https://example.com/docs"');
+    expect(markup).toContain("vite build");
+    expect(markup).toContain("pnpm build");
+    expect(markup).toContain("document_readme_1");
   });
 
   it("renders multiple immutable history artifacts", () => {
@@ -373,7 +443,7 @@ describe("DocumentGenerationPanel", () => {
 
     expect(markup).toContain("document_2");
     expect(markup).toContain("document_1");
-    expect(markup).toContain("- Observed: regenerated artifact.");
+    expect(markup).toContain("Observed: regenerated artifact.");
     expect(markup).not.toContain("Document A updated");
   });
 

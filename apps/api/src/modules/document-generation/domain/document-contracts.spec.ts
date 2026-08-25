@@ -31,18 +31,21 @@ describe("Document generation contracts", () => {
       "PROJECT_OVERVIEW",
       "TECHNICAL_DOCUMENTATION",
       "ARCHITECTURE_DOCUMENT",
-      "MODULE_DOCUMENTATION"
+      "MODULE_DOCUMENTATION",
+      "README"
     ]);
     expectTypeOf<DocumentType>().toEqualTypeOf<
       | "PROJECT_OVERVIEW"
       | "TECHNICAL_DOCUMENTATION"
       | "ARCHITECTURE_DOCUMENT"
       | "MODULE_DOCUMENTATION"
+      | "README"
     >();
     expect(isSupportedDocumentType("PROJECT_OVERVIEW")).toBe(true);
     expect(isSupportedDocumentType("TECHNICAL_DOCUMENTATION")).toBe(true);
     expect(isSupportedDocumentType("ARCHITECTURE_DOCUMENT")).toBe(true);
     expect(isSupportedDocumentType("MODULE_DOCUMENTATION")).toBe(true);
+    expect(isSupportedDocumentType("README")).toBe(true);
   });
 
   it("defines MARKDOWN as the supported MVP document format", () => {
@@ -52,7 +55,7 @@ describe("Document generation contracts", () => {
   });
 
   it("rejects invalid document type and format values", () => {
-    expect(() => assertSupportedDocumentType("README")).toThrow(InvalidDocumentTypeError);
+    expect(() => assertSupportedDocumentType("NOT_A_DOCUMENT")).toThrow(InvalidDocumentTypeError);
     expect(() => assertSupportedDocumentFormat("PDF")).toThrow(InvalidDocumentFormatError);
   });
 

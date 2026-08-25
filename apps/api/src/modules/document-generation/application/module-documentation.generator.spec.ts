@@ -197,29 +197,37 @@ describe("ModuleDocumentationGenerator", () => {
     expect(result.content).toContain("# Module Documentation");
     expect(result.content).toContain("## Module Index");
     expect(result.content).toContain(
+      "| Module Candidate | Path | Source Files | Declarations | Semantics |"
+    );
+    expect(result.content).toContain(
       "| auth | apps/api/src/modules/auth | 6 | 18 | Likely inferred |"
     );
     expect(result.content).toContain(
       "| context | apps/api/src/modules/context | 8 | 25 | Low-confidence inference |"
     );
     expect(result.content).toContain("## Module: auth");
+    expect(result.content).toContain("Overview");
     expect(result.content).toContain("| Path | apps/api/src/modules/auth |");
-    expect(result.content).toContain("| Source file count | 6 |");
-    expect(result.content).toContain("| Declaration count | 18 |");
+    expect(result.content).toContain("| Source files | 6 |");
+    expect(result.content).toContain("| Declarations | 18 |");
     expect(result.content).toContain("| Internal relationships | 4 |");
     expect(result.content).toContain("| Incoming relationships | 2 |");
     expect(result.content).toContain("| Outgoing relationships | 3 |");
     expect(result.content).toContain("| Semantics | Likely inferred |");
+    expect(result.content).toContain("Relationships");
     expect(result.content).toContain(
       "| Incoming | apps/api/src/modules/document-generation | apps/api/src/modules/auth | 1 | Likely inferred |"
     );
     expect(result.content).toContain(
       "| Outgoing | apps/api/src/modules/auth | apps/api/src/modules/context | 3 | Inferred |"
     );
+    expect(result.content).toContain("Source Structure");
     expect(result.content).toContain("| apps/api/src/modules/auth | 6 | 18 | Observed |");
+    expect(result.content).toContain("Ambiguities");
     expect(result.content).toContain(
       "| Relationship analysis | apps/api/src/modules/auth/auth.service.ts | Unresolved import | Could not resolve import target | Observed |"
     );
+    expect(result.content).toContain("Evidence");
     expect(result.content).toContain("Sources:");
     expect(result.content).toContain("source structure apps/api/src/modules/auth");
     expect(result.content).toContain(
@@ -232,6 +240,7 @@ describe("ModuleDocumentationGenerator", () => {
     expect(result.content).not.toContain("responsible for");
     expect(result.content).not.toContain("API routes");
     expect(result.content).not.toContain("runtime behavior");
+    expect(result.content).not.toContain("src/main.ts");
   });
 
   it("does not invent modules when ProjectContext has no module candidates", async () => {
@@ -352,6 +361,68 @@ describe("ModuleDocumentationGenerator", () => {
 
     expect(result.content).toContain("## Module: users");
     expect(result.content).toContain("| Outgoing relationships | 2 |");
+    expect(result.content).not.toContain("entry point");
+  });
+
+  it("deduplicates identical module ambiguity rows without hiding distinct issues", async () => {
+    const issue = (path: string, codeValue: string, message: string) =>
+      claim(
+        {
+          type: "ANALYSIS_ISSUE",
+          stage: "SOURCE_STRUCTURE",
+          path,
+          code: codeValue,
+          message
+        },
+        "OBSERVED",
+        "HIGH",
+        [issueEvidence("SOURCE_STRUCTURE", path, codeValue)]
+      );
+    const projectContext = baseContext({
+      architecture: {
+        claims: [
+          claim(
+            {
+              type: "MODULE_CANDIDATE",
+              moduleId: "src/modules/users",
+              name: "users",
+              path: "src/modules/users",
+              sourceFileCount: 3,
+              declarationCount: 10,
+              internalRelationshipCount: 1,
+              incomingRelationshipCount: 0,
+              outgoingRelationshipCount: 2
+            },
+            "INFERRED",
+            "MEDIUM",
+            [sourceEvidence("src/modules/users")]
+          )
+        ]
+      },
+      ambiguities: [
+        issue("src/modules/users/index.ts", "PARSE_ERROR", "Could not parse source file"),
+        issue("src/modules/users/index.ts", "PARSE_ERROR", "Could not parse source file"),
+        issue("src/modules/users/model.ts", "EMPTY_SOURCE", "Source file was empty")
+      ]
+    });
+
+    const result = await generator().generate({
+      projectContext,
+      documentType: "MODULE_DOCUMENTATION",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+
+    expect(
+      result.content.match(
+        /\| Source structure \| src\/modules\/users\/index\.ts \| Parse Error \| Could not parse source file \| Observed \|/g
+      )
+    ).toHaveLength(1);
+    expect(result.content).toContain(
+      "| Source structure | src/modules/users/model.ts | Empty Source | Source file was empty | Observed |"
+    );
+    expect(result.content).toContain("Ambiguities");
+    expect(result.content).toContain("Evidence");
   });
 
   it("rejects other document types and unsupported formats", async () => {

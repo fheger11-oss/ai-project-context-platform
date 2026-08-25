@@ -97,6 +97,23 @@ describe("TechnicalDocumentationGenerator", () => {
             "OBSERVED",
             "HIGH",
             [manifestEvidence("package.json")]
+          ),
+          claim({ type: "PRIMARY_LANGUAGE", language: "TYPESCRIPT" }, "INFERRED", "HIGH", [
+            {
+              kind: "PROJECT_METADATA",
+              reference: { kind: "PROJECT_METADATA", field: "project.languages" }
+            }
+          ]),
+          claim(
+            { type: "APPLICATION_TYPE", applicationType: "FULLSTACK_APPLICATION" },
+            "INFERRED",
+            "MEDIUM",
+            [
+              {
+                kind: "PROJECT_METADATA",
+                reference: { kind: "PROJECT_METADATA", field: "project.frameworks" }
+              }
+            ]
           )
         ]
       },
@@ -337,6 +354,18 @@ describe("TechnicalDocumentationGenerator", () => {
       generatorVersion: "document-generator@1"
     });
     expect(result.content).toContain("# Technical Documentation");
+    expect(result.content).toContain("## Project Identity");
+    expect(result.content).toContain(
+      "| Primary package | ai-context-platform — 1.0.0 — package.json | Observed |"
+    );
+    expect(result.content).toContain("| Primary language | TypeScript | Inferred |");
+    expect(result.content).toContain(
+      "| Application type | Full-stack application | Likely inferred |"
+    );
+    expect(result.content).toContain("| Package manager | pnpm | Observed |");
+    expect(result.content).toContain(
+      "| Primary manifest | package.json — package.json | Observed |"
+    );
     expect(result.content).toContain("## Technology Stack");
     expect(result.content).toContain("| Ecosystem | Semantics |");
     expect(result.content).toContain("| Node.js | Observed |");
@@ -370,7 +399,7 @@ describe("TechnicalDocumentationGenerator", () => {
     expect(result.content).toContain("## Configuration and Infrastructure");
     expect(result.content).toContain("| eslint.config.js | Observed |");
     expect(result.content).toContain("| Dockerfile | Observed |");
-    expect(result.content).toContain("## Testing Context");
+    expect(result.content).toContain("## Testing");
     expect(result.content).toContain("| apps/api/src/app.spec.ts | Observed |");
     expect(result.content).toContain("| 2 | 1 | Likely inferred |");
     expect(result.content).toContain("## Technical Ambiguities");
@@ -462,6 +491,56 @@ describe("TechnicalDocumentationGenerator", () => {
     );
   });
 
+  it("deduplicates identical technical ambiguity rows without hiding distinct issues", async () => {
+    const issue = (path: string, codeValue: string, message: string) =>
+      claim(
+        {
+          type: "ANALYSIS_ISSUE",
+          stage: "SOURCE_STRUCTURE",
+          path,
+          code: codeValue,
+          message
+        },
+        "OBSERVED",
+        "HIGH",
+        [
+          {
+            kind: "ISSUE",
+            reference: {
+              kind: "ISSUE",
+              stage: "SOURCE_STRUCTURE",
+              path,
+              code: codeValue
+            }
+          }
+        ]
+      );
+    const projectContext = baseContext({
+      ambiguities: [
+        issue("src/a.ts", "PARSE_ERROR", "Could not parse source file"),
+        issue("src/a.ts", "PARSE_ERROR", "Could not parse source file"),
+        issue("src/b.ts", "EMPTY_SOURCE", "Source file was empty")
+      ]
+    });
+
+    const result = await generator().generate({
+      projectContext,
+      documentType: "TECHNICAL_DOCUMENTATION",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+
+    expect(
+      result.content.match(
+        /\| Source structure \| src\/a\.ts \| Parse Error \| Could not parse source file \| Observed \|/g
+      )
+    ).toHaveLength(1);
+    expect(result.content).toContain(
+      "| Source structure | src/b.ts | Empty Source | Source file was empty | Observed |"
+    );
+    expect(result.content).toContain("Sources:");
+  });
+
   it("does not invent unsupported sections or conventional commands", async () => {
     const result = await generator().generate({
       projectContext: baseContext({
@@ -476,6 +555,7 @@ describe("TechnicalDocumentationGenerator", () => {
 
     expect(result.content).toContain("## Technology Stack");
     expect(result.content).not.toContain("## Available Scripts");
+    expect(result.content).not.toContain("## Project Identity");
     expect(result.content).not.toContain("## Project Structure");
     expect(result.content).not.toContain("## Modules");
     expect(result.content).not.toContain("## Entry Point Candidates");

@@ -14,7 +14,8 @@ describe("Document API contracts", () => {
         | "PROJECT_OVERVIEW"
         | "TECHNICAL_DOCUMENTATION"
         | "ARCHITECTURE_DOCUMENT"
-        | "MODULE_DOCUMENTATION";
+        | "MODULE_DOCUMENTATION"
+        | "README";
       format: "MARKDOWN";
       generatorVersion: string;
     }>();
@@ -29,7 +30,8 @@ describe("Document API contracts", () => {
         | "PROJECT_OVERVIEW"
         | "TECHNICAL_DOCUMENTATION"
         | "ARCHITECTURE_DOCUMENT"
-        | "MODULE_DOCUMENTATION";
+        | "MODULE_DOCUMENTATION"
+        | "README";
       format: "MARKDOWN";
       generatorVersion: string;
       content: string;

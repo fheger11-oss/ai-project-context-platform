@@ -235,10 +235,15 @@ describe("ArchitectureDocumentationGenerator", () => {
     });
     expect(result.content).toContain("# Architecture Documentation");
     expect(result.content).toContain("## Architecture Overview");
+    expect(result.content).toContain("| Available Architecture Fact | Count |");
     expect(result.content).toContain("| Module candidates | 2 |");
     expect(result.content).toContain("| Module relationships | 1 |");
+    expect(result.content).toContain("| Source groups | 1 |");
     expect(result.content).toContain("| Entry point candidates | 1 |");
+    expect(result.content).toContain("| Ecosystems | 1 |");
+    expect(result.content).toContain("| Frameworks | 2 |");
     expect(result.content).toContain("## Modules");
+    expect(result.content).toContain("| Module Candidate | Path | Files | Declarations |");
     expect(result.content).toContain(
       "| auth | apps/api/src/modules/auth | 6 | 18 | 4 | 2 | 3 | Likely inferred |"
     );
@@ -251,7 +256,7 @@ describe("ArchitectureDocumentationGenerator", () => {
     );
     expect(result.content).toContain("## Source Structure");
     expect(result.content).toContain("| apps/api/src | 12 | 30 | Observed |");
-    expect(result.content).toContain("## Entry Points");
+    expect(result.content).toContain("## Entry Point Candidates");
     expect(result.content).toContain("| apps/api/src/main.ts | 11 | 5 | Likely inferred |");
     expect(result.content).toContain("## Technology Context");
     expect(result.content).toContain("| Node.js | Observed |");
@@ -287,7 +292,7 @@ describe("ArchitectureDocumentationGenerator", () => {
     expect(result.content).toBe("# Architecture Documentation\n");
     expect(result.content).not.toContain("## Modules");
     expect(result.content).not.toContain("## Module Relationships");
-    expect(result.content).not.toContain("## Entry Points");
+    expect(result.content).not.toContain("## Entry Point Candidates");
     expect(result.content).not.toContain("layered architecture");
     expect(result.content).not.toContain("Clean Architecture");
     expect(result.content).not.toContain("responsible for");
@@ -341,6 +346,46 @@ describe("ArchitectureDocumentationGenerator", () => {
     expect(first.content).not.toContain(generatedAt.toISOString());
   });
 
+  it("deduplicates identical architecture ambiguity rows without hiding distinct issues", async () => {
+    const issue = (path: string, codeValue: string, message: string) =>
+      claim(
+        {
+          type: "ANALYSIS_ISSUE",
+          stage: "RELATIONSHIP_ANALYSIS",
+          path,
+          code: codeValue,
+          message
+        },
+        "OBSERVED",
+        "HIGH",
+        [issueEvidence("RELATIONSHIP_ANALYSIS", path, codeValue)]
+      );
+    const projectContext = baseContext({
+      ambiguities: [
+        issue("src/a.ts", "UNRESOLVED_IMPORT", "Could not resolve import target"),
+        issue("src/a.ts", "UNRESOLVED_IMPORT", "Could not resolve import target"),
+        issue("src/b.ts", "UNKNOWN_PACKAGE_DEPENDENCY", "Package dependency was unknown")
+      ]
+    });
+
+    const result = await generator().generate({
+      projectContext,
+      documentType: "ARCHITECTURE_DOCUMENT",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+
+    expect(
+      result.content.match(
+        /\| Relationship analysis \| src\/a\.ts \| Unresolved Import \| Could not resolve import target \| Observed \|/g
+      )
+    ).toHaveLength(1);
+    expect(result.content).toContain(
+      "| Relationship analysis | src/b.ts | Unknown Package Dependency | Package dependency was unknown | Observed |"
+    );
+    expect(result.content).toContain("Sources:");
+  });
+
   it("is testable with only ProjectContext, a renderer, and no repository infrastructure", async () => {
     const result = await generator().generate({
       projectContext: baseContext({
@@ -367,6 +412,7 @@ describe("ArchitectureDocumentationGenerator", () => {
     });
 
     expect(result.content).toContain("| src/main.ts | 3 | 2 | Likely inferred |");
+    expect(result.content).toContain("## Entry Point Candidates");
   });
 
   it("rejects other document types and unsupported formats", async () => {

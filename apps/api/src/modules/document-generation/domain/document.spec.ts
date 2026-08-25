@@ -28,7 +28,7 @@ describe("Document", () => {
     expect(() =>
       Document.create({
         ...generatedDocument,
-        documentType: "README" as "PROJECT_OVERVIEW"
+        documentType: "NOT_A_DOCUMENT" as "PROJECT_OVERVIEW"
       })
     ).toThrow(InvalidDocumentTypeError);
   });

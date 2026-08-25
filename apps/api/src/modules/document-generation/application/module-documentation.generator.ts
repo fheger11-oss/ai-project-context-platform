@@ -79,7 +79,7 @@ function moduleIndexSection(
     .sort(compareRows);
 
   return section("Module Index", [
-    ...tableBlock(["Module", "Path", "Source Files", "Declarations", "Semantics"], rows),
+    ...tableBlock(["Module Candidate", "Path", "Source Files", "Declarations", "Semantics"], rows),
     ...sourceBlocks(moduleClaims)
   ]);
 }
@@ -124,12 +124,13 @@ function moduleSection(
   const sourceGroups = sourceGroupClaims(snapshot, moduleId, path);
   const ambiguities = moduleAmbiguityClaims(snapshot, path);
   const blocks = [
-    ...tableBlock(
+    ...labeledTableBlock(
+      "Overview",
       ["Field", "Value"],
       [
         ["Path", path],
-        ["Source file count", String(sourceFileCount)],
-        ["Declaration count", String(declarationCount)],
+        ["Source files", String(sourceFileCount)],
+        ["Declarations", String(declarationCount)],
         ["Internal relationships", String(internalRelationshipCount)],
         ["Incoming relationships", String(incomingRelationshipCount)],
         ["Outgoing relationships", String(outgoingRelationshipCount)],
@@ -139,7 +140,7 @@ function moduleSection(
     ...relationshipBlocks(relationships, moduleId),
     ...sourceGroupBlocks(sourceGroups),
     ...ambiguityBlocks(ambiguities),
-    ...sourceBlocks([moduleClaim, ...relationships, ...sourceGroups, ...ambiguities])
+    ...evidenceBlocks([moduleClaim, ...relationships, ...sourceGroups, ...ambiguities])
   ];
 
   return {
@@ -217,7 +218,11 @@ function relationshipBlocks(
     .filter(isPresent)
     .sort(compareRows);
 
-  return tableBlock(["Direction", "Source", "Target", "Relationships", "Semantics"], rows);
+  return labeledTableBlock(
+    "Relationships",
+    ["Direction", "Source", "Target", "Relationships", "Semantics"],
+    rows
+  );
 }
 
 function sourceGroupBlocks(
@@ -236,14 +241,18 @@ function sourceGroupBlocks(
     .filter(isPresent)
     .sort(compareRows);
 
-  return tableBlock(["Source Group", "Source Files", "Declarations", "Semantics"], rows);
+  return labeledTableBlock(
+    "Source Structure",
+    ["Source Group", "Source Files", "Declarations", "Semantics"],
+    rows
+  );
 }
 
 function ambiguityBlocks(
   claims: readonly ContextClaim<Record<string, unknown> & { type: string }>[]
 ): readonly DocumentBlock[] {
-  const rows = claims
-    .map((claim) => {
+  const rows = uniqueRows(
+    claims.map((claim) => {
       const stage = stringValue(claim.value, "stage");
       const path = nullableStringValue(claim.value, "path");
       const issueCode = stringValue(claim.value, "code");
@@ -259,10 +268,9 @@ function ambiguityBlocks(
           ]
         : null;
     })
-    .filter(isPresent)
-    .sort(compareRows);
+  ).sort(compareRows);
 
-  return tableBlock(["Stage", "Path", "Issue", "Message", "Semantics"], rows);
+  return labeledTableBlock("Ambiguities", ["Stage", "Path", "Issue", "Message", "Semantics"], rows);
 }
 
 function section(heading: string, blocks: readonly DocumentBlock[]): readonly DocumentSection[] {
@@ -278,6 +286,42 @@ function tableBlock(
   rows: readonly (readonly string[])[]
 ): readonly DocumentBlock[] {
   return rows.length > 0 ? [{ kind: "table", columns, rows }] : [];
+}
+
+function labeledTableBlock(
+  label: string,
+  columns: readonly string[],
+  rows: readonly (readonly string[])[]
+): readonly DocumentBlock[] {
+  return rows.length > 0 ? [{ kind: "paragraph", text: label }, ...tableBlock(columns, rows)] : [];
+}
+
+function uniqueRows(rows: readonly (readonly string[] | null | undefined)[]): string[][] {
+  const seen = new Set<string>();
+  const unique: string[][] = [];
+
+  for (const row of rows) {
+    if (!row) {
+      continue;
+    }
+
+    const key = row.join("\u0000");
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push([...row]);
+  }
+
+  return unique;
+}
+
+function evidenceBlocks(claims: readonly ContextClaim[]): readonly DocumentBlock[] {
+  const sources = sourceBlocks(claims);
+
+  return sources.length > 0 ? [{ kind: "paragraph", text: "Evidence" }, ...sources] : [];
 }
 
 function sourceBlocks(claims: readonly ContextClaim[]): readonly DocumentBlock[] {

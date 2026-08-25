@@ -35,13 +35,15 @@ function router(
   projectOverviewGenerator = generator("# Project Overview"),
   technicalDocumentationGenerator = generator("# Technical Documentation"),
   architectureDocumentationGenerator = generator("# Architecture Documentation"),
-  moduleDocumentationGenerator = generator("# Module Documentation")
+  moduleDocumentationGenerator = generator("# Module Documentation"),
+  readmeDocumentGenerator = generator("# README")
 ): DocumentGeneratorRouter {
   return new DocumentGeneratorRouter(
     projectOverviewGenerator,
     technicalDocumentationGenerator,
     architectureDocumentationGenerator,
-    moduleDocumentationGenerator
+    moduleDocumentationGenerator,
+    readmeDocumentGenerator
   );
 }
 
@@ -51,11 +53,13 @@ describe("DocumentGeneratorRouter", () => {
     const technicalDocumentationGenerator = generator("# Technical Documentation");
     const architectureDocumentationGenerator = generator("# Architecture Documentation");
     const moduleDocumentationGenerator = generator("# Module Documentation");
+    const readmeDocumentGenerator = generator("# README");
     const documentGeneratorRouter = router(
       projectOverviewGenerator,
       technicalDocumentationGenerator,
       architectureDocumentationGenerator,
-      moduleDocumentationGenerator
+      moduleDocumentationGenerator,
+      readmeDocumentGenerator
     );
 
     await expect(
@@ -68,6 +72,7 @@ describe("DocumentGeneratorRouter", () => {
     expect(technicalDocumentationGenerator.generate).not.toHaveBeenCalled();
     expect(architectureDocumentationGenerator.generate).not.toHaveBeenCalled();
     expect(moduleDocumentationGenerator.generate).not.toHaveBeenCalled();
+    expect(readmeDocumentGenerator.generate).not.toHaveBeenCalled();
   });
 
   it("routes Technical Documentation requests to the Technical Documentation generator", async () => {
@@ -75,11 +80,13 @@ describe("DocumentGeneratorRouter", () => {
     const technicalDocumentationGenerator = generator("# Technical Documentation");
     const architectureDocumentationGenerator = generator("# Architecture Documentation");
     const moduleDocumentationGenerator = generator("# Module Documentation");
+    const readmeDocumentGenerator = generator("# README");
     const documentGeneratorRouter = router(
       projectOverviewGenerator,
       technicalDocumentationGenerator,
       architectureDocumentationGenerator,
-      moduleDocumentationGenerator
+      moduleDocumentationGenerator,
+      readmeDocumentGenerator
     );
 
     await expect(
@@ -92,6 +99,7 @@ describe("DocumentGeneratorRouter", () => {
     expect(technicalDocumentationGenerator.generate).toHaveBeenCalledTimes(1);
     expect(architectureDocumentationGenerator.generate).not.toHaveBeenCalled();
     expect(moduleDocumentationGenerator.generate).not.toHaveBeenCalled();
+    expect(readmeDocumentGenerator.generate).not.toHaveBeenCalled();
   });
 
   it("routes Architecture Documentation requests to the Architecture Documentation generator", async () => {
@@ -99,11 +107,13 @@ describe("DocumentGeneratorRouter", () => {
     const technicalDocumentationGenerator = generator("# Technical Documentation");
     const architectureDocumentationGenerator = generator("# Architecture Documentation");
     const moduleDocumentationGenerator = generator("# Module Documentation");
+    const readmeDocumentGenerator = generator("# README");
     const documentGeneratorRouter = router(
       projectOverviewGenerator,
       technicalDocumentationGenerator,
       architectureDocumentationGenerator,
-      moduleDocumentationGenerator
+      moduleDocumentationGenerator,
+      readmeDocumentGenerator
     );
 
     await expect(
@@ -116,6 +126,7 @@ describe("DocumentGeneratorRouter", () => {
     expect(technicalDocumentationGenerator.generate).not.toHaveBeenCalled();
     expect(architectureDocumentationGenerator.generate).toHaveBeenCalledTimes(1);
     expect(moduleDocumentationGenerator.generate).not.toHaveBeenCalled();
+    expect(readmeDocumentGenerator.generate).not.toHaveBeenCalled();
   });
 
   it("routes Module Documentation requests to the Module Documentation generator", async () => {
@@ -123,11 +134,13 @@ describe("DocumentGeneratorRouter", () => {
     const technicalDocumentationGenerator = generator("# Technical Documentation");
     const architectureDocumentationGenerator = generator("# Architecture Documentation");
     const moduleDocumentationGenerator = generator("# Module Documentation");
+    const readmeDocumentGenerator = generator("# README");
     const documentGeneratorRouter = router(
       projectOverviewGenerator,
       technicalDocumentationGenerator,
       architectureDocumentationGenerator,
-      moduleDocumentationGenerator
+      moduleDocumentationGenerator,
+      readmeDocumentGenerator
     );
 
     await expect(
@@ -140,6 +153,32 @@ describe("DocumentGeneratorRouter", () => {
     expect(technicalDocumentationGenerator.generate).not.toHaveBeenCalled();
     expect(architectureDocumentationGenerator.generate).not.toHaveBeenCalled();
     expect(moduleDocumentationGenerator.generate).toHaveBeenCalledTimes(1);
+    expect(readmeDocumentGenerator.generate).not.toHaveBeenCalled();
+  });
+
+  it("routes README requests to the README generator", async () => {
+    const projectOverviewGenerator = generator("# Project Overview");
+    const technicalDocumentationGenerator = generator("# Technical Documentation");
+    const architectureDocumentationGenerator = generator("# Architecture Documentation");
+    const moduleDocumentationGenerator = generator("# Module Documentation");
+    const readmeDocumentGenerator = generator("# README");
+    const documentGeneratorRouter = router(
+      projectOverviewGenerator,
+      technicalDocumentationGenerator,
+      architectureDocumentationGenerator,
+      moduleDocumentationGenerator,
+      readmeDocumentGenerator
+    );
+
+    await expect(documentGeneratorRouter.generate(input("README"))).resolves.toMatchObject({
+      documentType: "README",
+      content: "# README"
+    });
+    expect(projectOverviewGenerator.generate).not.toHaveBeenCalled();
+    expect(technicalDocumentationGenerator.generate).not.toHaveBeenCalled();
+    expect(architectureDocumentationGenerator.generate).not.toHaveBeenCalled();
+    expect(moduleDocumentationGenerator.generate).not.toHaveBeenCalled();
+    expect(readmeDocumentGenerator.generate).toHaveBeenCalledTimes(1);
   });
 
   it("rejects unsupported document types without selecting a generator", async () => {
@@ -147,19 +186,24 @@ describe("DocumentGeneratorRouter", () => {
     const technicalDocumentationGenerator = generator("# Technical Documentation");
     const architectureDocumentationGenerator = generator("# Architecture Documentation");
     const moduleDocumentationGenerator = generator("# Module Documentation");
+    const readmeDocumentGenerator = generator("# README");
     const documentGeneratorRouter = router(
       projectOverviewGenerator,
       technicalDocumentationGenerator,
       architectureDocumentationGenerator,
-      moduleDocumentationGenerator
+      moduleDocumentationGenerator,
+      readmeDocumentGenerator
     );
 
     await expect(
-      documentGeneratorRouter.generate(input("README" as DocumentGenerationInput["documentType"]))
+      documentGeneratorRouter.generate(
+        input("NOT_A_DOCUMENT" as DocumentGenerationInput["documentType"])
+      )
     ).rejects.toThrow(InvalidDocumentTypeError);
     expect(projectOverviewGenerator.generate).not.toHaveBeenCalled();
     expect(technicalDocumentationGenerator.generate).not.toHaveBeenCalled();
     expect(architectureDocumentationGenerator.generate).not.toHaveBeenCalled();
     expect(moduleDocumentationGenerator.generate).not.toHaveBeenCalled();
+    expect(readmeDocumentGenerator.generate).not.toHaveBeenCalled();
   });
 });

@@ -23,6 +23,8 @@ const CLAIM_KIND_ORDER: Readonly<Record<ContextClaim["kind"], number>> = {
 const DISPLAY_LABELS: Readonly<Record<string, string>> = {
   BACKEND_APPLICATION: "Backend application",
   CSS: "CSS",
+  DEPENDENCY: "Dependency",
+  DEV_DEPENDENCY: "Dev dependency",
   FULLSTACK_APPLICATION: "Full-stack application",
   HTML: "HTML",
   JAVASCRIPT: "JavaScript",
@@ -30,7 +32,9 @@ const DISPLAY_LABELS: Readonly<Record<string, string>> = {
   NESTJS: "NestJS",
   NODE_JS: "Node.js",
   NPM: "npm",
+  OPTIONAL_DEPENDENCY: "Optional dependency",
   PACKAGE_JSON: "package.json",
+  PEER_DEPENDENCY: "Peer dependency",
   PNPM: "pnpm",
   REACT: "React",
   TSCONFIG: "tsconfig.json",
@@ -38,6 +42,8 @@ const DISPLAY_LABELS: Readonly<Record<string, string>> = {
   VITE: "Vite",
   YARN: "Yarn"
 };
+
+const MAX_OVERVIEW_AMBIGUITIES = 5;
 
 export class ProjectOverviewDocumentGenerator implements DocumentGenerator {
   constructor(private readonly renderer: DocumentRenderer<DocumentModel>) {}
@@ -85,14 +91,17 @@ function projectSection(snapshot: ProjectContextSnapshot): readonly DocumentSect
     "APPLICATION_TYPE",
     "PRIMARY_LANGUAGE"
   ]);
-  const items = claims.map(projectItem).filter(isPresent).sort();
+  const rows = claims.map(projectRow).filter(isPresent).sort(compareRows);
 
-  return section("Project", [...unorderedList(items), ...sourceBlocks(claims)]);
+  return section("Project", [
+    ...tableBlock(["Field", "Value", "Semantics"], rows),
+    ...sourceBlocks(claims)
+  ]);
 }
 
-function projectItem(
+function projectRow(
   claim: ContextClaim<Record<string, unknown> & { type: string }>
-): string | null {
+): readonly string[] | null {
   switch (claim.value.type) {
     case "PROJECT_PACKAGE": {
       const path = stringValue(claim.value, "path");
@@ -104,26 +113,23 @@ function projectItem(
         return null;
       }
 
-      const parts = [
-        name ? `Name: ${name}` : null,
-        version ? `Version: ${version}` : null,
-        `Manifest: ${code(path)}`,
-        isPrimary ? "primary package" : null
-      ].filter(isPresent);
+      const details = [name, version, code(path), isPrimary ? "primary package" : null]
+        .filter(isPresent)
+        .join(" — ");
 
-      return withQualifier(parts.join(" — "), claim);
+      return ["Package", details, semanticsLabel(claim)];
     }
     case "APPLICATION_TYPE": {
       const applicationType = stringValue(claim.value, "applicationType");
 
       return applicationType
-        ? withQualifier(`Application type: ${displayLabel(applicationType)}`, claim)
+        ? ["Application type", displayLabel(applicationType), semanticsLabel(claim)]
         : null;
     }
     case "PRIMARY_LANGUAGE": {
       const language = stringValue(claim.value, "language");
 
-      return language ? withQualifier(`Primary language: ${displayLabel(language)}`, claim) : null;
+      return language ? ["Primary language", displayLabel(language), semanticsLabel(claim)] : null;
     }
     default:
       return null;
@@ -143,7 +149,7 @@ function technologySection(snapshot: ProjectContextSnapshot): readonly DocumentS
     .map((claim) => {
       const ecosystem = stringValue(claim.value, "ecosystem");
 
-      return ecosystem ? withQualifier(displayLabel(ecosystem), claim) : null;
+      return ecosystem ? displayLabel(ecosystem) : null;
     })
     .filter(isPresent)
     .sort();
@@ -156,22 +162,19 @@ function technologySection(snapshot: ProjectContextSnapshot): readonly DocumentS
       return language && fileCount !== null
         ? {
             count: fileCount,
-            label: withQualifier(
-              `${displayLabel(language)} — ${countText(fileCount, "file")}`,
-              claim
-            )
+            label: [displayLabel(language), String(fileCount), semanticsLabel(claim)] as const
           }
         : null;
     })
     .filter(isPresent)
-    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
+    .sort((left, right) => right.count - left.count || compareRows(left.label, right.label))
     .map((item) => item.label);
   const frameworks = claims
     .filter((claim) => claim.value.type === "FRAMEWORK")
     .map((claim) => {
       const framework = stringValue(claim.value, "framework");
 
-      return framework ? withQualifier(displayLabel(framework), claim) : null;
+      return framework ? displayLabel(framework) : null;
     })
     .filter(isPresent)
     .sort();
@@ -180,7 +183,7 @@ function technologySection(snapshot: ProjectContextSnapshot): readonly DocumentS
     .map((claim) => {
       const packageManager = stringValue(claim.value, "packageManager");
 
-      return packageManager ? withQualifier(displayLabel(packageManager), claim) : null;
+      return packageManager ? displayLabel(packageManager) : null;
     })
     .filter(isPresent)
     .sort();
@@ -195,18 +198,16 @@ function technologySection(snapshot: ProjectContextSnapshot): readonly DocumentS
         return null;
       }
 
-      const primaryText = isPrimary ? " — primary" : "";
-
-      return withQualifier(`${code(path)} — ${displayLabel(manifestType)}${primaryText}`, claim);
+      return [path, displayLabel(manifestType), isPrimary ? "yes" : "no", semanticsLabel(claim)];
     })
     .filter(isPresent)
-    .sort();
+    .sort(compareRows);
   const blocks = [
     ...labeledList("Ecosystems", ecosystems),
-    ...labeledList("Languages", languages),
+    ...tableBlock(["Language", "Files", "Semantics"], languages),
     ...labeledList("Frameworks", frameworks),
     ...labeledList("Package Managers", packageManagers),
-    ...labeledList("Manifests", manifests),
+    ...tableBlock(["Manifest", "Type", "Primary", "Semantics"], manifests),
     ...sourceBlocks(claims)
   ];
 
@@ -226,7 +227,7 @@ function dependencySection(snapshot: ProjectContextSnapshot): readonly DocumentS
         return null;
       }
 
-      return [name, version ?? "", dependencyType, manifestPath];
+      return [name, version ?? "", displayLabel(dependencyType), manifestPath];
     })
     .filter(isPresent)
     .sort(compareRows);
@@ -280,14 +281,17 @@ function scriptSection(snapshot: ProjectContextSnapshot): readonly DocumentSecti
 
 function structureSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
   const claims = typedClaims(snapshot.structure.claims, ["SOURCE_GROUP"]);
-  const items = claims.map(sourceGroupItem).filter(isPresent).sort();
+  const rows = claims.map(sourceGroupRow).filter(isPresent).sort(compareRows);
 
-  return section("Project Structure", [...unorderedList(items), ...sourceBlocks(claims)]);
+  return section("Project Structure", [
+    ...tableBlock(["Path", "Files", "Declarations", "Semantics"], rows),
+    ...sourceBlocks(claims)
+  ]);
 }
 
-function sourceGroupItem(
+function sourceGroupRow(
   claim: ContextClaim<Record<string, unknown> & { type: string }>
-): string | null {
+): readonly string[] | null {
   const path = stringValue(claim.value, "path");
   const sourceFileCount = numberValue(claim.value, "sourceFileCount");
   const declarationCount = numberValue(claim.value, "declarationCount");
@@ -296,13 +300,7 @@ function sourceGroupItem(
     return null;
   }
 
-  return withQualifier(
-    `${code(path)} — ${countText(sourceFileCount, "source file")}, ${countText(
-      declarationCount,
-      "declaration"
-    )}`,
-    claim
-  );
+  return [path, String(sourceFileCount), String(declarationCount), semanticsLabel(claim)];
 }
 
 function architectureSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
@@ -312,26 +310,29 @@ function architectureSection(snapshot: ProjectContextSnapshot): readonly Documen
   ]);
   const modules = claims
     .filter((claim) => claim.value.type === "MODULE_CANDIDATE")
-    .map(moduleCandidateItem)
+    .map(moduleCandidateRow)
     .filter(isPresent)
-    .sort();
+    .sort(compareRows);
   const relationships = claims
     .filter((claim) => claim.value.type === "MODULE_RELATIONSHIP")
-    .map(moduleRelationshipItem)
+    .map(moduleRelationshipRow)
     .filter(isPresent)
-    .sort();
+    .sort(compareRows);
   const blocks = [
-    ...labeledList("Modules", modules),
-    ...labeledList("Relationships", relationships),
+    ...tableBlock(
+      ["Module", "Path", "Files", "Declarations", "Internal", "Incoming", "Outgoing", "Semantics"],
+      modules
+    ),
+    ...tableBlock(["Source", "Target", "Relationships", "Semantics"], relationships),
     ...sourceBlocks(claims)
   ];
 
-  return section("Architecture Summary", blocks);
+  return section("Architecture / Key Structure", blocks);
 }
 
-function moduleCandidateItem(
+function moduleCandidateRow(
   claim: ContextClaim<Record<string, unknown> & { type: string }>
-): string | null {
+): readonly string[] | null {
   const name = stringValue(claim.value, "name");
   const path = stringValue(claim.value, "path");
   const sourceFileCount = numberValue(claim.value, "sourceFileCount");
@@ -352,21 +353,21 @@ function moduleCandidateItem(
     return null;
   }
 
-  return withQualifier(
-    `${name} (${code(path)}) — ${countText(sourceFileCount, "source file")}, ${countText(
-      declarationCount,
-      "declaration"
-    )}, ${countText(internalRelationshipCount, "internal relationship")}, ${countText(
-      incomingRelationshipCount,
-      "incoming relationship"
-    )}, ${countText(outgoingRelationshipCount, "outgoing relationship")}`,
-    claim
-  );
+  return [
+    name,
+    path,
+    String(sourceFileCount),
+    String(declarationCount),
+    String(internalRelationshipCount),
+    String(incomingRelationshipCount),
+    String(outgoingRelationshipCount),
+    semanticsLabel(claim)
+  ];
 }
 
-function moduleRelationshipItem(
+function moduleRelationshipRow(
   claim: ContextClaim<Record<string, unknown> & { type: string }>
-): string | null {
+): readonly string[] | null {
   const sourceModuleId = stringValue(claim.value, "sourceModuleId");
   const targetModuleId = stringValue(claim.value, "targetModuleId");
   const relationshipCount = numberValue(claim.value, "relationshipCount");
@@ -375,10 +376,7 @@ function moduleRelationshipItem(
     return null;
   }
 
-  return withQualifier(
-    `${sourceModuleId} -> ${targetModuleId} — ${countText(relationshipCount, "relationship")}`,
-    claim
-  );
+  return [sourceModuleId, targetModuleId, String(relationshipCount), semanticsLabel(claim)];
 }
 
 function entryPointSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
@@ -444,10 +442,10 @@ function testingInfrastructureSection(
     .sort();
   const allClaims = [...testingClaims, ...infrastructureClaims];
   const blocks = [
-    ...labeledList("Testing", testingItems),
-    ...labeledList("Configuration", configurationItems),
-    ...labeledList("Infrastructure", infrastructureItems),
-    ...labeledList("Artifact Summary", summaryItems),
+    ...tableBlock(["Testing Fact", "Semantics"], testingItems),
+    ...tableBlock(["Configuration Artifact", "Semantics"], configurationItems),
+    ...tableBlock(["Infrastructure Artifact", "Semantics"], infrastructureItems),
+    ...tableBlock(["Artifact Type", "Count", "Semantics"], summaryItems),
     ...sourceBlocks(allClaims)
   ];
 
@@ -456,19 +454,19 @@ function testingInfrastructureSection(
 
 function testingItem(
   claim: ContextClaim<Record<string, unknown> & { type: string }>
-): string | null {
+): readonly string[] | null {
   switch (claim.value.type) {
     case "TEST_FILE": {
       const path = stringValue(claim.value, "path");
 
-      return path ? withQualifier(code(path), claim) : null;
+      return path ? [path, semanticsLabel(claim)] : null;
     }
     case "TEST_SOURCE_STRUCTURE": {
       const path = stringValue(claim.value, "path");
       const declarationCount = numberValue(claim.value, "declarationCount");
 
       return path && declarationCount !== null
-        ? withQualifier(`${code(path)} — ${countText(declarationCount, "declaration")}`, claim)
+        ? [`${path} — ${countText(declarationCount, "declaration")}`, semanticsLabel(claim)]
         : null;
     }
     case "TESTING_ARTIFACTS_PRESENT": {
@@ -476,13 +474,13 @@ function testingItem(
       const structuredTestFileCount = numberValue(claim.value, "structuredTestFileCount");
 
       return testFileCount !== null && structuredTestFileCount !== null
-        ? withQualifier(
+        ? [
             `${countText(testFileCount, "test file")}; ${countText(
               structuredTestFileCount,
               "structured test file"
             )}`,
-            claim
-          )
+            semanticsLabel(claim)
+          ]
         : null;
     }
     default:
@@ -490,15 +488,17 @@ function testingItem(
   }
 }
 
-function pathItem(claim: ContextClaim<Record<string, unknown> & { type: string }>): string | null {
+function pathItem(
+  claim: ContextClaim<Record<string, unknown> & { type: string }>
+): readonly string[] | null {
   const path = stringValue(claim.value, "path");
 
-  return path ? withQualifier(code(path), claim) : null;
+  return path ? [path, semanticsLabel(claim)] : null;
 }
 
 function artifactSummaryItem(
   claim: ContextClaim<Record<string, unknown> & { type: string }>
-): string | null {
+): readonly string[] | null {
   const artifactCount = numberValue(claim.value, "artifactCount");
 
   if (artifactCount === null) {
@@ -510,14 +510,28 @@ function artifactSummaryItem(
       ? "configuration artifact"
       : "infrastructure artifact";
 
-  return withQualifier(countText(artifactCount, label), claim);
+  return [label, String(artifactCount), semanticsLabel(claim)];
 }
 
 function ambiguitySection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
   const claims = [...snapshot.ambiguities].sort(compareClaims);
-  const items = claims.map(ambiguityItem).filter(isPresent).sort();
+  const items = uniqueBy(claims.map(ambiguityItem).filter(isPresent), (item) => item).sort();
+  const visibleItems = items.slice(0, MAX_OVERVIEW_AMBIGUITIES);
+  const remainingCount = items.length - visibleItems.length;
+  const blocks: DocumentBlock[] = [
+    ...unorderedList(visibleItems),
+    ...(remainingCount > 0
+      ? [
+          {
+            kind: "paragraph" as const,
+            text: `${countText(remainingCount, "additional ambiguity")} present in ProjectContext.`
+          }
+        ]
+      : []),
+    ...sourceBlocks(claims)
+  ];
 
-  return section("Ambiguities", [...unorderedList(items), ...sourceBlocks(claims)]);
+  return section("Ambiguities", blocks);
 }
 
 function ambiguityItem(claim: ContextClaim): string | null {
@@ -562,6 +576,13 @@ function labeledList(label: string, items: readonly string[]): readonly Document
 
 function unorderedList(items: readonly string[]): readonly DocumentBlock[] {
   return items.length > 0 ? [{ kind: "unordered-list", items }] : [];
+}
+
+function tableBlock(
+  columns: readonly string[],
+  rows: readonly (readonly string[])[]
+): readonly DocumentBlock[] {
+  return rows.length > 0 ? [{ kind: "table", columns, rows }] : [];
 }
 
 function sourceBlocks(claims: readonly ContextClaim[]): readonly DocumentBlock[] {
@@ -642,6 +663,10 @@ function semanticQualifier(claim: ContextClaim): string | null {
   return "low-confidence inference";
 }
 
+function semanticsLabel(claim: ContextClaim): string {
+  return semanticQualifier(claim) ?? "Observed";
+}
+
 function displayLabel(value: string): string {
   return DISPLAY_LABELS[value] ?? titleCaseIdentifier(value);
 }
@@ -691,6 +716,24 @@ function booleanValue(value: Record<string, unknown>, key: string): boolean | nu
 
 function numberValue(value: Record<string, unknown>, key: string): number | null {
   return typeof value[key] === "number" ? value[key] : null;
+}
+
+function uniqueBy<TValue>(values: readonly TValue[], keyOf: (value: TValue) => string): TValue[] {
+  const seen = new Set<string>();
+  const result: TValue[] = [];
+
+  for (const value of values) {
+    const key = keyOf(value);
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(value);
+  }
+
+  return result;
 }
 
 function evidenceLabel(evidence: ContextEvidence): string {

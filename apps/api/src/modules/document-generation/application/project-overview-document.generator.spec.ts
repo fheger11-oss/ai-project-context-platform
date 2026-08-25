@@ -277,34 +277,35 @@ describe("ProjectOverviewDocumentGenerator", () => {
     });
     expect(result.content).toContain("## Project");
     expect(result.content).toContain(
-      "- Name: ai-context-platform — Version: 1.0.0 — Manifest: `package.json` — primary package"
+      "| Package | ai-context-platform — 1.0.0 — `package.json` — primary package | Observed |"
     );
-    expect(result.content).toContain("- Primary language: TypeScript (inferred)");
+    expect(result.content).toContain("| Primary language | TypeScript | inferred |");
     expect(result.content).toContain(
-      "- Application type: Full-stack application (likely inferred)"
+      "| Application type | Full-stack application | likely inferred |"
     );
     expect(result.content).toContain("## Technology Stack");
     expect(result.content).toContain("Ecosystems\n\n- Node.js");
-    expect(result.content).toContain("Languages\n\n- TypeScript — 42 files");
+    expect(result.content).toContain("| TypeScript | 42 | Observed |");
     expect(result.content).toContain("Frameworks\n\n- NestJS");
     expect(result.content).toContain("Package Managers\n\n- pnpm");
-    expect(result.content).toContain("Manifests\n\n- `package.json` — package.json — primary");
+    expect(result.content).toContain("| package.json | package.json | yes | Observed |");
     expect(result.content).toContain("## Dependencies");
     expect(result.content).toContain(
-      "| @nestjs/core | ^10.0.0 | runtime | apps/api/package.json |"
+      "| @nestjs/core | ^10.0.0 | Runtime | apps/api/package.json |"
     );
     expect(result.content).toContain("## Available Scripts");
     expect(result.content).toContain("| apps/web/package.json | dev | `vite --host 0.0.0.0` |");
     expect(result.content).toContain("| package.json | build | `pnpm -r build` |");
-    expect(result.content).toContain("- `apps/api/src` — 12 source files, 30 declarations");
+    expect(result.content).toContain("| apps/api/src | 12 | 30 | Observed |");
+    expect(result.content).toContain("## Architecture / Key Structure");
     expect(result.content).toContain(
-      "- modules (`apps/api/src/modules`) — 8 source files, 20 declarations, 6 internal relationships, 1 incoming relationship, 3 outgoing relationships (likely inferred)"
+      "| modules | apps/api/src/modules | 8 | 20 | 6 | 1 | 3 | likely inferred |"
     );
     expect(result.content).toContain(
       "- `apps/api/src/main.ts` — 11 connected source files, 5 outgoing relationships (likely inferred)"
     );
-    expect(result.content).toContain("Testing\n\n- `apps/api/src/app.spec.ts`");
-    expect(result.content).toContain("Configuration\n\n- `eslint.config.js`");
+    expect(result.content).toContain("| apps/api/src/app.spec.ts | Observed |");
+    expect(result.content).toContain("| eslint.config.js | Observed |");
     expect(result.content).toContain(
       "- Parse Error during Source Structure at `src/broken.ts`: Could not parse source file"
     );
@@ -449,13 +450,13 @@ describe("ProjectOverviewDocumentGenerator", () => {
       generatorVersion: "document-generator@1"
     });
 
-    expect(result.content).toContain("- Primary language: TypeScript (inferred)");
+    expect(result.content).toContain("| Primary language | TypeScript | inferred |");
     expect(result.content).toContain("Ecosystems\n\n- JavaScript\n- Node.js\n- TypeScript");
     expect(result.content).toContain(
-      "Languages\n\n- TypeScript — 57 files\n- HTML — 16 files\n- JavaScript — 4 files\n- JSON — 4 files\n- CSS — 3 files"
+      "| TypeScript | 57 | Observed |\n| HTML | 16 | Observed |\n| JavaScript | 4 | Observed |\n| JSON | 4 | Observed |\n| CSS | 3 | Observed |"
     );
-    expect(result.content).toContain("Manifests\n\n- `package.json` — package.json — primary");
-    expect(result.content).toContain("- `tsconfig.json` — tsconfig.json");
+    expect(result.content).toContain("| package.json | package.json | yes | Observed |");
+    expect(result.content).toContain("| tsconfig.json | tsconfig.json | no | Observed |");
     expect(result.content).toContain("| package.json | build | `vite build` |");
     expect(result.content).toContain("| package.json | dev | `vite` |");
     expect(result.content).toContain("| package.json | test | `vitest` |");
@@ -540,9 +541,9 @@ describe("ProjectOverviewDocumentGenerator", () => {
       generatorVersion: "document-generator@1"
     });
 
-    expect(result.content).toContain("- api -> web — 1 relationship");
+    expect(result.content).toContain("| api | web | 1 | Observed |");
     expect(result.content).toContain(
-      "- events (`src/events`) — 2 source files, 4 declarations, 1 internal relationship, 0 incoming relationships, 2 outgoing relationships (low-confidence inference)"
+      "| events | src/events | 2 | 4 | 1 | 0 | 2 | low-confidence inference |"
     );
     expect(result.content).not.toContain("- Observed:");
   });
@@ -573,7 +574,7 @@ describe("ProjectOverviewDocumentGenerator", () => {
       generatorVersion: "document-generator@1"
     });
 
-    expect(result.content).toContain("| left-pad |  | optional | package.json |");
+    expect(result.content).toContain("| left-pad |  | Optional | package.json |");
   });
 
   it("renders concise deterministic evidence without dumping every reference", async () => {
@@ -619,6 +620,57 @@ describe("ProjectOverviewDocumentGenerator", () => {
     );
     expect(result.content).not.toContain("source structure src/z.ts");
     expect(result.content).not.toContain("Evidence:");
+  });
+
+  it("deduplicates and bounds ambiguity details so they do not dominate the overview", async () => {
+    const ambiguity = (path: string, codeValue: string, message: string) =>
+      claim(
+        {
+          type: "ANALYSIS_ISSUE",
+          stage: "SOURCE_STRUCTURE",
+          path,
+          code: codeValue,
+          message
+        },
+        "OBSERVED",
+        "HIGH",
+        [
+          {
+            kind: "ISSUE",
+            reference: {
+              kind: "ISSUE",
+              stage: "SOURCE_STRUCTURE",
+              path,
+              code: codeValue
+            }
+          }
+        ]
+      );
+    const projectContext = baseContext({
+      ambiguities: [
+        ambiguity("src/a.ts", "PARSE_ERROR", "Could not parse source file"),
+        ambiguity("src/a.ts", "PARSE_ERROR", "Could not parse source file"),
+        ambiguity("src/b.ts", "PARSE_ERROR", "Could not parse source file"),
+        ambiguity("src/c.ts", "EMPTY_SOURCE", "Source file was empty"),
+        ambiguity("src/d.ts", "UNSUPPORTED_SOURCE", "Unsupported source file"),
+        ambiguity("src/e.ts", "PARSE_ERROR", "Could not parse source file"),
+        ambiguity("src/f.ts", "PARSE_ERROR", "Could not parse source file")
+      ]
+    });
+
+    const result = await generator().generate({
+      projectContext,
+      documentType: "PROJECT_OVERVIEW",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+
+    expect(
+      result.content.match(/Parse Error during Source Structure at `src\/a\.ts`/g)
+    ).toHaveLength(1);
+    expect(result.content).toContain("1 additional ambiguity present in ProjectContext.");
+    expect(result.content).not.toContain("src/d.ts");
+    expect(result.content).toContain("Sources:");
   });
 
   it("renders the same input exactly the same way", async () => {

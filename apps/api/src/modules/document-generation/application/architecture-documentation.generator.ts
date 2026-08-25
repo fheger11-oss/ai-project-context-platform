@@ -10,7 +10,10 @@ import { InvalidDocumentTypeError } from "../domain/errors/invalid-document-type
 import type { GeneratedDocument } from "../domain/generated-document.js";
 
 const DISPLAY_LABELS: Readonly<Record<string, string>> = {
+  BACKEND: "Backend application",
   BACKEND_APPLICATION: "Backend application",
+  FRONTEND: "Frontend application",
+  FULLSTACK: "Full-stack application",
   FULLSTACK_APPLICATION: "Full-stack application",
   JAVASCRIPT: "JavaScript",
   MALFORMED_PACKAGE_JSON: "Malformed package.json",
@@ -82,18 +85,28 @@ function architectureOverviewSection(snapshot: ProjectContextSnapshot): readonly
     "MODULE_CANDIDATE",
     "MODULE_RELATIONSHIP"
   ]);
+  const sourceGroupClaims = typedClaims(snapshot.structure.claims, ["SOURCE_GROUP"]);
   const entryPointClaims = typedClaims(snapshot.entryPoints.claims, [
     "SOURCE_ENTRY_POINT_CANDIDATE"
   ]);
+  const technologyClaims = typedClaims(snapshot.technology.claims, ["ECOSYSTEM", "FRAMEWORK"]);
   const rows = [
     countRow("Module candidates", architectureClaims, "MODULE_CANDIDATE"),
     countRow("Module relationships", architectureClaims, "MODULE_RELATIONSHIP"),
-    countRow("Entry point candidates", entryPointClaims, "SOURCE_ENTRY_POINT_CANDIDATE")
+    countRow("Source groups", sourceGroupClaims, "SOURCE_GROUP"),
+    countRow("Entry point candidates", entryPointClaims, "SOURCE_ENTRY_POINT_CANDIDATE"),
+    countRow("Ecosystems", technologyClaims, "ECOSYSTEM"),
+    countRow("Frameworks", technologyClaims, "FRAMEWORK")
   ].filter(isPresent);
-  const claims = [...architectureClaims, ...entryPointClaims];
+  const claims = [
+    ...architectureClaims,
+    ...sourceGroupClaims,
+    ...entryPointClaims,
+    ...technologyClaims
+  ];
 
   return section("Architecture Overview", [
-    ...tableBlock(["Context Capability", "Count"], rows),
+    ...tableBlock(["Available Architecture Fact", "Count"], rows),
     ...sourceBlocks(claims)
   ]);
 }
@@ -134,7 +147,16 @@ function modulesSection(snapshot: ProjectContextSnapshot): readonly DocumentSect
 
   return section("Modules", [
     ...tableBlock(
-      ["Module", "Path", "Files", "Declarations", "Internal", "Incoming", "Outgoing", "Semantics"],
+      [
+        "Module Candidate",
+        "Path",
+        "Files",
+        "Declarations",
+        "Internal",
+        "Incoming",
+        "Outgoing",
+        "Semantics"
+      ],
       rows
     ),
     ...sourceBlocks(claims)
@@ -203,7 +225,7 @@ function entryPointsSection(snapshot: ProjectContextSnapshot): readonly Document
     .filter(isPresent)
     .sort(compareRows);
 
-  return section("Entry Points", [
+  return section("Entry Point Candidates", [
     ...tableBlock(
       ["Candidate Path", "Connected Files", "Outgoing Relationships", "Semantics"],
       rows
@@ -248,8 +270,8 @@ function architectureAmbiguitiesSection(
 
     return stage ? ARCHITECTURE_ISSUE_STAGES.has(stage) : false;
   });
-  const rows = claims
-    .map((claim) => {
+  const rows = uniqueRows(
+    claims.map((claim) => {
       const stage = stringValue(claim.value, "stage");
       const path = nullableStringValue(claim.value, "path");
       const issueCode = stringValue(claim.value, "code");
@@ -265,8 +287,7 @@ function architectureAmbiguitiesSection(
           ]
         : null;
     })
-    .filter(isPresent)
-    .sort(compareRows);
+  ).sort(compareRows);
 
   return section("Architecture Ambiguities", [
     ...tableBlock(["Stage", "Path", "Issue", "Message", "Semantics"], rows),
@@ -297,6 +318,28 @@ function tableBlock(
   rows: readonly (readonly string[])[]
 ): readonly DocumentBlock[] {
   return rows.length > 0 ? [{ kind: "table", columns, rows }] : [];
+}
+
+function uniqueRows(rows: readonly (readonly string[] | null | undefined)[]): string[][] {
+  const seen = new Set<string>();
+  const unique: string[][] = [];
+
+  for (const row of rows) {
+    if (!row) {
+      continue;
+    }
+
+    const key = row.join("\u0000");
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push([...row]);
+  }
+
+  return unique;
 }
 
 function sourceBlocks(claims: readonly ContextClaim[]): readonly DocumentBlock[] {

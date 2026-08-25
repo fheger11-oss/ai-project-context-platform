@@ -24,6 +24,7 @@ const DISPLAY_LABELS: Readonly<Record<string, string>> = {
   MALFORMED_PACKAGE_JSON: "Malformed package.json",
   MISSING_MANIFEST_CONTENT: "Missing manifest content",
   NESTJS: "NestJS",
+  NEXT_JS: "Next.js",
   NODE_JS: "Node.js",
   NPM: "npm",
   OPTIONAL_DEPENDENCY: "Optional dependency",
@@ -51,17 +52,21 @@ const CLAIM_KIND_ORDER: Readonly<Record<ContextClaim["kind"], number>> = {
   INFERRED: 1
 };
 
-export class TechnicalDocumentationGenerator implements DocumentGenerator {
+const MAX_README_DEPENDENCIES = 12;
+const MAX_README_AMBIGUITIES = 5;
+
+export class ReadmeDocumentGenerator implements DocumentGenerator {
   constructor(private readonly renderer: DocumentRenderer<DocumentModel>) {}
 
   async generate(input: DocumentGenerationInput): Promise<GeneratedDocument> {
-    if (input.documentType !== "TECHNICAL_DOCUMENTATION") {
+    if (input.documentType !== "README") {
       throw new InvalidDocumentTypeError(input.documentType);
     }
 
     assertSupportedDocumentFormat(input.format);
 
-    const model = composeTechnicalDocumentation(input.projectContext.toSnapshot());
+    const snapshot = input.projectContext.toSnapshot();
+    const model = composeReadme(snapshot);
     const content = await this.renderer.render(model);
 
     return Document.create({
@@ -74,64 +79,70 @@ export class TechnicalDocumentationGenerator implements DocumentGenerator {
   }
 }
 
-function composeTechnicalDocumentation(snapshot: ProjectContextSnapshot): DocumentModel {
+function composeReadme(snapshot: ProjectContextSnapshot): DocumentModel {
   return {
-    title: "Technical Documentation",
+    title: readmeTitle(snapshot),
     sections: [
-      ...projectIdentitySection(snapshot),
-      ...technologyStackSection(snapshot),
-      ...packagesAndDependenciesSection(snapshot),
-      ...availableScriptsSection(snapshot),
+      ...overviewSection(snapshot),
+      ...techStackSection(snapshot),
       ...projectStructureSection(snapshot),
-      ...modulesSection(snapshot),
-      ...moduleRelationshipsSection(snapshot),
-      ...entryPointCandidatesSection(snapshot),
-      ...configurationInfrastructureSection(snapshot),
-      ...testingContextSection(snapshot),
-      ...technicalAmbiguitiesSection(snapshot)
+      ...architectureSection(snapshot),
+      ...entryPointsSection(snapshot),
+      ...scriptsSection(snapshot),
+      ...dependenciesSection(snapshot),
+      ...configurationSection(snapshot),
+      ...testingSection(snapshot),
+      ...knownLimitationsSection(snapshot),
+      ...projectInformationSection(snapshot)
     ]
   };
 }
 
-function projectIdentitySection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+function readmeTitle(snapshot: ProjectContextSnapshot): string {
+  const primaryPackage = typedClaims(snapshot.project.claims, ["PROJECT_PACKAGE"]).find(
+    (claim) => booleanValue(claim.value, "isPrimary") === true
+  );
+  const name = primaryPackage ? nullableStringValue(primaryPackage.value, "name") : null;
+
+  return name ?? "README";
+}
+
+function overviewSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
   const projectClaims = typedClaims(snapshot.project.claims, [
     "PROJECT_PACKAGE",
     "APPLICATION_TYPE",
     "PRIMARY_LANGUAGE"
   ]);
   const technologyClaims = typedClaims(snapshot.technology.claims, ["PACKAGE_MANAGER", "MANIFEST"]);
-  const primaryManifestClaims = technologyClaims.filter((claim) => {
-    if (claim.value.type !== "MANIFEST") {
-      return false;
-    }
-
-    return booleanValue(claim.value, "isPrimary") === true;
-  });
-  const claims = [...projectClaims, ...technologyClaims];
   const rows = [
-    ...projectClaims.map(projectIdentityRow),
+    ...projectClaims.map(overviewRow),
     ...technologyClaims
       .filter((claim) => claim.value.type === "PACKAGE_MANAGER")
-      .map(packageManagerIdentityRow),
-    ...primaryManifestClaims.map(primaryManifestIdentityRow)
+      .map(packageManagerRow),
+    ...technologyClaims
+      .filter(
+        (claim) =>
+          claim.value.type === "MANIFEST" && booleanValue(claim.value, "isPrimary") === true
+      )
+      .map(primaryManifestRow)
   ]
     .filter(isPresent)
     .sort(compareRows);
 
-  return section("Project Identity", [
-    ...tableBlock(["Field", "Value", "Semantics"], rows),
-    ...sourceBlocks(claims)
+  return section("Overview", [
+    ...tableBlock(["Fact", "Value"], rows),
+    ...sourceBlocks([...projectClaims, ...technologyClaims])
   ]);
 }
 
-function projectIdentityRow(
+function overviewRow(
   claim: ContextClaim<Record<string, unknown> & { type: string }>
 ): readonly string[] | null {
   switch (claim.value.type) {
     case "PROJECT_PACKAGE": {
-      const path = stringValue(claim.value, "path");
       const name = nullableStringValue(claim.value, "name");
       const version = nullableStringValue(claim.value, "version");
+      const path = stringValue(claim.value, "path");
       const isPrimary = booleanValue(claim.value, "isPrimary");
 
       if (!path || isPrimary === null) {
@@ -140,65 +151,68 @@ function projectIdentityRow(
 
       return [
         isPrimary ? "Primary package" : "Package",
-        [name, version, path].filter(isPresent).join(" — "),
-        qualifier(claim)
+        withSemantics([name, version, code(path)].filter(isPresent).join(" - "), claim)
       ];
     }
     case "APPLICATION_TYPE": {
       const applicationType = stringValue(claim.value, "applicationType");
 
       return applicationType
-        ? ["Application type", displayLabel(applicationType), qualifier(claim)]
+        ? ["Application type", withSemantics(displayLabel(applicationType), claim)]
         : null;
     }
     case "PRIMARY_LANGUAGE": {
       const language = stringValue(claim.value, "language");
 
-      return language ? ["Primary language", displayLabel(language), qualifier(claim)] : null;
+      return language ? ["Primary language", withSemantics(displayLabel(language), claim)] : null;
     }
     default:
       return null;
   }
 }
 
-function packageManagerIdentityRow(
+function packageManagerRow(
   claim: ContextClaim<Record<string, unknown> & { type: string }>
 ): readonly string[] | null {
   const packageManager = stringValue(claim.value, "packageManager");
 
   return packageManager
-    ? ["Package manager", displayLabel(packageManager), qualifier(claim)]
+    ? ["Package manager", withSemantics(displayLabel(packageManager), claim)]
     : null;
 }
 
-function primaryManifestIdentityRow(
+function primaryManifestRow(
   claim: ContextClaim<Record<string, unknown> & { type: string }>
 ): readonly string[] | null {
   const path = stringValue(claim.value, "path");
   const manifestType = stringValue(claim.value, "manifestType");
 
   return path && manifestType
-    ? ["Primary manifest", `${path} — ${displayLabel(manifestType)}`, qualifier(claim)]
+    ? ["Primary manifest", withSemantics(`${code(path)} (${displayLabel(manifestType)})`, claim)]
     : null;
 }
 
-function technologyStackSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+function techStackSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
   const claims = typedClaims(snapshot.technology.claims, [
     "ECOSYSTEM",
     "LANGUAGE",
     "FRAMEWORK",
-    "PACKAGE_MANAGER",
     "MANIFEST"
   ]);
-  const ecosystemRows = typedClaims(snapshot.technology.claims, ["ECOSYSTEM"])
-    .map((claim) => {
-      const ecosystem = stringValue(claim.value, "ecosystem");
-
-      return ecosystem ? [displayLabel(ecosystem), qualifier(claim)] : null;
-    })
+  const ecosystems = claims
+    .filter((claim) => claim.value.type === "ECOSYSTEM")
+    .map((claim) => stringValue(claim.value, "ecosystem"))
     .filter(isPresent)
-    .sort(compareRows);
-  const languageRows = typedClaims(snapshot.technology.claims, ["LANGUAGE"])
+    .map(displayLabel)
+    .sort();
+  const frameworks = claims
+    .filter((claim) => claim.value.type === "FRAMEWORK")
+    .map((claim) => stringValue(claim.value, "framework"))
+    .filter(isPresent)
+    .map(displayLabel)
+    .sort();
+  const languageRows = claims
+    .filter((claim) => claim.value.type === "LANGUAGE")
     .map((claim) => {
       const language = stringValue(claim.value, "language");
       const fileCount = numberValue(claim.value, "fileCount");
@@ -209,103 +223,30 @@ function technologyStackSection(snapshot: ProjectContextSnapshot): readonly Docu
     })
     .filter(isPresent)
     .sort((left, right) => Number(right[1]) - Number(left[1]) || compareRows(left, right));
-  const frameworkRows = typedClaims(snapshot.technology.claims, ["FRAMEWORK"])
-    .map((claim) => {
-      const framework = stringValue(claim.value, "framework");
-
-      return framework ? [displayLabel(framework), qualifier(claim)] : null;
-    })
-    .filter(isPresent)
-    .sort(compareRows);
-  const packageManagerRows = typedClaims(snapshot.technology.claims, ["PACKAGE_MANAGER"])
-    .map((claim) => {
-      const packageManager = stringValue(claim.value, "packageManager");
-
-      return packageManager ? [displayLabel(packageManager), qualifier(claim)] : null;
-    })
-    .filter(isPresent)
-    .sort(compareRows);
-  const manifestRows = typedClaims(snapshot.technology.claims, ["MANIFEST"])
+  const manifestItems = claims
+    .filter((claim) => claim.value.type === "MANIFEST")
     .map((claim) => {
       const path = stringValue(claim.value, "path");
       const manifestType = stringValue(claim.value, "manifestType");
       const isPrimary = booleanValue(claim.value, "isPrimary");
 
-      return path && manifestType && isPrimary !== null
-        ? [path, displayLabel(manifestType), isPrimary ? "yes" : "no", qualifier(claim)]
-        : null;
+      if (!path || !manifestType || isPrimary === null) {
+        return null;
+      }
+
+      return `${code(path)} - ${displayLabel(manifestType)}${isPrimary ? " (primary)" : ""}`;
     })
     .filter(isPresent)
-    .sort(compareRows);
+    .sort();
   const blocks = [
-    ...tableBlock(["Ecosystem", "Semantics"], ecosystemRows),
+    ...labeledList("Ecosystems", ecosystems),
+    ...labeledList("Frameworks", frameworks),
     ...tableBlock(["Language", "Files", "Semantics"], languageRows),
-    ...tableBlock(["Framework", "Semantics"], frameworkRows),
-    ...tableBlock(["Package Manager", "Semantics"], packageManagerRows),
-    ...tableBlock(["Manifest", "Type", "Primary", "Semantics"], manifestRows),
+    ...labeledList("Manifests", manifestItems),
     ...sourceBlocks(claims)
   ];
 
-  return section("Technology Stack", blocks);
-}
-
-function packagesAndDependenciesSection(
-  snapshot: ProjectContextSnapshot
-): readonly DocumentSection[] {
-  const packageClaims = typedClaims(snapshot.project.claims, ["PROJECT_PACKAGE"]);
-  const dependencyClaims = typedClaims(snapshot.technology.claims, ["DEPENDENCY"]);
-  const packageRows = packageClaims
-    .map((claim) => {
-      const path = stringValue(claim.value, "path");
-      const name = nullableStringValue(claim.value, "name");
-      const version = nullableStringValue(claim.value, "version");
-      const isPrimary = booleanValue(claim.value, "isPrimary");
-
-      return path && isPrimary !== null
-        ? [path, name ?? "", version ?? "", isPrimary ? "yes" : "no", qualifier(claim)]
-        : null;
-    })
-    .filter(isPresent)
-    .sort(compareRows);
-  const dependencyRows = dependencyClaims
-    .map((claim) => {
-      const name = stringValue(claim.value, "name");
-      const version = nullableStringValue(claim.value, "version");
-      const dependencyType = stringValue(claim.value, "dependencyType");
-      const manifestPath = stringValue(claim.value, "manifestPath");
-
-      return name && dependencyType && manifestPath
-        ? [manifestPath, name, version ?? "", displayLabel(dependencyType), qualifier(claim)]
-        : null;
-    })
-    .filter(isPresent)
-    .sort(compareRows);
-  const blocks = [
-    ...tableBlock(["Manifest", "Name", "Version", "Primary", "Semantics"], packageRows),
-    ...tableBlock(["Manifest", "Package", "Version", "Type", "Semantics"], dependencyRows),
-    ...sourceBlocks([...packageClaims, ...dependencyClaims])
-  ];
-
-  return section("Packages and Dependencies", blocks);
-}
-
-function availableScriptsSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
-  const scriptClaims = typedClaims(snapshot.technology.claims, ["PACKAGE_SCRIPT"]);
-  const rows = scriptClaims
-    .map((claim) => {
-      const manifestPath = stringValue(claim.value, "manifestPath");
-      const name = stringValue(claim.value, "name");
-      const command = stringValue(claim.value, "command");
-
-      return manifestPath && name && command ? [manifestPath, name, code(command)] : null;
-    })
-    .filter(isPresent)
-    .sort(compareRows);
-
-  return section("Available Scripts", [
-    ...tableBlock(["Package", "Script", "Command"], rows),
-    ...sourceBlocks(scriptClaims)
-  ]);
+  return section("Tech Stack", blocks);
 }
 
 function projectStructureSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
@@ -317,7 +258,7 @@ function projectStructureSection(snapshot: ProjectContextSnapshot): readonly Doc
       const declarationCount = numberValue(claim.value, "declarationCount");
 
       return path && sourceFileCount !== null && declarationCount !== null
-        ? [path, String(sourceFileCount), String(declarationCount), qualifier(claim)]
+        ? [code(path), String(sourceFileCount), String(declarationCount), qualifier(claim)]
         : null;
     })
     .filter(isPresent)
@@ -329,71 +270,34 @@ function projectStructureSection(snapshot: ProjectContextSnapshot): readonly Doc
   ]);
 }
 
-function modulesSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
-  const claims = typedClaims(snapshot.architecture.claims, ["MODULE_CANDIDATE"]);
-  const rows = claims
+function architectureSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+  const moduleClaims = typedClaims(snapshot.architecture.claims, ["MODULE_CANDIDATE"]);
+  const relationshipClaims = typedClaims(snapshot.architecture.claims, ["MODULE_RELATIONSHIP"]);
+  const moduleItems = moduleClaims
     .map((claim) => {
       const name = stringValue(claim.value, "name");
       const path = stringValue(claim.value, "path");
-      const sourceFileCount = numberValue(claim.value, "sourceFileCount");
-      const declarationCount = numberValue(claim.value, "declarationCount");
-      const internalRelationshipCount = numberValue(claim.value, "internalRelationshipCount");
-      const incomingRelationshipCount = numberValue(claim.value, "incomingRelationshipCount");
-      const outgoingRelationshipCount = numberValue(claim.value, "outgoingRelationshipCount");
 
-      return name &&
-        path &&
-        sourceFileCount !== null &&
-        declarationCount !== null &&
-        internalRelationshipCount !== null &&
-        incomingRelationshipCount !== null &&
-        outgoingRelationshipCount !== null
-        ? [
-            name,
-            path,
-            String(sourceFileCount),
-            String(declarationCount),
-            String(internalRelationshipCount),
-            String(incomingRelationshipCount),
-            String(outgoingRelationshipCount),
-            qualifier(claim)
-          ]
-        : null;
+      return name && path ? `${name} - ${code(path)} (${qualifier(claim).toLowerCase()})` : null;
     })
     .filter(isPresent)
-    .sort(compareRows);
+    .sort();
+  const rows = [
+    moduleClaims.length > 0 ? ["Module candidates", String(moduleClaims.length)] : null,
+    relationshipClaims.length > 0
+      ? ["Module relationships", String(relationshipClaims.length)]
+      : null
+  ].filter(isPresent);
+  const blocks = [
+    ...tableBlock(["Architecture Fact", "Count"], rows),
+    ...labeledList("Module Candidates", moduleItems),
+    ...sourceBlocks([...moduleClaims, ...relationshipClaims])
+  ];
 
-  return section("Modules", [
-    ...tableBlock(
-      ["Module", "Path", "Files", "Declarations", "Internal", "Incoming", "Outgoing", "Semantics"],
-      rows
-    ),
-    ...sourceBlocks(claims)
-  ]);
+  return section("Architecture", blocks);
 }
 
-function moduleRelationshipsSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
-  const claims = typedClaims(snapshot.architecture.claims, ["MODULE_RELATIONSHIP"]);
-  const rows = claims
-    .map((claim) => {
-      const sourceModuleId = stringValue(claim.value, "sourceModuleId");
-      const targetModuleId = stringValue(claim.value, "targetModuleId");
-      const relationshipCount = numberValue(claim.value, "relationshipCount");
-
-      return sourceModuleId && targetModuleId && relationshipCount !== null
-        ? [sourceModuleId, targetModuleId, String(relationshipCount), qualifier(claim)]
-        : null;
-    })
-    .filter(isPresent)
-    .sort(compareRows);
-
-  return section("Module Relationships", [
-    ...tableBlock(["Source", "Target", "Relationships", "Semantics"], rows),
-    ...sourceBlocks(claims)
-  ]);
-}
-
-function entryPointCandidatesSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+function entryPointsSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
   const claims = typedClaims(snapshot.entryPoints.claims, ["SOURCE_ENTRY_POINT_CANDIDATE"]);
   const rows = claims
     .map((claim) => {
@@ -403,7 +307,7 @@ function entryPointCandidatesSection(snapshot: ProjectContextSnapshot): readonly
 
       return path && connectedSourceFileCount !== null && outgoingRelationshipCount !== null
         ? [
-            path,
+            code(path),
             String(connectedSourceFileCount),
             String(outgoingRelationshipCount),
             qualifier(claim)
@@ -413,81 +317,104 @@ function entryPointCandidatesSection(snapshot: ProjectContextSnapshot): readonly
     .filter(isPresent)
     .sort(compareRows);
 
-  return section("Entry Point Candidates", [
-    ...tableBlock(["Path", "Connected Files", "Outgoing Relationships", "Semantics"], rows),
+  return section("Key Entry Points", [
+    ...tableBlock(["Candidate", "Connected Files", "Outgoing Relationships", "Semantics"], rows),
     ...sourceBlocks(claims)
   ]);
 }
 
-function configurationInfrastructureSection(
-  snapshot: ProjectContextSnapshot
-): readonly DocumentSection[] {
-  const claims = typedClaims(snapshot.infrastructure.claims, [
-    "CONFIGURATION_ARTIFACTS_PRESENT",
-    "CONFIGURATION_ARTIFACT",
-    "INFRASTRUCTURE_ARTIFACTS_PRESENT",
-    "INFRASTRUCTURE_ARTIFACT"
-  ]);
-  const configurationRows = claims
-    .filter((claim) => claim.value.type === "CONFIGURATION_ARTIFACT")
-    .map(pathRow)
-    .filter(isPresent)
-    .sort(compareRows);
-  const infrastructureRows = claims
-    .filter((claim) => claim.value.type === "INFRASTRUCTURE_ARTIFACT")
-    .map(pathRow)
-    .filter(isPresent)
-    .sort(compareRows);
-  const summaryRows = claims
-    .filter(
-      (claim) =>
-        claim.value.type === "CONFIGURATION_ARTIFACTS_PRESENT" ||
-        claim.value.type === "INFRASTRUCTURE_ARTIFACTS_PRESENT"
-    )
+function scriptsSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+  const claims = typedClaims(snapshot.technology.claims, ["PACKAGE_SCRIPT"]);
+  const rows = claims
     .map((claim) => {
-      const artifactCount = numberValue(claim.value, "artifactCount");
-      const label =
-        claim.value.type === "CONFIGURATION_ARTIFACTS_PRESENT"
-          ? "Configuration artifacts"
-          : "Infrastructure artifacts";
+      const manifestPath = stringValue(claim.value, "manifestPath");
+      const name = stringValue(claim.value, "name");
+      const command = stringValue(claim.value, "command");
 
-      return artifactCount !== null ? [label, String(artifactCount), qualifier(claim)] : null;
+      return manifestPath && name && command
+        ? [code(name), code(command), code(manifestPath), qualifier(claim)]
+        : null;
     })
     .filter(isPresent)
     .sort(compareRows);
+
+  return section("Available Scripts", [
+    ...tableBlock(["Script", "Command", "Manifest", "Semantics"], rows),
+    ...sourceBlocks(claims)
+  ]);
+}
+
+function dependenciesSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+  const claims = typedClaims(snapshot.technology.claims, ["DEPENDENCY"]);
+  const rows = claims
+    .map((claim) => {
+      const name = stringValue(claim.value, "name");
+      const version = nullableStringValue(claim.value, "version");
+      const dependencyType = stringValue(claim.value, "dependencyType");
+      const manifestPath = stringValue(claim.value, "manifestPath");
+
+      return name && dependencyType && manifestPath
+        ? [name, version ?? "", displayLabel(dependencyType), code(manifestPath)]
+        : null;
+    })
+    .filter(isPresent)
+    .sort(compareRows)
+    .slice(0, MAX_README_DEPENDENCIES);
   const blocks = [
-    ...tableBlock(["Configuration Artifact", "Semantics"], configurationRows),
-    ...tableBlock(["Infrastructure Artifact", "Semantics"], infrastructureRows),
-    ...tableBlock(["Artifact Type", "Count", "Semantics"], summaryRows),
+    ...tableBlock(["Package", "Version", "Type", "Manifest"], rows),
+    ...dependencyLimitNote(claims.length, rows.length),
     ...sourceBlocks(claims)
   ];
 
-  return section("Configuration and Infrastructure", blocks);
+  return section("Dependencies", blocks);
 }
 
-function testingContextSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+function dependencyLimitNote(totalCount: number, renderedCount: number): readonly DocumentBlock[] {
+  return totalCount > renderedCount
+    ? [
+        {
+          kind: "paragraph",
+          text: `Showing ${renderedCount} of ${totalCount} dependencies in deterministic order.`
+        }
+      ]
+    : [];
+}
+
+function configurationSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+  const claims = typedClaims(snapshot.infrastructure.claims, [
+    "CONFIGURATION_ARTIFACT",
+    "INFRASTRUCTURE_ARTIFACT"
+  ]);
+  const configurationItems = claims
+    .filter((claim) => claim.value.type === "CONFIGURATION_ARTIFACT")
+    .map(pathItem)
+    .filter(isPresent)
+    .sort();
+  const infrastructureItems = claims
+    .filter((claim) => claim.value.type === "INFRASTRUCTURE_ARTIFACT")
+    .map(pathItem)
+    .filter(isPresent)
+    .sort();
+  const blocks = [
+    ...labeledList("Configuration Artifacts", configurationItems),
+    ...labeledList("Infrastructure Artifacts", infrastructureItems),
+    ...sourceBlocks(claims)
+  ];
+
+  return section("Configuration", blocks);
+}
+
+function testingSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
   const claims = typedClaims(snapshot.testing.claims, [
     "TESTING_ARTIFACTS_PRESENT",
     "TEST_FILE",
     "TEST_SOURCE_STRUCTURE"
   ]);
-  const testFileRows = claims
+  const testFileItems = claims
     .filter((claim) => claim.value.type === "TEST_FILE")
-    .map(pathRow)
+    .map(pathItem)
     .filter(isPresent)
-    .sort(compareRows);
-  const structuredTestRows = claims
-    .filter((claim) => claim.value.type === "TEST_SOURCE_STRUCTURE")
-    .map((claim) => {
-      const path = stringValue(claim.value, "path");
-      const declarationCount = numberValue(claim.value, "declarationCount");
-
-      return path && declarationCount !== null
-        ? [path, String(declarationCount), qualifier(claim)]
-        : null;
-    })
-    .filter(isPresent)
-    .sort(compareRows);
+    .sort();
   const summaryRows = claims
     .filter((claim) => claim.value.type === "TESTING_ARTIFACTS_PRESENT")
     .map((claim) => {
@@ -501,23 +428,18 @@ function testingContextSection(snapshot: ProjectContextSnapshot): readonly Docum
     .filter(isPresent)
     .sort(compareRows);
   const blocks = [
-    ...tableBlock(["Test File", "Semantics"], testFileRows),
-    ...tableBlock(["Structured Test File", "Declarations", "Semantics"], structuredTestRows),
     ...tableBlock(["Test Files", "Structured Test Files", "Semantics"], summaryRows),
+    ...labeledList("Test Files", testFileItems),
     ...sourceBlocks(claims)
   ];
 
   return section("Testing", blocks);
 }
 
-function technicalAmbiguitiesSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
-  const claims = [...snapshot.ambiguities].sort(compareClaims);
+function knownLimitationsSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+  const claims = typedClaims(snapshot.ambiguities, ["ANALYSIS_ISSUE"]);
   const rows = uniqueRows(
     claims.map((claim) => {
-      if (!isRecord(claim.value) || claim.value.type !== "ANALYSIS_ISSUE") {
-        return [stableSerialize(claim.value), "", "", "", qualifier(claim)];
-      }
-
       const stage = stringValue(claim.value, "stage");
       const path = nullableStringValue(claim.value, "path");
       const issueCode = stringValue(claim.value, "code");
@@ -526,27 +448,55 @@ function technicalAmbiguitiesSection(snapshot: ProjectContextSnapshot): readonly
       return stage && issueCode
         ? [
             displayLabel(stage),
-            path ?? "",
+            path ? code(path) : "",
             displayLabel(issueCode),
             message ?? "",
             qualifier(claim)
           ]
         : null;
     })
-  ).sort(compareRows);
-
-  return section("Technical Ambiguities", [
+  )
+    .sort(compareRows)
+    .slice(0, MAX_README_AMBIGUITIES);
+  const blocks = [
     ...tableBlock(["Stage", "Path", "Issue", "Message", "Semantics"], rows),
+    ...ambiguityLimitNote(claims.length, rows.length),
     ...sourceBlocks(claims)
-  ]);
+  ];
+
+  return section("Known Limitations / Ambiguities", blocks);
 }
 
-function pathRow(
-  claim: ContextClaim<Record<string, unknown> & { type: string }>
-): readonly string[] | null {
+function ambiguityLimitNote(totalCount: number, renderedCount: number): readonly DocumentBlock[] {
+  return totalCount > renderedCount
+    ? [
+        {
+          kind: "paragraph",
+          text: `Showing ${renderedCount} of ${totalCount} ambiguity records in deterministic order.`
+        }
+      ]
+    : [];
+}
+
+function projectInformationSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+  const rows = [
+    ["Context ID", snapshot.contextId],
+    ["Analysis ID", snapshot.analysisId],
+    ["Source snapshot ID", snapshot.scanId],
+    ["Repository ID", snapshot.repositoryId],
+    ["Commit", snapshot.commitSha],
+    ["Context version", snapshot.contextVersion],
+    ["Generated at", snapshot.generatedAt.toISOString()]
+  ] satisfies [string, string][];
+  const presentRows = rows.filter(([, value]) => value.length > 0);
+
+  return section("Project Information", tableBlock(["Field", "Value"], presentRows));
+}
+
+function pathItem(claim: ContextClaim<Record<string, unknown> & { type: string }>): string | null {
   const path = stringValue(claim.value, "path");
 
-  return path ? [path, qualifier(claim)] : null;
+  return path ? code(path) : null;
 }
 
 function section(heading: string, blocks: readonly DocumentBlock[]): readonly DocumentSection[] {
@@ -564,26 +514,13 @@ function tableBlock(
   return rows.length > 0 ? [{ kind: "table", columns, rows }] : [];
 }
 
-function uniqueRows(rows: readonly (readonly string[] | null | undefined)[]): string[][] {
-  const seen = new Set<string>();
-  const unique: string[][] = [];
-
-  for (const row of rows) {
-    if (!row) {
-      continue;
-    }
-
-    const key = row.join("\u0000");
-
-    if (seen.has(key)) {
-      continue;
-    }
-
-    seen.add(key);
-    unique.push([...row]);
-  }
-
-  return unique;
+function labeledList(label: string, items: readonly string[]): readonly DocumentBlock[] {
+  return items.length > 0
+    ? [
+        { kind: "paragraph", text: label },
+        { kind: "unordered-list", items }
+      ]
+    : [];
 }
 
 function sourceBlocks(claims: readonly ContextClaim[]): readonly DocumentBlock[] {
@@ -658,6 +595,12 @@ function qualifier(claim: ContextClaim): string {
   return "Low-confidence inference";
 }
 
+function withSemantics(value: string, claim: ContextClaim): string {
+  const semantics = qualifier(claim);
+
+  return semantics === "Observed" ? value : `${value} (${semantics.toLowerCase()})`;
+}
+
 function displayLabel(value: string): string {
   return DISPLAY_LABELS[value] ?? titleCaseIdentifier(value);
 }
@@ -671,12 +614,30 @@ function titleCaseIdentifier(value: string): string {
     .join(" ");
 }
 
-function code(value: string): string {
-  return `\`${value}\``;
-}
-
 function compareRows(left: readonly string[], right: readonly string[]): number {
   return left.join("\u0000").localeCompare(right.join("\u0000"));
+}
+
+function uniqueRows(rows: readonly (readonly string[] | null | undefined)[]): string[][] {
+  const seen = new Set<string>();
+  const unique: string[][] = [];
+
+  for (const row of rows) {
+    if (!row) {
+      continue;
+    }
+
+    const key = row.join("\u0000");
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push([...row]);
+  }
+
+  return unique;
 }
 
 function isPresent<TValue>(value: TValue | null | undefined): value is TValue {
@@ -697,12 +658,16 @@ function nullableStringValue(value: Record<string, unknown>, key: string): strin
   return item === undefined || item === null || typeof item === "string" ? (item ?? null) : null;
 }
 
+function numberValue(value: Record<string, unknown>, key: string): number | null {
+  return typeof value[key] === "number" ? value[key] : null;
+}
+
 function booleanValue(value: Record<string, unknown>, key: string): boolean | null {
   return typeof value[key] === "boolean" ? value[key] : null;
 }
 
-function numberValue(value: Record<string, unknown>, key: string): number | null {
-  return typeof value[key] === "number" ? value[key] : null;
+function code(value: string): string {
+  return `\`${value}\``;
 }
 
 function evidenceLabel(evidence: ContextEvidence): string {

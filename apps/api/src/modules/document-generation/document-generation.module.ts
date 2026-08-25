@@ -10,6 +10,7 @@ import { ListDocumentHistoryUseCase } from "./application/list-document-history.
 import { DocumentGeneratorRouter } from "./application/document-generator.router.js";
 import { ModuleDocumentationGenerator } from "./application/module-documentation.generator.js";
 import { ProjectOverviewDocumentGenerator } from "./application/project-overview-document.generator.js";
+import { ReadmeDocumentGenerator } from "./application/readme-document.generator.js";
 import { RegenerateDocumentUseCase } from "./application/regenerate-document.use-case.js";
 import { TechnicalDocumentationGenerator } from "./application/technical-documentation.generator.js";
 import {
@@ -44,7 +45,8 @@ import { DocumentController } from "./presentation/document.controller.js";
           new ProjectOverviewDocumentGenerator(renderer),
           new TechnicalDocumentationGenerator(renderer),
           new ArchitectureDocumentationGenerator(renderer),
-          new ModuleDocumentationGenerator(renderer)
+          new ModuleDocumentationGenerator(renderer),
+          new ReadmeDocumentGenerator(renderer)
         ),
       inject: [DOCUMENT_RENDERER]
     },

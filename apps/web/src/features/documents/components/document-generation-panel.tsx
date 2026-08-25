@@ -14,12 +14,14 @@ import {
 } from "@/features/documents/api/document-api";
 import type { GeneratedDocumentResponse } from "@/features/documents/api/document-api";
 import type { GenerateDocumentRequest } from "@ai-context/contracts";
+import { MarkdownDocumentContent } from "./markdown-document-content";
 
 const DOCUMENT_TYPE_OPTIONS: readonly GenerateDocumentRequest["documentType"][] = [
   "PROJECT_OVERVIEW",
   "TECHNICAL_DOCUMENTATION",
   "ARCHITECTURE_DOCUMENT",
-  "MODULE_DOCUMENTATION"
+  "MODULE_DOCUMENTATION",
+  "README"
 ];
 
 type DocumentGenerationPanelProps = {
@@ -67,6 +69,10 @@ function labelForDocumentType(value: GeneratedDocumentResponse["documentType"]):
 
   if (value === "MODULE_DOCUMENTATION") {
     return "Module Documentation";
+  }
+
+  if (value === "README") {
+    return "README";
   }
 
   return value;
@@ -232,8 +238,8 @@ export function DocumentGenerationPanel({
             <div className="rounded-md border border-dashed p-5">
               <p className="text-sm font-medium">No documents generated yet.</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Generate Project Overview, Technical Documentation, Architecture Documentation, or
-                Module Documentation from this Context.
+                Generate Project Overview, Technical Documentation, Architecture Documentation,
+                Module Documentation, or README from this Context.
               </p>
             </div>
           ) : null}
@@ -278,9 +284,7 @@ function GeneratedDocumentViewer({ document }: { document: GeneratedDocumentResp
         </dl>
       </div>
 
-      <pre className="max-h-[32rem] overflow-auto rounded-md border bg-background p-4 whitespace-pre-wrap text-sm leading-6">
-        {document.content}
-      </pre>
+      <MarkdownDocumentContent content={document.content} />
     </article>
   );
 }

@@ -58,10 +58,21 @@ describe("GenerateDocumentDto", () => {
     ).resolves.toHaveLength(0);
   });
 
+  it("accepts README generation requests", async () => {
+    await expect(
+      validateDto({
+        contextId: "project_context_1",
+        documentType: "README",
+        format: "MARKDOWN",
+        generatorVersion: "document-generator@1"
+      })
+    ).resolves.toHaveLength(0);
+  });
+
   it("rejects unsupported document types and formats at the API boundary", async () => {
     const errors = await validateDto({
       contextId: "project_context_1",
-      documentType: "README",
+      documentType: "NOT_A_DOCUMENT",
       format: "HTML",
       generatorVersion: "document-generator@1"
     });

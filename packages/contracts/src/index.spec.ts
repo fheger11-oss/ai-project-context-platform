@@ -26,6 +26,7 @@ describe("contracts package exports", () => {
         | "TECHNICAL_DOCUMENTATION"
         | "ARCHITECTURE_DOCUMENT"
         | "MODULE_DOCUMENTATION"
+        | "README"
       >();
     expectTypeOf<GeneratedDocumentResponse>().toHaveProperty("id").toEqualTypeOf<string>();
     expectTypeOf<GeneratedDocumentResponse>().toHaveProperty("content").toEqualTypeOf<string>();

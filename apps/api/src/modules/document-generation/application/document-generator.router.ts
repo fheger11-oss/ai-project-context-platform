@@ -8,7 +8,8 @@ export class DocumentGeneratorRouter implements DocumentGenerator {
     private readonly projectOverviewGenerator: DocumentGenerator,
     private readonly technicalDocumentationGenerator: DocumentGenerator,
     private readonly architectureDocumentationGenerator: DocumentGenerator,
-    private readonly moduleDocumentationGenerator: DocumentGenerator
+    private readonly moduleDocumentationGenerator: DocumentGenerator,
+    private readonly readmeDocumentGenerator: DocumentGenerator
   ) {}
 
   generate(input: DocumentGenerationInput): Promise<GeneratedDocument> {
@@ -21,6 +22,8 @@ export class DocumentGeneratorRouter implements DocumentGenerator {
         return this.architectureDocumentationGenerator.generate(input);
       case "MODULE_DOCUMENTATION":
         return this.moduleDocumentationGenerator.generate(input);
+      case "README":
+        return this.readmeDocumentGenerator.generate(input);
       default:
         return Promise.reject(new InvalidDocumentTypeError(input.documentType));
     }
