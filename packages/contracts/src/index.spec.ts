@@ -21,7 +21,12 @@ describe("contracts package exports", () => {
     expectTypeOf<GenerateDocumentRequest>().toHaveProperty("contextId").toEqualTypeOf<string>();
     expectTypeOf<GenerateDocumentRequest>()
       .toHaveProperty("documentType")
-      .toEqualTypeOf<"PROJECT_OVERVIEW" | "TECHNICAL_DOCUMENTATION" | "ARCHITECTURE_DOCUMENT">();
+      .toEqualTypeOf<
+        | "PROJECT_OVERVIEW"
+        | "TECHNICAL_DOCUMENTATION"
+        | "ARCHITECTURE_DOCUMENT"
+        | "MODULE_DOCUMENTATION"
+      >();
     expectTypeOf<GeneratedDocumentResponse>().toHaveProperty("id").toEqualTypeOf<string>();
     expectTypeOf<GeneratedDocumentResponse>().toHaveProperty("content").toEqualTypeOf<string>();
     expectTypeOf<DocumentHistoryResponse["documents"]>().toMatchTypeOf<readonly unknown[]>();

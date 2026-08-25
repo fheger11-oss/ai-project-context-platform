@@ -47,6 +47,17 @@ describe("GenerateDocumentDto", () => {
     ).resolves.toHaveLength(0);
   });
 
+  it("accepts module documentation generation requests", async () => {
+    await expect(
+      validateDto({
+        contextId: "project_context_1",
+        documentType: "MODULE_DOCUMENTATION",
+        format: "MARKDOWN",
+        generatorVersion: "document-generator@1"
+      })
+    ).resolves.toHaveLength(0);
+  });
+
   it("rejects unsupported document types and formats at the API boundary", async () => {
     const errors = await validateDto({
       contextId: "project_context_1",

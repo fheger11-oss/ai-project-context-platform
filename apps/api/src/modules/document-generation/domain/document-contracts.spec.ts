@@ -30,14 +30,19 @@ describe("Document generation contracts", () => {
     expect(SUPPORTED_DOCUMENT_TYPES).toEqual([
       "PROJECT_OVERVIEW",
       "TECHNICAL_DOCUMENTATION",
-      "ARCHITECTURE_DOCUMENT"
+      "ARCHITECTURE_DOCUMENT",
+      "MODULE_DOCUMENTATION"
     ]);
     expectTypeOf<DocumentType>().toEqualTypeOf<
-      "PROJECT_OVERVIEW" | "TECHNICAL_DOCUMENTATION" | "ARCHITECTURE_DOCUMENT"
+      | "PROJECT_OVERVIEW"
+      | "TECHNICAL_DOCUMENTATION"
+      | "ARCHITECTURE_DOCUMENT"
+      | "MODULE_DOCUMENTATION"
     >();
     expect(isSupportedDocumentType("PROJECT_OVERVIEW")).toBe(true);
     expect(isSupportedDocumentType("TECHNICAL_DOCUMENTATION")).toBe(true);
     expect(isSupportedDocumentType("ARCHITECTURE_DOCUMENT")).toBe(true);
+    expect(isSupportedDocumentType("MODULE_DOCUMENTATION")).toBe(true);
   });
 
   it("defines MARKDOWN as the supported MVP document format", () => {

@@ -78,6 +78,13 @@ const architectureDocument: GeneratedDocumentResponse = {
   content: "# Architecture Documentation\n\n## Modules\n",
   createdAt: "2026-08-18T13:00:00.000Z"
 };
+const moduleDocument: GeneratedDocumentResponse = {
+  ...firstDocument,
+  id: "document_module_1",
+  documentType: "MODULE_DOCUMENTATION",
+  content: "# Module Documentation\n\n## Module Index\n",
+  createdAt: "2026-08-18T14:00:00.000Z"
+};
 
 vi.mock("@tanstack/react-query", () => ({
   useMutation: (options: MutationOptions) => {
@@ -142,10 +149,11 @@ describe("DocumentGenerationPanel", () => {
     expect(markup).toContain('<option value="PROJECT_OVERVIEW" selected="">Project Overview');
     expect(markup).toContain('<option value="TECHNICAL_DOCUMENTATION">Technical Documentation');
     expect(markup).toContain('<option value="ARCHITECTURE_DOCUMENT">Architecture Documentation');
+    expect(markup).toContain('<option value="MODULE_DOCUMENTATION">Module Documentation');
     expect(markup).toContain("No documents generated yet.");
     expect(markup).toContain("Generate Project Overview");
     expect(markup).toContain(
-      "Generate Project Overview, Technical Documentation, or Architecture Documentation"
+      "Generate Project Overview, Technical Documentation, Architecture Documentation, or Module Documentation"
     );
   });
 
@@ -183,6 +191,15 @@ describe("DocumentGenerationPanel", () => {
     expect(createGenerateDocumentRequest("project_context_1", "ARCHITECTURE_DOCUMENT")).toEqual({
       contextId: "project_context_1",
       documentType: "ARCHITECTURE_DOCUMENT",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+  });
+
+  it("creates the Module Documentation request body for the existing document API", () => {
+    expect(createGenerateDocumentRequest("project_context_1", "MODULE_DOCUMENTATION")).toEqual({
+      contextId: "project_context_1",
+      documentType: "MODULE_DOCUMENTATION",
       format: "MARKDOWN",
       generatorVersion: "document-generator@1"
     });
@@ -252,6 +269,35 @@ describe("DocumentGenerationPanel", () => {
     });
   });
 
+  it("generates Module Documentation through the existing document API when selected", async () => {
+    vi.mocked(generateDocument).mockResolvedValue(moduleDocument);
+    const markup = renderToStaticMarkup(
+      <DocumentGenerationPanel
+        accessToken="access_token"
+        contextId="project_context_1"
+        initialDocumentType="MODULE_DOCUMENTATION"
+      />
+    );
+
+    await mutationOptions[0]?.mutationFn();
+    await mutationOptions[0]?.onSuccess?.(moduleDocument);
+
+    expect(markup).toContain("Generate Module Documentation");
+    expect(markup).toContain(
+      '<option value="MODULE_DOCUMENTATION" selected="">Module Documentation'
+    );
+    expect(generateDocument).toHaveBeenCalledWith("access_token", {
+      contextId: "project_context_1",
+      documentType: "MODULE_DOCUMENTATION",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+    expect(setQueryData).toHaveBeenCalledWith(["document", "document_module_1"], moduleDocument);
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["document-history", "project_context_1"]
+    });
+  });
+
   it("shows loading state that disables duplicate generation", () => {
     mutationStates = [{ isError: false, isPending: true }];
 
@@ -302,6 +348,20 @@ describe("DocumentGenerationPanel", () => {
     expect(markup).toContain("# Architecture Documentation");
     expect(markup).toContain("## Modules");
     expect(markup).toContain("document_architecture_1");
+  });
+
+  it("displays Module Documentation artifacts with a readable label", () => {
+    historyQuery = { data: { documents: [moduleDocument] } };
+
+    const markup = renderToStaticMarkup(
+      <DocumentGenerationPanel accessToken="access_token" contextId="project_context_1" />
+    );
+
+    expect(markup).toContain("Module Documentation");
+    expect(markup).toContain("Module Documentation - MARKDOWN");
+    expect(markup).toContain("# Module Documentation");
+    expect(markup).toContain("## Module Index");
+    expect(markup).toContain("document_module_1");
   });
 
   it("renders multiple immutable history artifacts", () => {

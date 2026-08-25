@@ -3,7 +3,8 @@ import { InvalidDocumentTypeError } from "./errors/invalid-document-type.error.j
 export const SUPPORTED_DOCUMENT_TYPES = [
   "PROJECT_OVERVIEW",
   "TECHNICAL_DOCUMENTATION",
-  "ARCHITECTURE_DOCUMENT"
+  "ARCHITECTURE_DOCUMENT",
+  "MODULE_DOCUMENTATION"
 ] as const;
 
 export type DocumentType = (typeof SUPPORTED_DOCUMENT_TYPES)[number];

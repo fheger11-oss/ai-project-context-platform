@@ -8,6 +8,7 @@ import { GenerateDocumentUseCase } from "./application/generate-document.use-cas
 import { GetDocumentUseCase } from "./application/get-document.use-case.js";
 import { ListDocumentHistoryUseCase } from "./application/list-document-history.use-case.js";
 import { DocumentGeneratorRouter } from "./application/document-generator.router.js";
+import { ModuleDocumentationGenerator } from "./application/module-documentation.generator.js";
 import { ProjectOverviewDocumentGenerator } from "./application/project-overview-document.generator.js";
 import { RegenerateDocumentUseCase } from "./application/regenerate-document.use-case.js";
 import { TechnicalDocumentationGenerator } from "./application/technical-documentation.generator.js";
@@ -42,7 +43,8 @@ import { DocumentController } from "./presentation/document.controller.js";
         new DocumentGeneratorRouter(
           new ProjectOverviewDocumentGenerator(renderer),
           new TechnicalDocumentationGenerator(renderer),
-          new ArchitectureDocumentationGenerator(renderer)
+          new ArchitectureDocumentationGenerator(renderer),
+          new ModuleDocumentationGenerator(renderer)
         ),
       inject: [DOCUMENT_RENDERER]
     },
