@@ -1,6 +1,10 @@
 import { InvalidDocumentTypeError } from "./errors/invalid-document-type.error.js";
 
-export const SUPPORTED_DOCUMENT_TYPES = ["PROJECT_OVERVIEW", "TECHNICAL_DOCUMENTATION"] as const;
+export const SUPPORTED_DOCUMENT_TYPES = [
+  "PROJECT_OVERVIEW",
+  "TECHNICAL_DOCUMENTATION",
+  "ARCHITECTURE_DOCUMENT"
+] as const;
 
 export type DocumentType = (typeof SUPPORTED_DOCUMENT_TYPES)[number];
 

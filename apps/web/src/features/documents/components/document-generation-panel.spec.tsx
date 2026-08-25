@@ -71,6 +71,13 @@ const technicalDocument: GeneratedDocumentResponse = {
   content: "# Technical Documentation\n\n## Technology Stack\n",
   createdAt: "2026-08-18T12:00:00.000Z"
 };
+const architectureDocument: GeneratedDocumentResponse = {
+  ...firstDocument,
+  id: "document_architecture_1",
+  documentType: "ARCHITECTURE_DOCUMENT",
+  content: "# Architecture Documentation\n\n## Modules\n",
+  createdAt: "2026-08-18T13:00:00.000Z"
+};
 
 vi.mock("@tanstack/react-query", () => ({
   useMutation: (options: MutationOptions) => {
@@ -134,9 +141,12 @@ describe("DocumentGenerationPanel", () => {
     expect(markup).toContain("Document type");
     expect(markup).toContain('<option value="PROJECT_OVERVIEW" selected="">Project Overview');
     expect(markup).toContain('<option value="TECHNICAL_DOCUMENTATION">Technical Documentation');
+    expect(markup).toContain('<option value="ARCHITECTURE_DOCUMENT">Architecture Documentation');
     expect(markup).toContain("No documents generated yet.");
     expect(markup).toContain("Generate Project Overview");
-    expect(markup).toContain("Generate a Project Overview or Technical Documentation");
+    expect(markup).toContain(
+      "Generate Project Overview, Technical Documentation, or Architecture Documentation"
+    );
   });
 
   it("generates a Project Overview through the document API", async () => {
@@ -169,6 +179,15 @@ describe("DocumentGenerationPanel", () => {
     });
   });
 
+  it("creates the Architecture Documentation request body for the existing document API", () => {
+    expect(createGenerateDocumentRequest("project_context_1", "ARCHITECTURE_DOCUMENT")).toEqual({
+      contextId: "project_context_1",
+      documentType: "ARCHITECTURE_DOCUMENT",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+  });
+
   it("generates Technical Documentation through the existing document API when selected", async () => {
     vi.mocked(generateDocument).mockResolvedValue(technicalDocument);
     const markup = renderToStaticMarkup(
@@ -195,6 +214,38 @@ describe("DocumentGenerationPanel", () => {
     expect(setQueryData).toHaveBeenCalledWith(
       ["document", "document_technical_1"],
       technicalDocument
+    );
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["document-history", "project_context_1"]
+    });
+  });
+
+  it("generates Architecture Documentation through the existing document API when selected", async () => {
+    vi.mocked(generateDocument).mockResolvedValue(architectureDocument);
+    const markup = renderToStaticMarkup(
+      <DocumentGenerationPanel
+        accessToken="access_token"
+        contextId="project_context_1"
+        initialDocumentType="ARCHITECTURE_DOCUMENT"
+      />
+    );
+
+    await mutationOptions[0]?.mutationFn();
+    await mutationOptions[0]?.onSuccess?.(architectureDocument);
+
+    expect(markup).toContain("Generate Architecture Documentation");
+    expect(markup).toContain(
+      '<option value="ARCHITECTURE_DOCUMENT" selected="">Architecture Documentation'
+    );
+    expect(generateDocument).toHaveBeenCalledWith("access_token", {
+      contextId: "project_context_1",
+      documentType: "ARCHITECTURE_DOCUMENT",
+      format: "MARKDOWN",
+      generatorVersion: "document-generator@1"
+    });
+    expect(setQueryData).toHaveBeenCalledWith(
+      ["document", "document_architecture_1"],
+      architectureDocument
     );
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["document-history", "project_context_1"]
@@ -237,6 +288,20 @@ describe("DocumentGenerationPanel", () => {
     expect(markup).toContain("# Technical Documentation");
     expect(markup).toContain("## Technology Stack");
     expect(markup).toContain("document_technical_1");
+  });
+
+  it("displays Architecture Documentation artifacts with a readable label", () => {
+    historyQuery = { data: { documents: [architectureDocument] } };
+
+    const markup = renderToStaticMarkup(
+      <DocumentGenerationPanel accessToken="access_token" contextId="project_context_1" />
+    );
+
+    expect(markup).toContain("Architecture Documentation");
+    expect(markup).toContain("Architecture Documentation - MARKDOWN");
+    expect(markup).toContain("# Architecture Documentation");
+    expect(markup).toContain("## Modules");
+    expect(markup).toContain("document_architecture_1");
   });
 
   it("renders multiple immutable history artifacts", () => {

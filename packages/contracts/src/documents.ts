@@ -1,4 +1,4 @@
-export type DocumentType = "PROJECT_OVERVIEW" | "TECHNICAL_DOCUMENTATION";
+export type DocumentType = "PROJECT_OVERVIEW" | "TECHNICAL_DOCUMENTATION" | "ARCHITECTURE_DOCUMENT";
 
 export type DocumentFormat = "MARKDOWN";
 

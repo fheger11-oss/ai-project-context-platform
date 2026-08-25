@@ -37,6 +37,7 @@ enum AnalysisStatus {
 enum DocumentType {
   PROJECT_OVERVIEW
   TECHNICAL_DOCUMENTATION
+  ARCHITECTURE_DOCUMENT
 }
 
 enum DocumentFormat {

@@ -27,10 +27,17 @@ import type { GeneratedDocument } from "./generated-document.js";
 
 describe("Document generation contracts", () => {
   it("defines the supported MVP document types", () => {
-    expect(SUPPORTED_DOCUMENT_TYPES).toEqual(["PROJECT_OVERVIEW", "TECHNICAL_DOCUMENTATION"]);
-    expectTypeOf<DocumentType>().toEqualTypeOf<"PROJECT_OVERVIEW" | "TECHNICAL_DOCUMENTATION">();
+    expect(SUPPORTED_DOCUMENT_TYPES).toEqual([
+      "PROJECT_OVERVIEW",
+      "TECHNICAL_DOCUMENTATION",
+      "ARCHITECTURE_DOCUMENT"
+    ]);
+    expectTypeOf<DocumentType>().toEqualTypeOf<
+      "PROJECT_OVERVIEW" | "TECHNICAL_DOCUMENTATION" | "ARCHITECTURE_DOCUMENT"
+    >();
     expect(isSupportedDocumentType("PROJECT_OVERVIEW")).toBe(true);
     expect(isSupportedDocumentType("TECHNICAL_DOCUMENTATION")).toBe(true);
+    expect(isSupportedDocumentType("ARCHITECTURE_DOCUMENT")).toBe(true);
   });
 
   it("defines MARKDOWN as the supported MVP document format", () => {
@@ -40,7 +47,7 @@ describe("Document generation contracts", () => {
   });
 
   it("rejects invalid document type and format values", () => {
-    expect(() => assertSupportedDocumentType("ARCHITECTURE")).toThrow(InvalidDocumentTypeError);
+    expect(() => assertSupportedDocumentType("README")).toThrow(InvalidDocumentTypeError);
     expect(() => assertSupportedDocumentFormat("PDF")).toThrow(InvalidDocumentFormatError);
   });
 

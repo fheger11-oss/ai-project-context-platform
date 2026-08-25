@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { PROJECT_CONTEXT_READER } from "../context/domain/contracts/project-context-reader.contract.js";
 import { ContextModule } from "../context/context.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
+import { ArchitectureDocumentationGenerator } from "./application/architecture-documentation.generator.js";
 import { GenerateDocumentUseCase } from "./application/generate-document.use-case.js";
 import { GetDocumentUseCase } from "./application/get-document.use-case.js";
 import { ListDocumentHistoryUseCase } from "./application/list-document-history.use-case.js";
@@ -40,7 +41,8 @@ import { DocumentController } from "./presentation/document.controller.js";
       useFactory: (renderer: DocumentRenderer<DocumentModel>) =>
         new DocumentGeneratorRouter(
           new ProjectOverviewDocumentGenerator(renderer),
-          new TechnicalDocumentationGenerator(renderer)
+          new TechnicalDocumentationGenerator(renderer),
+          new ArchitectureDocumentationGenerator(renderer)
         ),
       inject: [DOCUMENT_RENDERER]
     },

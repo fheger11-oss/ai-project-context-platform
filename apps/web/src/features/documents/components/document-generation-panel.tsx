@@ -17,7 +17,8 @@ import type { GenerateDocumentRequest } from "@ai-context/contracts";
 
 const DOCUMENT_TYPE_OPTIONS: readonly GenerateDocumentRequest["documentType"][] = [
   "PROJECT_OVERVIEW",
-  "TECHNICAL_DOCUMENTATION"
+  "TECHNICAL_DOCUMENTATION",
+  "ARCHITECTURE_DOCUMENT"
 ];
 
 type DocumentGenerationPanelProps = {
@@ -57,6 +58,10 @@ function labelForDocumentType(value: GeneratedDocumentResponse["documentType"]):
 
   if (value === "TECHNICAL_DOCUMENTATION") {
     return "Technical Documentation";
+  }
+
+  if (value === "ARCHITECTURE_DOCUMENT") {
+    return "Architecture Documentation";
   }
 
   return value;
@@ -222,7 +227,8 @@ export function DocumentGenerationPanel({
             <div className="rounded-md border border-dashed p-5">
               <p className="text-sm font-medium">No documents generated yet.</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Generate a Project Overview or Technical Documentation from this Context.
+                Generate Project Overview, Technical Documentation, or Architecture Documentation
+                from this Context.
               </p>
             </div>
           ) : null}

@@ -35,9 +35,11 @@ describe("DocumentGeneratorRouter", () => {
   it("routes Project Overview requests to the Project Overview generator", async () => {
     const projectOverviewGenerator = generator("# Project Overview");
     const technicalDocumentationGenerator = generator("# Technical Documentation");
+    const architectureDocumentationGenerator = generator("# Architecture Documentation");
     const router = new DocumentGeneratorRouter(
       projectOverviewGenerator,
-      technicalDocumentationGenerator
+      technicalDocumentationGenerator,
+      architectureDocumentationGenerator
     );
 
     await expect(router.generate(input("PROJECT_OVERVIEW"))).resolves.toMatchObject({
@@ -46,14 +48,17 @@ describe("DocumentGeneratorRouter", () => {
     });
     expect(projectOverviewGenerator.generate).toHaveBeenCalledTimes(1);
     expect(technicalDocumentationGenerator.generate).not.toHaveBeenCalled();
+    expect(architectureDocumentationGenerator.generate).not.toHaveBeenCalled();
   });
 
   it("routes Technical Documentation requests to the Technical Documentation generator", async () => {
     const projectOverviewGenerator = generator("# Project Overview");
     const technicalDocumentationGenerator = generator("# Technical Documentation");
+    const architectureDocumentationGenerator = generator("# Architecture Documentation");
     const router = new DocumentGeneratorRouter(
       projectOverviewGenerator,
-      technicalDocumentationGenerator
+      technicalDocumentationGenerator,
+      architectureDocumentationGenerator
     );
 
     await expect(router.generate(input("TECHNICAL_DOCUMENTATION"))).resolves.toMatchObject({
@@ -62,14 +67,36 @@ describe("DocumentGeneratorRouter", () => {
     });
     expect(projectOverviewGenerator.generate).not.toHaveBeenCalled();
     expect(technicalDocumentationGenerator.generate).toHaveBeenCalledTimes(1);
+    expect(architectureDocumentationGenerator.generate).not.toHaveBeenCalled();
+  });
+
+  it("routes Architecture Documentation requests to the Architecture Documentation generator", async () => {
+    const projectOverviewGenerator = generator("# Project Overview");
+    const technicalDocumentationGenerator = generator("# Technical Documentation");
+    const architectureDocumentationGenerator = generator("# Architecture Documentation");
+    const router = new DocumentGeneratorRouter(
+      projectOverviewGenerator,
+      technicalDocumentationGenerator,
+      architectureDocumentationGenerator
+    );
+
+    await expect(router.generate(input("ARCHITECTURE_DOCUMENT"))).resolves.toMatchObject({
+      documentType: "ARCHITECTURE_DOCUMENT",
+      content: "# Architecture Documentation"
+    });
+    expect(projectOverviewGenerator.generate).not.toHaveBeenCalled();
+    expect(technicalDocumentationGenerator.generate).not.toHaveBeenCalled();
+    expect(architectureDocumentationGenerator.generate).toHaveBeenCalledTimes(1);
   });
 
   it("rejects unsupported document types without selecting a generator", async () => {
     const projectOverviewGenerator = generator("# Project Overview");
     const technicalDocumentationGenerator = generator("# Technical Documentation");
+    const architectureDocumentationGenerator = generator("# Architecture Documentation");
     const router = new DocumentGeneratorRouter(
       projectOverviewGenerator,
-      technicalDocumentationGenerator
+      technicalDocumentationGenerator,
+      architectureDocumentationGenerator
     );
 
     await expect(
@@ -77,5 +104,6 @@ describe("DocumentGeneratorRouter", () => {
     ).rejects.toThrow(InvalidDocumentTypeError);
     expect(projectOverviewGenerator.generate).not.toHaveBeenCalled();
     expect(technicalDocumentationGenerator.generate).not.toHaveBeenCalled();
+    expect(architectureDocumentationGenerator.generate).not.toHaveBeenCalled();
   });
 });

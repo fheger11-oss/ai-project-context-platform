@@ -1,0 +1,449 @@
+import type { ContextClaim, ContextEvidence } from "../../context/domain/context-claim.js";
+import type { ProjectContextSnapshot } from "../../context/domain/project-context.js";
+import type { DocumentGenerator } from "../domain/contracts/document-generator.contract.js";
+import type { DocumentGenerationInput } from "../domain/contracts/document-generation-input.contract.js";
+import type { DocumentRenderer } from "../domain/contracts/document-renderer.contract.js";
+import { Document } from "../domain/document.js";
+import { assertSupportedDocumentFormat } from "../domain/document-format.js";
+import type { DocumentBlock, DocumentModel, DocumentSection } from "../domain/document-model.js";
+import { InvalidDocumentTypeError } from "../domain/errors/invalid-document-type.error.js";
+import type { GeneratedDocument } from "../domain/generated-document.js";
+
+const DISPLAY_LABELS: Readonly<Record<string, string>> = {
+  BACKEND_APPLICATION: "Backend application",
+  FULLSTACK_APPLICATION: "Full-stack application",
+  JAVASCRIPT: "JavaScript",
+  MALFORMED_PACKAGE_JSON: "Malformed package.json",
+  MISSING_MANIFEST_CONTENT: "Missing manifest content",
+  NESTJS: "NestJS",
+  NEXT_JS: "Next.js",
+  NODE_JS: "Node.js",
+  PROJECT_DETECTION: "Project detection",
+  REACT: "React",
+  RELATIONSHIP_ANALYSIS: "Relationship analysis",
+  SOURCE_STRUCTURE: "Source structure",
+  TYPESCRIPT: "TypeScript",
+  VITE: "Vite"
+};
+
+const CONFIDENCE_ORDER: Readonly<Record<ContextClaim["confidence"], number>> = {
+  HIGH: 0,
+  MEDIUM: 1,
+  LOW: 2
+};
+
+const CLAIM_KIND_ORDER: Readonly<Record<ContextClaim["kind"], number>> = {
+  OBSERVED: 0,
+  INFERRED: 1
+};
+
+const ARCHITECTURE_ISSUE_STAGES = new Set(["SOURCE_STRUCTURE", "RELATIONSHIP_ANALYSIS"]);
+
+export class ArchitectureDocumentationGenerator implements DocumentGenerator {
+  constructor(private readonly renderer: DocumentRenderer<DocumentModel>) {}
+
+  async generate(input: DocumentGenerationInput): Promise<GeneratedDocument> {
+    if (input.documentType !== "ARCHITECTURE_DOCUMENT") {
+      throw new InvalidDocumentTypeError(input.documentType);
+    }
+
+    assertSupportedDocumentFormat(input.format);
+
+    const model = composeArchitectureDocumentation(input.projectContext.toSnapshot());
+    const content = await this.renderer.render(model);
+
+    return Document.create({
+      contextId: input.projectContext.contextId,
+      documentType: input.documentType,
+      format: input.format,
+      generatorVersion: input.generatorVersion,
+      content
+    }).toSnapshot();
+  }
+}
+
+function composeArchitectureDocumentation(snapshot: ProjectContextSnapshot): DocumentModel {
+  return {
+    title: "Architecture Documentation",
+    sections: [
+      ...architectureOverviewSection(snapshot),
+      ...modulesSection(snapshot),
+      ...moduleRelationshipsSection(snapshot),
+      ...sourceStructureSection(snapshot),
+      ...entryPointsSection(snapshot),
+      ...technologyContextSection(snapshot),
+      ...architectureAmbiguitiesSection(snapshot)
+    ]
+  };
+}
+
+function architectureOverviewSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+  const architectureClaims = typedClaims(snapshot.architecture.claims, [
+    "MODULE_CANDIDATE",
+    "MODULE_RELATIONSHIP"
+  ]);
+  const entryPointClaims = typedClaims(snapshot.entryPoints.claims, [
+    "SOURCE_ENTRY_POINT_CANDIDATE"
+  ]);
+  const rows = [
+    countRow("Module candidates", architectureClaims, "MODULE_CANDIDATE"),
+    countRow("Module relationships", architectureClaims, "MODULE_RELATIONSHIP"),
+    countRow("Entry point candidates", entryPointClaims, "SOURCE_ENTRY_POINT_CANDIDATE")
+  ].filter(isPresent);
+  const claims = [...architectureClaims, ...entryPointClaims];
+
+  return section("Architecture Overview", [
+    ...tableBlock(["Context Capability", "Count"], rows),
+    ...sourceBlocks(claims)
+  ]);
+}
+
+function modulesSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+  const claims = typedClaims(snapshot.architecture.claims, ["MODULE_CANDIDATE"]);
+  const rows = claims
+    .map((claim) => {
+      const name = stringValue(claim.value, "name");
+      const path = stringValue(claim.value, "path");
+      const sourceFileCount = numberValue(claim.value, "sourceFileCount");
+      const declarationCount = numberValue(claim.value, "declarationCount");
+      const internalRelationshipCount = numberValue(claim.value, "internalRelationshipCount");
+      const incomingRelationshipCount = numberValue(claim.value, "incomingRelationshipCount");
+      const outgoingRelationshipCount = numberValue(claim.value, "outgoingRelationshipCount");
+
+      return name &&
+        path &&
+        sourceFileCount !== null &&
+        declarationCount !== null &&
+        internalRelationshipCount !== null &&
+        incomingRelationshipCount !== null &&
+        outgoingRelationshipCount !== null
+        ? [
+            name,
+            path,
+            String(sourceFileCount),
+            String(declarationCount),
+            String(internalRelationshipCount),
+            String(incomingRelationshipCount),
+            String(outgoingRelationshipCount),
+            qualifier(claim)
+          ]
+        : null;
+    })
+    .filter(isPresent)
+    .sort(compareRows);
+
+  return section("Modules", [
+    ...tableBlock(
+      ["Module", "Path", "Files", "Declarations", "Internal", "Incoming", "Outgoing", "Semantics"],
+      rows
+    ),
+    ...sourceBlocks(claims)
+  ]);
+}
+
+function moduleRelationshipsSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+  const claims = typedClaims(snapshot.architecture.claims, ["MODULE_RELATIONSHIP"]);
+  const rows = claims
+    .map((claim) => {
+      const sourceModuleId = stringValue(claim.value, "sourceModuleId");
+      const targetModuleId = stringValue(claim.value, "targetModuleId");
+      const relationshipCount = numberValue(claim.value, "relationshipCount");
+
+      return sourceModuleId && targetModuleId && relationshipCount !== null
+        ? [sourceModuleId, targetModuleId, String(relationshipCount), qualifier(claim)]
+        : null;
+    })
+    .filter(isPresent)
+    .sort(compareRows);
+
+  return section("Module Relationships", [
+    ...tableBlock(["Source", "Target", "Relationships", "Semantics"], rows),
+    ...sourceBlocks(claims)
+  ]);
+}
+
+function sourceStructureSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+  const claims = typedClaims(snapshot.structure.claims, ["SOURCE_GROUP"]);
+  const rows = claims
+    .map((claim) => {
+      const path = stringValue(claim.value, "path");
+      const sourceFileCount = numberValue(claim.value, "sourceFileCount");
+      const declarationCount = numberValue(claim.value, "declarationCount");
+
+      return path && sourceFileCount !== null && declarationCount !== null
+        ? [path, String(sourceFileCount), String(declarationCount), qualifier(claim)]
+        : null;
+    })
+    .filter(isPresent)
+    .sort(compareRows);
+
+  return section("Source Structure", [
+    ...tableBlock(["Path", "Source Files", "Declarations", "Semantics"], rows),
+    ...sourceBlocks(claims)
+  ]);
+}
+
+function entryPointsSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+  const claims = typedClaims(snapshot.entryPoints.claims, ["SOURCE_ENTRY_POINT_CANDIDATE"]);
+  const rows = claims
+    .map((claim) => {
+      const path = stringValue(claim.value, "path");
+      const connectedSourceFileCount = numberValue(claim.value, "connectedSourceFileCount");
+      const outgoingRelationshipCount = numberValue(claim.value, "outgoingRelationshipCount");
+
+      return path && connectedSourceFileCount !== null && outgoingRelationshipCount !== null
+        ? [
+            path,
+            String(connectedSourceFileCount),
+            String(outgoingRelationshipCount),
+            qualifier(claim)
+          ]
+        : null;
+    })
+    .filter(isPresent)
+    .sort(compareRows);
+
+  return section("Entry Points", [
+    ...tableBlock(
+      ["Candidate Path", "Connected Files", "Outgoing Relationships", "Semantics"],
+      rows
+    ),
+    ...sourceBlocks(claims)
+  ]);
+}
+
+function technologyContextSection(snapshot: ProjectContextSnapshot): readonly DocumentSection[] {
+  const claims = typedClaims(snapshot.technology.claims, ["ECOSYSTEM", "FRAMEWORK"]);
+  const ecosystemRows = claims
+    .filter((claim) => claim.value.type === "ECOSYSTEM")
+    .map((claim) => {
+      const ecosystem = stringValue(claim.value, "ecosystem");
+
+      return ecosystem ? [displayLabel(ecosystem), qualifier(claim)] : null;
+    })
+    .filter(isPresent)
+    .sort(compareRows);
+  const frameworkRows = claims
+    .filter((claim) => claim.value.type === "FRAMEWORK")
+    .map((claim) => {
+      const framework = stringValue(claim.value, "framework");
+
+      return framework ? [displayLabel(framework), qualifier(claim)] : null;
+    })
+    .filter(isPresent)
+    .sort(compareRows);
+
+  return section("Technology Context", [
+    ...tableBlock(["Ecosystem", "Semantics"], ecosystemRows),
+    ...tableBlock(["Framework", "Semantics"], frameworkRows),
+    ...sourceBlocks(claims)
+  ]);
+}
+
+function architectureAmbiguitiesSection(
+  snapshot: ProjectContextSnapshot
+): readonly DocumentSection[] {
+  const claims = typedClaims(snapshot.ambiguities, ["ANALYSIS_ISSUE"]).filter((claim) => {
+    const stage = stringValue(claim.value, "stage");
+
+    return stage ? ARCHITECTURE_ISSUE_STAGES.has(stage) : false;
+  });
+  const rows = claims
+    .map((claim) => {
+      const stage = stringValue(claim.value, "stage");
+      const path = nullableStringValue(claim.value, "path");
+      const issueCode = stringValue(claim.value, "code");
+      const message = nullableStringValue(claim.value, "message");
+
+      return stage && issueCode
+        ? [
+            displayLabel(stage),
+            path ?? "",
+            displayLabel(issueCode),
+            message ?? "",
+            qualifier(claim)
+          ]
+        : null;
+    })
+    .filter(isPresent)
+    .sort(compareRows);
+
+  return section("Architecture Ambiguities", [
+    ...tableBlock(["Stage", "Path", "Issue", "Message", "Semantics"], rows),
+    ...sourceBlocks(claims)
+  ]);
+}
+
+function countRow(
+  label: string,
+  claims: readonly ContextClaim<Record<string, unknown> & { type: string }>[],
+  claimType: string
+): readonly string[] | null {
+  const count = claims.filter((claim) => claim.value.type === claimType).length;
+
+  return count > 0 ? [label, String(count)] : null;
+}
+
+function section(heading: string, blocks: readonly DocumentBlock[]): readonly DocumentSection[] {
+  if (blocks.length === 0) {
+    return [];
+  }
+
+  return [{ heading, blocks }];
+}
+
+function tableBlock(
+  columns: readonly string[],
+  rows: readonly (readonly string[])[]
+): readonly DocumentBlock[] {
+  return rows.length > 0 ? [{ kind: "table", columns, rows }] : [];
+}
+
+function sourceBlocks(claims: readonly ContextClaim[]): readonly DocumentBlock[] {
+  const sources = compactEvidenceSummary(claims);
+
+  return sources ? [{ kind: "paragraph", text: `Sources: ${sources}.` }] : [];
+}
+
+function compactEvidenceSummary(claims: readonly ContextClaim[]): string {
+  return [...new Set(claims.flatMap((claim) => claim.evidence.map(evidenceLabel)))]
+    .sort()
+    .slice(0, 5)
+    .join("; ");
+}
+
+function typedClaims(
+  claims: readonly ContextClaim[],
+  types: readonly string[]
+): ContextClaim<Record<string, unknown> & { type: string }>[] {
+  const supportedTypes = new Set(types);
+
+  return [...claims]
+    .filter((claim): claim is ContextClaim<Record<string, unknown> & { type: string }> =>
+      isTypedClaim(claim, supportedTypes)
+    )
+    .sort(compareClaims);
+}
+
+function isTypedClaim(
+  claim: ContextClaim,
+  supportedTypes: ReadonlySet<string>
+): claim is ContextClaim<Record<string, unknown> & { type: string }> {
+  return (
+    isRecord(claim.value) &&
+    typeof claim.value.type === "string" &&
+    supportedTypes.has(claim.value.type)
+  );
+}
+
+function compareClaims(left: ContextClaim, right: ContextClaim): number {
+  return (
+    CLAIM_KIND_ORDER[left.kind] - CLAIM_KIND_ORDER[right.kind] ||
+    CONFIDENCE_ORDER[left.confidence] - CONFIDENCE_ORDER[right.confidence] ||
+    stableClaimKey(left).localeCompare(stableClaimKey(right))
+  );
+}
+
+function stableClaimKey(claim: ContextClaim): string {
+  return `${claim.kind}:${claim.confidence}:${stableSerialize(claim.value)}:${claim.evidence
+    .map(evidenceLabel)
+    .sort()
+    .join("|")}`;
+}
+
+function qualifier(claim: ContextClaim): string {
+  if (claim.kind === "OBSERVED" && claim.confidence === "HIGH") {
+    return "Observed";
+  }
+
+  if (claim.kind === "OBSERVED") {
+    return "Observed, low confidence";
+  }
+
+  if (claim.confidence === "HIGH") {
+    return "Inferred";
+  }
+
+  if (claim.confidence === "MEDIUM") {
+    return "Likely inferred";
+  }
+
+  return "Low-confidence inference";
+}
+
+function displayLabel(value: string): string {
+  return DISPLAY_LABELS[value] ?? titleCaseIdentifier(value);
+}
+
+function titleCaseIdentifier(value: string): string {
+  return value
+    .toLowerCase()
+    .split("_")
+    .filter((part) => part.length > 0)
+    .map((part) => `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`)
+    .join(" ");
+}
+
+function compareRows(left: readonly string[], right: readonly string[]): number {
+  return left.join("\u0000").localeCompare(right.join("\u0000"));
+}
+
+function isPresent<TValue>(value: TValue | null | undefined): value is TValue {
+  return value !== null && value !== undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringValue(value: Record<string, unknown>, key: string): string | null {
+  return typeof value[key] === "string" ? value[key] : null;
+}
+
+function nullableStringValue(value: Record<string, unknown>, key: string): string | null {
+  const item = value[key];
+
+  return item === undefined || item === null || typeof item === "string" ? (item ?? null) : null;
+}
+
+function numberValue(value: Record<string, unknown>, key: string): number | null {
+  return typeof value[key] === "number" ? value[key] : null;
+}
+
+function evidenceLabel(evidence: ContextEvidence): string {
+  switch (evidence.reference.kind) {
+    case "PROJECT_METADATA":
+      return `project metadata ${evidence.reference.field}`;
+    case "MANIFEST":
+      return `manifest ${evidence.reference.path}`;
+    case "DEPENDENCY":
+      return `dependency ${evidence.reference.name} in ${evidence.reference.manifestPath}`;
+    case "FILE_CLASSIFICATION":
+      return `file classification ${evidence.reference.path}`;
+    case "SOURCE_STRUCTURE":
+      return `source structure ${evidence.reference.path}`;
+    case "RELATIONSHIP":
+      return `relationship ${evidence.reference.sourcePath} -> ${evidence.reference.specifier}`;
+    case "ISSUE":
+      return `issue ${evidence.reference.stage}/${evidence.reference.path}/${evidence.reference.code}`;
+  }
+}
+
+function stableSerialize(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+
+  if (typeof value !== "object") {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return `[${value.map(stableSerialize).join(", ")}]`;
+  }
+
+  return `{ ${Object.entries(value)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, item]) => `${key}: ${stableSerialize(item)}`)
+    .join(", ")} }`;
+}
