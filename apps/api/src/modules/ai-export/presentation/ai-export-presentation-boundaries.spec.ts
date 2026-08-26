@@ -2,9 +2,9 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const serializersDirectory = new URL(".", import.meta.url);
+const presentationDirectory = new URL("./", import.meta.url);
 
-function readSerializerSources(directory: URL | string): string {
+function readPresentationSources(directory: URL | string): string {
   return readdirSync(directory, { withFileTypes: true })
     .flatMap((entry) => {
       if (entry.isDirectory()) {
@@ -13,7 +13,7 @@ function readSerializerSources(directory: URL | string): string {
             ? new URL(`${entry.name}/`, directory)
             : join(directory, entry.name);
 
-        return readSerializerSources(entryPath);
+        return readPresentationSources(entryPath);
       }
 
       if (!entry.name.endsWith(".ts") || entry.name.endsWith(".spec.ts")) {
@@ -28,28 +28,23 @@ function readSerializerSources(directory: URL | string): string {
     .join("\n");
 }
 
-describe("AI Export serializer boundaries", () => {
-  const source = readSerializerSources(serializersDirectory);
+describe("AI Export presentation boundaries", () => {
+  const source = readPresentationSources(presentationDirectory);
 
-  it("does not depend on ProjectContext or upstream engines", () => {
-    expect(source).not.toMatch(/ProjectContext/);
-    expect(source).not.toMatch(/from\s+["'][^"']*\/context\//);
+  it("does not access persistence, repository files, upstream engines, or providers", () => {
     expect(source).not.toMatch(/from\s+["'][^"']*\/scan\//);
     expect(source).not.toMatch(/from\s+["'][^"']*\/analysis\//);
     expect(source).not.toMatch(/from\s+["'][^"']*\/document-generation\//);
-  });
-
-  it("does not depend on providers, persistence, HTTP, frontend, or filesystem APIs", () => {
     expect(source).not.toMatch(/github/i);
     expect(source).not.toMatch(/@prisma\//i);
     expect(source).not.toMatch(/generated\/prisma/i);
-    expect(source).not.toMatch(/@nestjs\//);
-    expect(source).not.toMatch(/\bexpress\b|\bfastify\b|\bhttp\b/i);
-    expect(source).not.toMatch(/apps\/web|browser|window|document\./i);
     expect(source).not.toMatch(/node:fs|node:path|readFile|writeFile/);
   });
 
-  it("does not introduce provider-specific concepts", () => {
+  it("does not depend on serializers, canonical projection, or provider SDK concepts", () => {
+    expect(source).not.toMatch(/ProjectContextAiExportProjector|CanonicalAiExport/);
+    expect(source).not.toMatch(/AiContextSerializer|MarkdownAiExportSerializer/);
+    expect(source).not.toMatch(/PlainTextAiExportSerializer|ai-context\.serializer/);
     expect(source).not.toMatch(/openai|anthropic|claude|chatgpt|cursor|copilot|gemini/i);
   });
 });

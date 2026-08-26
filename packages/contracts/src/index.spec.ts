@@ -3,6 +3,7 @@ import { describe, expectTypeOf, it } from "vitest";
 import type {
   AnalysisHistoryResponse,
   AnalysisResultResponse,
+  AiExportResponse,
   CreateAnalysisRequest,
   DocumentHistoryResponse,
   GeneratedDocumentResponse,
@@ -31,5 +32,13 @@ describe("contracts package exports", () => {
     expectTypeOf<GeneratedDocumentResponse>().toHaveProperty("id").toEqualTypeOf<string>();
     expectTypeOf<GeneratedDocumentResponse>().toHaveProperty("content").toEqualTypeOf<string>();
     expectTypeOf<DocumentHistoryResponse["documents"]>().toMatchTypeOf<readonly unknown[]>();
+  });
+
+  it("exports AI Export API contracts from the public entrypoint", () => {
+    expectTypeOf<AiExportResponse>().toHaveProperty("projectContextId").toEqualTypeOf<string>();
+    expectTypeOf<AiExportResponse>()
+      .toHaveProperty("format")
+      .toEqualTypeOf<"AI_CONTEXT" | "MARKDOWN" | "TEXT">();
+    expectTypeOf<AiExportResponse>().toHaveProperty("content").toEqualTypeOf<string>();
   });
 });

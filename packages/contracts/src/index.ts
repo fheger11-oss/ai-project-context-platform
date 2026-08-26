@@ -1,3 +1,5 @@
+export type { AiExportFormat, AiExportResponse } from "./ai-export.js";
+
 export type {
   AnalysisDependencyEdge,
   AnalysisDependencyEdgeKind,

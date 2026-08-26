@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
 
 import { RequestLoggerMiddleware } from "../../shared/middleware/request-logger.middleware.js";
+import { AiExportModule } from "../ai-export/ai-export.module.js";
 import { AnalysisModule } from "../analysis/analysis.module.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { AppConfigModule } from "../config/app-config.module.js";
@@ -24,6 +25,7 @@ import { UsersModule } from "../users/users.module.js";
     AnalysisModule,
     ContextModule,
     DocumentGenerationModule,
+    AiExportModule,
     HealthModule
   ]
 })

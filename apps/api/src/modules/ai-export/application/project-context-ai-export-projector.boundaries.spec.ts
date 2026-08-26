@@ -8,6 +8,10 @@ function readSources(directory: URL | string): string {
   return readdirSync(directory, { withFileTypes: true })
     .flatMap((entry) => {
       if (entry.isDirectory()) {
+        if (entry.name === "presentation") {
+          return [];
+        }
+
         const entryPath =
           directory instanceof URL
             ? new URL(`${entry.name}/`, directory)
@@ -16,7 +20,11 @@ function readSources(directory: URL | string): string {
         return readSources(entryPath);
       }
 
-      if (!entry.name.endsWith(".ts") || entry.name.endsWith(".spec.ts")) {
+      if (
+        !entry.name.endsWith(".ts") ||
+        entry.name.endsWith(".spec.ts") ||
+        entry.name === "ai-export.module.ts"
+      ) {
         return [];
       }
 
@@ -48,9 +56,9 @@ describe("AI Export canonical projection boundaries", () => {
     expect(source).not.toMatch(/providerId|promptFormat|modelName/i);
   });
 
-  it("does not persist exports or introduce out-of-scope serializers", () => {
-    expect(source).not.toMatch(/ExportArtifact|\bMARKDOWN\b|\bTEXT\b/);
+  it("does not persist exports or introduce HTTP download behavior", () => {
+    expect(source).not.toMatch(/ExportArtifact/);
     expect(source).not.toMatch(/Content-Disposition/i);
-    expect(source).not.toMatch(/save\(|Repository|Prisma/);
+    expect(source).not.toMatch(/save\(|ExportRepository|Prisma/);
   });
 });
