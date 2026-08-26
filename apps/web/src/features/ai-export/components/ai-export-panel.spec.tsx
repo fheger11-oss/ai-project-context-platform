@@ -87,10 +87,27 @@ describe("AiExportPanel", () => {
     expect(markup).toContain("AI Context");
     expect(markup).toContain("Markdown");
     expect(markup).toContain("Plain Text");
-    expect(markup).toContain("Copy Context");
-    expect(markup).toContain("Download");
+    expect(markup).toContain("Preview export");
+    expect(markup).toContain("Copy export");
+    expect(markup).toContain("Download export");
     expect(markup).toContain('aria-label="AI export format"');
     expect(markup).toContain('aria-live="polite"');
+    expect(markup).toContain("Selected Project Context");
+  });
+
+  it("previews exact backend-generated content for the selected format", async () => {
+    vi.mocked(getAiExport).mockResolvedValue(exported);
+    renderToStaticMarkup(
+      <AiExportPanel accessToken="access_token" contextId="project_context_1" />
+    );
+
+    await expect(mutationOptions[0]?.mutationFn()).resolves.toBe(exported);
+    mutationOptions[0]?.onSuccess?.(exported);
+
+    expect(getAiExport).toHaveBeenCalledWith("access_token", {
+      contextId: "project_context_1",
+      format: "AI_CONTEXT"
+    });
   });
 
   it("copies exact backend-generated content for the selected format", async () => {
@@ -99,7 +116,7 @@ describe("AiExportPanel", () => {
       <AiExportPanel accessToken="access_token" contextId="project_context_1" />
     );
 
-    await expect(mutationOptions[0]?.mutationFn()).resolves.toBe(exported);
+    await expect(mutationOptions[1]?.mutationFn()).resolves.toBe(exported);
 
     expect(getAiExport).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
@@ -142,7 +159,7 @@ describe("AiExportPanel", () => {
       revokeObjectURL: vi.fn()
     });
 
-    await expect(mutationOptions[1]?.mutationFn()).resolves.toBe(file);
+    await expect(mutationOptions[2]?.mutationFn()).resolves.toBe(file);
 
     expect(downloadAiExport).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
@@ -171,10 +188,10 @@ describe("AiExportPanel", () => {
       <AiExportPanel accessToken="access_token" contextId="project_context_1" />
     );
 
-    mutationOptions[0]?.onError?.(new DOMException("Denied"));
-    mutationOptions[1]?.onError?.(new Error("Network failed"));
+    mutationOptions[1]?.onError?.(new DOMException("Denied"));
+    mutationOptions[2]?.onError?.(new Error("Network failed"));
 
-    expect(mutationOptions).toHaveLength(2);
+    expect(mutationOptions).toHaveLength(3);
   });
 
   it("triggers a browser download without inventing filenames", () => {
