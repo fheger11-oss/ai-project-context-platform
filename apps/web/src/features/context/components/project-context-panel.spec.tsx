@@ -139,6 +139,12 @@ vi.mock("@/features/documents/components/document-generation-panel", () => ({
   )
 }));
 
+vi.mock("@/features/ai-export/components/ai-export-panel", () => ({
+  AiExportPanel: ({ contextId }: { contextId: string }) => (
+    <section>AI Export for {contextId}</section>
+  )
+}));
+
 describe("ProjectContextPanel", () => {
   beforeEach(() => {
     latestQuery = { data: context };
@@ -160,6 +166,7 @@ describe("ProjectContextPanel", () => {
     expect(markup).toContain("Project Context");
     expect(markup).toContain("Generate Again");
     expect(markup).toContain("Application Type");
+    expect(markup).toContain("AI Export for project_context_1");
     expect(markup).toContain("Document Generation for project_context_1");
     expect(markup).toContain("Context history");
     expect(markup).toContain("context-engine@5.7.1");

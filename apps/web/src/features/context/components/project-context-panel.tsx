@@ -14,6 +14,7 @@ import {
   getProjectContextHistory
 } from "@/features/context/api/context-api";
 import type { ProjectContextHistoryItem } from "@/features/context/api/context-api";
+import { AiExportPanel } from "@/features/ai-export/components/ai-export-panel";
 import { DocumentGenerationPanel } from "@/features/documents/components/document-generation-panel";
 import { ProjectContextDetails } from "./project-context-details";
 
@@ -183,6 +184,7 @@ export function ProjectContextPanel({ accessToken, analysisId }: ProjectContextP
           {activeContext ? (
             <>
               <ProjectContextDetails context={activeContext} />
+              <AiExportPanel accessToken={accessToken} contextId={activeContext.id} />
               <section className="grid gap-3 rounded-md border bg-surface/60 p-4">
                 <div className="min-w-0">
                   <h3 className="flex items-center gap-2 text-sm font-medium">
