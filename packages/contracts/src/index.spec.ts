@@ -6,6 +6,7 @@ import type {
   AiExportResponse,
   CreateAnalysisRequest,
   DocumentHistoryResponse,
+  DashboardProjectsResponse,
   GeneratedDocumentResponse,
   GenerateDocumentRequest
 } from "./index.js";
@@ -40,5 +41,10 @@ describe("contracts package exports", () => {
       .toHaveProperty("format")
       .toEqualTypeOf<"AI_CONTEXT" | "MARKDOWN" | "TEXT">();
     expectTypeOf<AiExportResponse>().toHaveProperty("content").toEqualTypeOf<string>();
+  });
+
+  it("exports Dashboard API contracts from the public entrypoint", () => {
+    expectTypeOf<DashboardProjectsResponse>().toHaveProperty("projects");
+    expectTypeOf<DashboardProjectsResponse["projects"]>().toMatchTypeOf<readonly unknown[]>();
   });
 });

@@ -1,6 +1,17 @@
 export type { AiExportFormat, AiExportResponse } from "./ai-export.js";
 
 export type {
+  DashboardProjectAiExportSummary,
+  DashboardProjectDocumentsSummary,
+  DashboardProjectLatestAnalysisSummary,
+  DashboardProjectLatestContextSummary,
+  DashboardProjectLatestScanSummary,
+  DashboardProjectRepositorySummary,
+  DashboardProjectsResponse,
+  DashboardProjectSummary
+} from "./dashboard.js";
+
+export type {
   AnalysisDependencyEdge,
   AnalysisDependencyEdgeKind,
   AnalysisDetectedFramework,
