@@ -2,9 +2,9 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const aiExportDirectory = new URL("../", import.meta.url);
+const serializersDirectory = new URL(".", import.meta.url);
 
-function readSources(directory: URL | string): string {
+function readSerializerSources(directory: URL | string): string {
   return readdirSync(directory, { withFileTypes: true })
     .flatMap((entry) => {
       if (entry.isDirectory()) {
@@ -13,7 +13,7 @@ function readSources(directory: URL | string): string {
             ? new URL(`${entry.name}/`, directory)
             : join(directory, entry.name);
 
-        return readSources(entryPath);
+        return readSerializerSources(entryPath);
       }
 
       if (!entry.name.endsWith(".ts") || entry.name.endsWith(".spec.ts")) {
@@ -28,29 +28,29 @@ function readSources(directory: URL | string): string {
     .join("\n");
 }
 
-describe("AI Export canonical projection boundaries", () => {
-  const source = readSources(aiExportDirectory);
+describe("AI_CONTEXT serializer boundaries", () => {
+  const source = readSerializerSources(serializersDirectory);
 
-  it("does not import upstream engines, providers, persistence, HTTP, or filesystem APIs", () => {
+  it("does not depend on ProjectContext or upstream engines", () => {
+    expect(source).not.toMatch(/ProjectContext/);
+    expect(source).not.toMatch(/from\s+["'][^"']*\/context\//);
     expect(source).not.toMatch(/from\s+["'][^"']*\/scan\//);
     expect(source).not.toMatch(/from\s+["'][^"']*\/analysis\//);
     expect(source).not.toMatch(/from\s+["'][^"']*\/document-generation\//);
+  });
+
+  it("does not depend on providers, persistence, HTTP, frontend, or filesystem APIs", () => {
     expect(source).not.toMatch(/github/i);
     expect(source).not.toMatch(/@prisma\//i);
     expect(source).not.toMatch(/generated\/prisma/i);
     expect(source).not.toMatch(/@nestjs\//);
     expect(source).not.toMatch(/\bexpress\b|\bfastify\b|\bhttp\b/i);
+    expect(source).not.toMatch(/apps\/web|browser|window|document\./i);
     expect(source).not.toMatch(/node:fs|node:path|readFile|writeFile/);
   });
 
-  it("does not introduce provider-specific export concepts", () => {
+  it("does not introduce provider-specific concepts or out-of-scope formats", () => {
     expect(source).not.toMatch(/openai|anthropic|claude|chatgpt|cursor|copilot|gemini/i);
-    expect(source).not.toMatch(/providerId|promptFormat|modelName/i);
-  });
-
-  it("does not persist exports or introduce out-of-scope serializers", () => {
-    expect(source).not.toMatch(/ExportArtifact|\bMARKDOWN\b|\bTEXT\b/);
-    expect(source).not.toMatch(/Content-Disposition/i);
-    expect(source).not.toMatch(/save\(|Repository|Prisma/);
+    expect(source).not.toMatch(/\bMARKDOWN\b|\bTEXT\b/);
   });
 });
