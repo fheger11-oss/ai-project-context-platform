@@ -12,6 +12,8 @@ describe("MarkdownDocumentContent", () => {
           "",
           "A **strong** *summary* with [docs](https://example.com/docs).",
           "",
+          "> Generated from Project Context.",
+          "",
           "## Available Scripts",
           "",
           "- `build`",
@@ -40,6 +42,8 @@ describe("MarkdownDocumentContent", () => {
     expect(markup).toContain("<code");
     expect(markup).toContain("<strong");
     expect(markup).toContain("<em");
+    expect(markup).toContain("<blockquote");
+    expect(markup).toContain("Generated from Project Context.");
     expect(markup).toContain('href="https://example.com/docs"');
     expect(markup).toContain("<hr");
   });

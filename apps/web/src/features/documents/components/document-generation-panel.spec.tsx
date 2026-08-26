@@ -152,18 +152,17 @@ describe("DocumentGenerationPanel", () => {
       <DocumentGenerationPanel accessToken="access_token" contextId="project_context_1" />
     );
 
-    expect(markup).toContain("Document Generation");
+    expect(markup).toContain("Document workspace");
     expect(markup).toContain("Document type");
-    expect(markup).toContain('<option value="PROJECT_OVERVIEW" selected="">Project Overview');
-    expect(markup).toContain('<option value="TECHNICAL_DOCUMENTATION">Technical Documentation');
-    expect(markup).toContain('<option value="ARCHITECTURE_DOCUMENT">Architecture Documentation');
-    expect(markup).toContain('<option value="MODULE_DOCUMENTATION">Module Documentation');
-    expect(markup).toContain('<option value="README">README');
-    expect(markup).toContain("No documents generated yet.");
+    expect(markup).toContain('aria-selected="true"');
+    expect(markup).toContain("Project Overview");
+    expect(markup).toContain("Technical Documentation");
+    expect(markup).toContain("Architecture Documentation");
+    expect(markup).toContain("Module Documentation");
+    expect(markup).toContain("README");
+    expect(markup).toContain("No documents generated yet");
     expect(markup).toContain("Generate Project Overview");
-    expect(markup).toContain(
-      "Generate Project Overview, Technical Documentation, Architecture Documentation, Module Documentation, or README"
-    );
+    expect(markup).toContain("readable Markdown artifacts");
   });
 
   it("generates a Project Overview through the document API", async () => {
@@ -237,9 +236,7 @@ describe("DocumentGenerationPanel", () => {
     await mutationOptions[0]?.onSuccess?.(technicalDocument);
 
     expect(markup).toContain("Generate Technical Documentation");
-    expect(markup).toContain(
-      '<option value="TECHNICAL_DOCUMENTATION" selected="">Technical Documentation'
-    );
+    expect(markup).toContain("Technical documentation generated from the selected Context.");
     expect(generateDocument).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
       documentType: "TECHNICAL_DOCUMENTATION",
@@ -269,9 +266,7 @@ describe("DocumentGenerationPanel", () => {
     await mutationOptions[0]?.onSuccess?.(architectureDocument);
 
     expect(markup).toContain("Generate Architecture Documentation");
-    expect(markup).toContain(
-      '<option value="ARCHITECTURE_DOCUMENT" selected="">Architecture Documentation'
-    );
+    expect(markup).toContain("Architecture-oriented documentation generated from Context.");
     expect(generateDocument).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
       documentType: "ARCHITECTURE_DOCUMENT",
@@ -301,9 +296,7 @@ describe("DocumentGenerationPanel", () => {
     await mutationOptions[0]?.onSuccess?.(moduleDocument);
 
     expect(markup).toContain("Generate Module Documentation");
-    expect(markup).toContain(
-      '<option value="MODULE_DOCUMENTATION" selected="">Module Documentation'
-    );
+    expect(markup).toContain("Module-focused documentation generated from project knowledge.");
     expect(generateDocument).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
       documentType: "MODULE_DOCUMENTATION",
@@ -330,7 +323,7 @@ describe("DocumentGenerationPanel", () => {
     await mutationOptions[0]?.onSuccess?.(readmeDocument);
 
     expect(markup).toContain("Generate README");
-    expect(markup).toContain('<option value="README" selected="">README');
+    expect(markup).toContain("README content generated from the selected Context.");
     expect(generateDocument).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
       documentType: "README",
@@ -367,6 +360,7 @@ describe("DocumentGenerationPanel", () => {
     expect(markup).toContain("Observed: first artifact.");
     expect(markup).toContain("document-generator@1");
     expect(markup).toContain("context:analysis_1:context-engine@1");
+    expect(markup).toContain("Technical provenance");
     expect(markup).not.toContain("<pre");
   });
 
@@ -391,7 +385,7 @@ describe("DocumentGenerationPanel", () => {
     );
 
     expect(markup).toContain("Architecture Documentation");
-    expect(markup).toContain("Architecture Documentation - MARKDOWN");
+    expect(markup).toContain("MARKDOWN");
     expect(markup).toContain("<h1");
     expect(markup).toContain("Modules");
     expect(markup).toContain("document_architecture_1");
@@ -405,7 +399,7 @@ describe("DocumentGenerationPanel", () => {
     );
 
     expect(markup).toContain("Module Documentation");
-    expect(markup).toContain("Module Documentation - MARKDOWN");
+    expect(markup).toContain("MARKDOWN");
     expect(markup).toContain("<h1");
     expect(markup).toContain("Module Index");
     expect(markup).toContain("document_module_1");
@@ -419,7 +413,7 @@ describe("DocumentGenerationPanel", () => {
     );
 
     expect(markup).toContain("README");
-    expect(markup).toContain("README - MARKDOWN");
+    expect(markup).toContain("MARKDOWN");
     expect(markup).toContain("<h1");
     expect(markup).toContain("sample-app");
     expect(markup).toContain("<h2");

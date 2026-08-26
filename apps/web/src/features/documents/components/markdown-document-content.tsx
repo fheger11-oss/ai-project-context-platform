@@ -5,6 +5,7 @@ type MarkdownDocumentContentProps = {
 };
 
 type MarkdownBlock =
+  | { id: number; type: "blockquote"; value: string }
   | { id: number; type: "code"; value: string }
   | { id: number; type: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; value: string }
   | { id: number; type: "hr" }
@@ -16,8 +17,11 @@ export function MarkdownDocumentContent({ content }: MarkdownDocumentContentProp
   const blocks = parseMarkdownBlocks(content);
 
   return (
-    <div className="max-h-[42rem] overflow-auto rounded-md border bg-background px-5 py-6">
-      <div className="mx-auto grid max-w-3xl gap-5 text-sm leading-7 text-foreground">
+    <div
+      className="max-h-[48rem] overflow-auto rounded-md border border-border bg-background px-4 py-6 shadow-[var(--shadow-control)] sm:px-8 lg:px-10"
+      role="document"
+    >
+      <div className="mx-auto grid max-w-[46rem] gap-5 text-[15px] leading-7 text-foreground">
         {blocks.map((block) => (
           <MarkdownBlockView block={block} key={block.id} />
         ))}
@@ -31,22 +35,38 @@ function MarkdownBlockView({ block }: { block: MarkdownBlock }) {
     const content = renderInlineMarkdown(block.value);
 
     if (block.level === 1) {
-      return <h1 className="text-2xl font-semibold tracking-normal">{content}</h1>;
+      return (
+        <h1 className="border-b border-border pb-4 text-3xl font-semibold leading-tight tracking-normal">
+          {content}
+        </h1>
+      );
     }
 
     if (block.level === 2) {
-      return <h2 className="border-b pb-2 text-xl font-semibold tracking-normal">{content}</h2>;
+      return (
+        <h2 className="pt-3 text-xl font-semibold leading-tight tracking-normal text-foreground">
+          {content}
+        </h2>
+      );
     }
 
     if (block.level === 3) {
-      return <h3 className="text-base font-semibold tracking-normal">{content}</h3>;
+      return <h3 className="pt-2 text-base font-semibold tracking-normal">{content}</h3>;
     }
 
-    return <h4 className="text-sm font-semibold tracking-normal">{content}</h4>;
+    return <h4 className="pt-1 text-sm font-semibold tracking-normal">{content}</h4>;
   }
 
   if (block.type === "paragraph") {
-    return <p className="text-muted-foreground">{renderInlineMarkdown(block.value)}</p>;
+    return <p className="text-subtle-foreground">{renderInlineMarkdown(block.value)}</p>;
+  }
+
+  if (block.type === "blockquote") {
+    return (
+      <blockquote className="border-l-2 border-primary/45 bg-surface/70 px-4 py-3 text-sm leading-6 text-subtle-foreground">
+        {renderInlineMarkdown(block.value)}
+      </blockquote>
+    );
   }
 
   if (block.type === "list") {
@@ -56,8 +76,8 @@ function MarkdownBlockView({ block }: { block: MarkdownBlock }) {
       <ListTag
         className={
           block.ordered
-            ? "grid list-decimal gap-1 pl-5 text-muted-foreground"
-            : "grid list-disc gap-1 pl-5 text-muted-foreground"
+            ? "grid list-decimal gap-2 pl-5 text-subtle-foreground"
+            : "grid list-disc gap-2 pl-5 text-subtle-foreground"
         }
       >
         {block.items.map((item, index) => (
@@ -69,12 +89,15 @@ function MarkdownBlockView({ block }: { block: MarkdownBlock }) {
 
   if (block.type === "table") {
     return (
-      <div className="overflow-x-auto rounded-md border">
+      <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full border-collapse text-left text-sm">
-          <thead className="bg-muted/60">
+          <thead className="bg-surface">
             <tr>
               {block.headers.map((header, index) => (
-                <th className="border-b px-3 py-2 font-medium" key={`${block.id}-h-${index}`}>
+                <th
+                  className="border-b px-3 py-2 text-xs font-medium uppercase text-muted-foreground"
+                  key={`${block.id}-h-${index}`}
+                >
                   {renderInlineMarkdown(header)}
                 </th>
               ))}
@@ -85,7 +108,7 @@ function MarkdownBlockView({ block }: { block: MarkdownBlock }) {
               <tr className="border-b last:border-b-0" key={`${block.id}-r-${rowIndex}`}>
                 {block.headers.map((_, cellIndex) => (
                   <td
-                    className="px-3 py-2 align-top"
+                    className="px-3 py-2 align-top text-subtle-foreground"
                     key={`${block.id}-c-${rowIndex}-${cellIndex}`}
                   >
                     {renderInlineMarkdown(row[cellIndex] ?? "")}
@@ -101,7 +124,7 @@ function MarkdownBlockView({ block }: { block: MarkdownBlock }) {
 
   if (block.type === "code") {
     return (
-      <pre className="overflow-x-auto rounded-md border bg-muted/40 p-4 text-xs leading-6">
+      <pre className="overflow-x-auto rounded-md border border-border bg-muted/40 p-4 text-xs leading-6 text-subtle-foreground">
         <code>{block.value}</code>
       </pre>
     );
@@ -156,6 +179,18 @@ function parseMarkdownBlocks(content: string): MarkdownBlock[] {
       continue;
     }
 
+    if (/^>\s?/.test(line)) {
+      const quoteLines: string[] = [];
+
+      while (index < lines.length && /^>\s?/.test(lines[index] ?? "")) {
+        quoteLines.push((lines[index] ?? "").replace(/^>\s?/, "").trim());
+        index += 1;
+      }
+
+      blocks.push({ id: id++, type: "blockquote", value: quoteLines.join(" ") });
+      continue;
+    }
+
     if (isTableStart(lines, index)) {
       const headers = parseTableRow(line);
       index += 2;
@@ -207,6 +242,7 @@ function canContinueParagraph(lines: string[], index: number): boolean {
     !line.startsWith("```") &&
     !/^(#{1,6})\s+/.test(line) &&
     !/^(-{3,}|\*{3,})$/.test(line.trim()) &&
+    !/^>\s?/.test(line) &&
     !isTableStart(lines, index) &&
     !/^\s*[-*]\s+/.test(line) &&
     !/^\s*\d+\.\s+/.test(line)
@@ -280,7 +316,10 @@ function renderInlineMarkdown(value: string): ReactNode[] {
 
     if (next.type === "code") {
       nodes.push(
-        <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs" key={key++}>
+        <code
+          className="rounded border border-border bg-surface px-1 py-0.5 font-mono text-xs text-foreground"
+          key={key++}
+        >
           {match[1]}
         </code>
       );
