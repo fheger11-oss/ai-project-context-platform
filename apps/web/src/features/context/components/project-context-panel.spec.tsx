@@ -158,13 +158,13 @@ describe("ProjectContextPanel", () => {
     vi.mocked(generateProjectContext).mockReset();
   });
 
-  it("renders latest Context, history, and Generate Again action", () => {
+  it("renders latest Context, history, and Generate Context action", () => {
     const markup = renderToStaticMarkup(
       <ProjectContextPanel accessToken="access_token" analysisId="analysis_1" />
     );
 
     expect(markup).toContain("Project Context");
-    expect(markup).toContain("Generate Again");
+    expect(markup).toContain("Generate Context");
     expect(markup).toContain("Application Type");
     expect(markup).toContain("AI Export for project_context_1");
     expect(markup).toContain("Document Generation for project_context_1");

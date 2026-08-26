@@ -72,7 +72,10 @@ export function ConnectRepositoryView() {
       ) : null}
 
       {availableQuery.isFetching ? (
-        <RepositoryState title="Loading GitHub repositories" description="Reading metadata only." />
+        <RepositoryState
+          title="Loading GitHub repositories"
+          description="Loading repositories available to connect."
+        />
       ) : null}
 
       {availableQuery.isError ? (
@@ -154,7 +157,7 @@ export function ConnectRepositoryView() {
                         ) : (
                           <Plus />
                         )}
-                        {repository.isConnected ? "Disconnect" : "Select"}
+                        {repository.isConnected ? "Disconnect" : "Connect"}
                       </Button>
                     </>
                   );
@@ -167,8 +170,8 @@ export function ConnectRepositoryView() {
 
       {connectMutation.isSuccess ? (
         <RepositoryState
-          title="Repository selected"
-          description="Repository metadata was stored and is ready for future engines."
+          title="Repository connected"
+          description="Repository metadata is stored and ready for scanning."
         />
       ) : null}
 

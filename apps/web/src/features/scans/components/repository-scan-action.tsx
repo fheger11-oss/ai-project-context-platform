@@ -105,7 +105,7 @@ export function RepositoryScanAction({ accessToken, repositoryId }: RepositorySc
           onClick={handleStartScan}
         >
           {scanMutation.isPending ? <ScanLine /> : <Play />}
-          {scanMutation.isPending ? "Scanning" : "Start Scan"}
+          {scanMutation.isPending ? "Scanning" : "Start scan"}
         </Button>
       </div>
 

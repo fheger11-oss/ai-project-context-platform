@@ -27,7 +27,7 @@ export function RepositoryErrorState({ onRetry }: { onRetry?: () => void }) {
   return (
     <RepositoryState
       title="Repositories unavailable"
-      description="The repository service could not complete the request."
+      description="Connected repositories could not be loaded."
       action={
         onRetry ? (
           <Button type="button" variant="outline" onClick={onRetry}>

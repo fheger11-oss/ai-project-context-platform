@@ -67,7 +67,7 @@ function GenerateContextButton({
       onClick={onGenerate}
     >
       <RefreshCw className={isPending ? "animate-spin" : undefined} />
-      {isPending ? "Generating" : "Generate Again"}
+      {isPending ? "Generating" : "Generate Context"}
     </Button>
   );
 }
@@ -299,7 +299,7 @@ function ContextHistory({
                       Source provenance
                     </summary>
                     <dl className="grid gap-2 border-t p-3 text-xs sm:grid-cols-2">
-                      <HistoryRow label="Context row" value={item.id} />
+                      <HistoryRow label="Context record" value={item.id} />
                       <HistoryRow label="Analysis" value={item.analysisId} />
                       <HistoryRow label="Scan" value={item.scanId} />
                       <HistoryRow label="Repository" value={item.repositoryId} />

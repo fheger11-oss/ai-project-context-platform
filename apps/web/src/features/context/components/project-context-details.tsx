@@ -64,7 +64,7 @@ const sectionConfig: readonly {
   },
   {
     key: "entryPoints",
-    description: "Known entry points captured by the Context engine.",
+    description: "Known entry points represented in Context.",
     icon: Clock,
     title: "Entry Points"
   },

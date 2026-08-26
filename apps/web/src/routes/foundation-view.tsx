@@ -1,4 +1,14 @@
-import { ArrowRight, FileText, GitBranch, Layers3, Plus, RefreshCw, ScanLine } from "lucide-react";
+import {
+  ArrowRight,
+  FileJson2,
+  FileText,
+  GitBranch,
+  Layers3,
+  Plus,
+  RefreshCw,
+  ScanLine
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
@@ -11,22 +21,17 @@ import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { listRepositories } from "@/features/repositories/api/repositories-api";
 import { RepositoryCard } from "@/features/repositories/components/repository-card";
+import { productPipelineStages, type ProductPipelineStageKey } from "@/lib/product-pipeline";
 
-const pipelineSteps = [
-  { description: "Connect a GitHub project.", icon: GitBranch, label: "Repository" },
-  { description: "Capture repository metadata and files.", icon: ScanLine, label: "Scan" },
+const pipelineDetails: Record<ProductPipelineStageKey, { description: string; icon: LucideIcon }> =
   {
-    description: "Detect structure, languages, and dependencies.",
-    icon: Layers3,
-    label: "Analysis"
-  },
-  { description: "Generate structured project intelligence.", icon: FileText, label: "Context" },
-  {
-    description: "Create documentation and AI-ready outputs.",
-    icon: ArrowRight,
-    label: "Documents"
-  }
-];
+    repository: { description: "Connect a GitHub project.", icon: GitBranch },
+    scan: { description: "Capture repository metadata and files.", icon: ScanLine },
+    analysis: { description: "Detect structure, languages, and dependencies.", icon: Layers3 },
+    context: { description: "Generate structured project intelligence.", icon: FileText },
+    documents: { description: "Create readable project documentation.", icon: ArrowRight },
+    "ai-export": { description: "Package project context for AI workflows.", icon: FileJson2 }
+  };
 
 export function FoundationView() {
   const apiAccessToken = useAuthSessionStore((state) => state.accessToken);
@@ -113,7 +118,7 @@ export function FoundationView() {
                   </Button>
                 }
                 className="min-h-[220px]"
-                description="The repository service could not load your connected projects."
+                description="Connected projects could not be loaded."
                 title="Projects unavailable"
                 tone="error"
               />
@@ -147,22 +152,27 @@ export function FoundationView() {
             </CardHeader>
             <CardContent>
               <ol className="grid gap-3">
-                {pipelineSteps.map((step, index) => (
-                  <li key={step.label} className="flex gap-3">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-md border bg-surface">
-                      <step.icon className="size-4 text-primary" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-foreground">{step.label}</span>
-                        <span className="text-xs text-muted-foreground">{index + 1}</span>
+                {productPipelineStages.map((step, index) => {
+                  const details = pipelineDetails[step.key];
+                  const StepIcon = details.icon;
+
+                  return (
+                    <li key={step.key} className="flex gap-3">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-md border bg-surface">
+                        <StepIcon className="size-4 text-primary" />
                       </span>
-                      <span className="mt-0.5 block text-sm leading-6 text-muted-foreground">
-                        {step.description}
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground">{step.label}</span>
+                          <span className="text-xs text-muted-foreground">{index + 1}</span>
+                        </span>
+                        <span className="mt-0.5 block text-sm leading-6 text-muted-foreground">
+                          {details.description}
+                        </span>
                       </span>
-                    </span>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ol>
             </CardContent>
           </Card>

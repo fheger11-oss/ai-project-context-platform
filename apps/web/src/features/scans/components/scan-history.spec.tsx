@@ -268,10 +268,10 @@ describe("ScanHistory", () => {
 
     expect(markup).toContain("Ready for analysis");
     expect(markup).toContain("Analyze Scan scan_completed");
-    expect(markup).not.toContain("View Analysis");
+    expect(markup).not.toContain("View analysis");
   });
 
-  it("shows View Analysis and Analyze Again when a completed scan has analyses", () => {
+  it("shows View analysis and Analyze again when a completed scan has analyses", () => {
     analysisQueryStates.set("scan_completed", {
       data: analysisHistoryResponse([latestAnalysis, olderAnalysis])
     });
@@ -281,14 +281,14 @@ describe("ScanHistory", () => {
     });
 
     expect(markup).toContain("Analysis");
-    expect(markup).toContain("View Analysis");
+    expect(markup).toContain("View analysis");
     expect(markup).toContain("/analyses/analysis_latest");
-    expect(markup).toContain("Analyze Again scan_completed");
+    expect(markup).toContain("Analyze again scan_completed");
     expect(markup).toContain("analysis-engine-4.13");
     expect(markup).toContain("analysis_older");
   });
 
-  it("uses the latest analysis as the default View Analysis target", () => {
+  it("uses the latest analysis as the default View analysis target", () => {
     analysisQueryStates.set("scan_completed", {
       data: analysisHistoryResponse([latestAnalysis, olderAnalysis])
     });

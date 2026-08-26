@@ -124,7 +124,7 @@ describe("RepositoryScanAction", () => {
   it("renders a scan action for a repository", () => {
     const markup = staticMarkup(renderAction());
 
-    expect(markup).toContain("Start Scan");
+    expect(markup).toContain("Start scan");
   });
 
   it("clicking scan calls startScan with the existing access token and repository id", () => {

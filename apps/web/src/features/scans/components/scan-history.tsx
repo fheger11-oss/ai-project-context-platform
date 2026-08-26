@@ -394,20 +394,20 @@ function AnalysisActions({
           <Button asChild size="sm">
             <Link to={`/analyses/${encodeURIComponent(latest.analysisId)}`}>
               <Eye />
-              View Analysis
+              View analysis
             </Link>
           </Button>
           <StartAnalysisButton
             accessToken={accessToken}
-            label="Analyze Again"
-            pendingLabel="Analyzing Again"
+            label="Analyze again"
+            pendingLabel="Analyzing again"
             scanId={scanId}
           />
         </div>
       </div>
 
       <div className="grid gap-2">
-        <p className="text-xs uppercase text-muted-foreground">Analysis History</p>
+        <p className="text-xs uppercase text-muted-foreground">Analysis history</p>
         <div className="grid gap-2">
           {history.map((item) => (
             <AnalysisHistoryRow key={item.analysisId} item={item} />

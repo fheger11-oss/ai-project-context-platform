@@ -24,15 +24,7 @@ import type { RepositorySummary } from "@/features/repositories/api/repositories
 import { getScanHistory, type ScanSnapshot } from "@/features/scans/api/scan-api";
 import { RepositoryScanAction } from "@/features/scans/components/repository-scan-action";
 import { ScanHistory } from "@/features/scans/components/scan-history";
-
-const pipelineStages = [
-  { key: "repository", label: "Repository" },
-  { key: "scan", label: "Scan" },
-  { key: "analysis", label: "Analysis" },
-  { key: "context", label: "Context" },
-  { key: "documents", label: "Documents" },
-  { key: "ai-export", label: "AI Export" }
-] as const;
+import { productPipelineStages, type ProductPipelineStageKey } from "@/lib/product-pipeline";
 
 function repositoryName(fullName: string): string {
   const parts = fullName.split("/");
@@ -154,7 +146,7 @@ export function RepositoryDetailsView() {
           </Button>
         }
         className="min-h-[320px]"
-        description="The repository service could not load this project workspace."
+        description="This project workspace could not be loaded."
         title="Project unavailable"
         tone="error"
       />
@@ -293,7 +285,7 @@ function ProjectPipeline({
       </CardHeader>
       <CardContent>
         <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
-          {pipelineStages.map((stage) => {
+          {productPipelineStages.map((stage) => {
             const state = stageState(stage.key, repositoryLoaded, latestScan);
 
             return (
@@ -323,7 +315,7 @@ function ProjectPipeline({
 }
 
 function stageState(
-  key: (typeof pipelineStages)[number]["key"],
+  key: ProductPipelineStageKey,
   repositoryLoaded: boolean,
   latestScan: ScanSnapshot | null
 ): "active" | "complete" | "unavailable" {
@@ -338,10 +330,7 @@ function stageState(
   return "unavailable";
 }
 
-function stageDescription(
-  key: (typeof pipelineStages)[number]["key"],
-  latestScan: ScanSnapshot | null
-): string {
+function stageDescription(key: ProductPipelineStageKey, latestScan: ScanSnapshot | null): string {
   if (key === "repository") {
     return "Connected source project.";
   }
@@ -364,7 +353,7 @@ function stageDescription(
     return "Generated from project context.";
   }
 
-  return "No workspace route yet.";
+  return "Available after project context exists.";
 }
 
 function CurrentState({

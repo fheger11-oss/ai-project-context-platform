@@ -137,7 +137,7 @@ export function AiExportPanel({ accessToken, contextId }: AiExportPanelProps) {
             <div>
               <p className="text-xs font-medium uppercase text-muted-foreground">Export format</p>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Choose how the backend serializer packages this Context.
+                Choose how this Context is packaged for reuse.
               </p>
             </div>
             <TabsList className="flex w-full flex-wrap justify-start" aria-label="AI export format">
@@ -300,7 +300,7 @@ function ExportPreview({ exported }: { exported: AiExportResponse }) {
           <PreviewMetadata label="Format" value={labelForFormat(exported.format)} />
           <PreviewMetadata label="Export version" value={exported.exportVersion} />
           <PreviewMetadata label="Context version" value={exported.contextVersion} />
-          <PreviewMetadata label="Project Context row" value={exported.projectContextId} />
+          <PreviewMetadata label="Project Context record" value={exported.projectContextId} />
           <PreviewMetadata label="Context provenance" value={exported.contextId} />
         </dl>
       </details>

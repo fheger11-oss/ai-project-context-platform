@@ -35,7 +35,7 @@ type DocumentGenerationPanelProps = {
 function documentErrorMessage(error: unknown): string {
   if (error instanceof DocumentApiRequestError) {
     if (error.status === 401) {
-      return "Sign in again to use Document Generation.";
+      return "Sign in again to use Documents.";
     }
 
     if (error.status === 403) {
@@ -376,7 +376,7 @@ function GeneratedDocumentViewer({ document }: { document: GeneratedDocumentResp
           </summary>
           <dl className="grid gap-2 border-t p-3 text-xs sm:grid-cols-2">
             <MetadataRow label="Document ID" value={document.id} />
-            <MetadataRow label="Context row" value={document.projectContextId} />
+            <MetadataRow label="Project Context record" value={document.projectContextId} />
             <MetadataRow label="Context provenance" value={document.contextId} />
             <MetadataRow label="Created" value={displayDate(document.createdAt)} />
           </dl>
@@ -470,7 +470,7 @@ function DocumentHistory({
                 </summary>
                 <dl className="grid gap-2 border-t p-2 text-xs">
                   <MetadataRow label="Document ID" value={document.id} />
-                  <MetadataRow label="Context row" value={document.projectContextId} />
+                  <MetadataRow label="Project Context record" value={document.projectContextId} />
                   <MetadataRow label="Context provenance" value={document.contextId} />
                 </dl>
               </details>
