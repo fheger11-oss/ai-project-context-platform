@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScanApiRequestError, startScan } from "@/features/scans/api/scan-api";
 import type { ScanSnapshot } from "@/features/scans/api/scan-api";
+import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
 
 type RepositoryScanActionProps = {
   accessToken: string;
@@ -25,48 +26,6 @@ function scanErrorMessage(error: unknown): string {
   }
 
   return "Network problem. Check your connection and try again.";
-}
-
-function scanStatusTone(
-  status: ScanSnapshot["status"]
-): "error" | "muted" | "pending" | "running" | "success" {
-  if (status === "COMPLETED") {
-    return "success";
-  }
-
-  if (status === "FAILED") {
-    return "error";
-  }
-
-  if (status === "RUNNING") {
-    return "running";
-  }
-
-  if (status === "PENDING") {
-    return "pending";
-  }
-
-  return "muted";
-}
-
-function scanStatusLabel(status: ScanSnapshot["status"]): string {
-  if (status === "COMPLETED") {
-    return "Completed";
-  }
-
-  if (status === "RUNNING") {
-    return "Running";
-  }
-
-  if (status === "PENDING") {
-    return "Pending";
-  }
-
-  if (status === "FAILED") {
-    return "Failed";
-  }
-
-  return "Cancelled";
 }
 
 export function RepositoryScanAction({ accessToken, repositoryId }: RepositoryScanActionProps) {

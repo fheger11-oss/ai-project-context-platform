@@ -20,8 +20,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { AnalysisApiRequestError, getAnalysisHistory } from "@/features/analysis/api/analysis-api";
 import { StartAnalysisButton } from "@/features/analysis/components/start-analysis-button";
 import { getScanHistory, ScanApiRequestError } from "@/features/scans/api/scan-api";
+import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
 import type { AnalysisHistoryItem } from "@/features/analysis/api/analysis-api";
-import type { ScanHistoryResponse, ScanSnapshot, ScanStatus } from "@/features/scans/api/scan-api";
+import type { ScanHistoryResponse, ScanSnapshot } from "@/features/scans/api/scan-api";
 
 const HISTORY_PAGE_SIZE = 20;
 
@@ -52,50 +53,6 @@ function historyErrorMessage(error: unknown): string {
   }
 
   return "Scan history could not be loaded.";
-}
-
-function scanStatusTone(status: ScanStatus): "error" | "muted" | "pending" | "running" | "success" {
-  if (status === "COMPLETED") {
-    return "success";
-  }
-
-  if (status === "FAILED") {
-    return "error";
-  }
-
-  if (status === "RUNNING") {
-    return "running";
-  }
-
-  if (status === "PENDING") {
-    return "pending";
-  }
-
-  if (status === "CANCELLED") {
-    return "muted";
-  }
-
-  return "muted";
-}
-
-function scanStatusLabel(status: ScanStatus): string {
-  if (status === "COMPLETED") {
-    return "Completed";
-  }
-
-  if (status === "RUNNING") {
-    return "Running";
-  }
-
-  if (status === "PENDING") {
-    return "Pending";
-  }
-
-  if (status === "FAILED") {
-    return "Failed";
-  }
-
-  return "Cancelled";
 }
 
 function displayDate(value: string | null): string {

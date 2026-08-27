@@ -33,4 +33,19 @@ describe("router", () => {
     expect(indexRoute?.element.type).toBe(DashboardView);
     expect(createBrowserRouter).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps repository workspaces on /repositories/:id without adding /projects/:id", async () => {
+    const { router } = await import("@/app/router");
+    const routes = (
+      router as {
+        routes: {
+          children?: { path?: string }[];
+        }[];
+      }
+    ).routes;
+    const paths = routes[0]?.children?.map((route) => route.path).filter(Boolean) ?? [];
+
+    expect(paths).toContain("repositories/:id");
+    expect(paths).not.toContain("projects/:id");
+  });
 });

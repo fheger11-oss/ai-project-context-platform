@@ -5,10 +5,10 @@ import { useQuery } from "@tanstack/react-query";
 import { StatePanel } from "@/components/shared/state-panel";
 import { PageHeading } from "@/components/typography/page-heading";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
+import { ProjectSummaryCard } from "@/features/dashboard/components/project-summary-card";
 
 export function DashboardView() {
   const apiAccessToken = useAuthSessionStore((state) => state.accessToken);
@@ -102,19 +102,23 @@ export function DashboardView() {
       ) : null}
 
       {apiAccessToken && dashboardProjectsQuery.isSuccess && projects.length > 0 ? (
-        <Card aria-label="Dashboard project overview foundation">
-          <CardHeader>
-            <CardTitle>Projects overview</CardTitle>
-            <CardDescription>
-              {projects.length} connected project{projects.length === 1 ? "" : "s"} ready.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border border-dashed bg-surface/60 p-5 text-sm text-muted-foreground">
-              Project overview will render here in Sprint 8.4.
+        <section className="grid gap-3" aria-labelledby="dashboard-projects-title">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 id="dashboard-projects-title" className="text-base font-semibold">
+                Projects overview
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {projects.length} connected project{projects.length === 1 ? "" : "s"} shown.
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            {projects.map((project) => (
+              <ProjectSummaryCard key={project.repository.id} project={project} />
+            ))}
+          </div>
+        </section>
       ) : null}
     </>
   );

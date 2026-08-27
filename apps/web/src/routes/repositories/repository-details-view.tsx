@@ -1,14 +1,19 @@
 import {
   ArrowLeft,
+  BarChart3,
+  Bot,
   CheckCircle2,
   Clock3,
   ExternalLink,
+  FileText,
   GitBranch,
   GitFork,
+  Layers3,
   RefreshCw,
   ScanLine,
   Star
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -19,12 +24,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
+import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
 import { getRepository, syncRepository } from "@/features/repositories/api/repositories-api";
 import type { RepositorySummary } from "@/features/repositories/api/repositories-api";
 import { getScanHistory, type ScanSnapshot } from "@/features/scans/api/scan-api";
+import { StartAnalysisButton } from "@/features/analysis/components/start-analysis-button";
 import { RepositoryScanAction } from "@/features/scans/components/repository-scan-action";
 import { ScanHistory } from "@/features/scans/components/scan-history";
+import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
 import { productPipelineStages, type ProductPipelineStageKey } from "@/lib/product-pipeline";
+import type { DashboardProjectSummary } from "@ai-context/contracts";
 
 function repositoryName(fullName: string): string {
   const parts = fullName.split("/");
@@ -34,48 +43,6 @@ function repositoryName(fullName: string): string {
 
 function displayDate(value: string): string {
   return new Date(value).toLocaleString();
-}
-
-function scanStatusLabel(status: ScanSnapshot["status"]): string {
-  if (status === "COMPLETED") {
-    return "Completed";
-  }
-
-  if (status === "RUNNING") {
-    return "Running";
-  }
-
-  if (status === "PENDING") {
-    return "Pending";
-  }
-
-  if (status === "FAILED") {
-    return "Failed";
-  }
-
-  return "Cancelled";
-}
-
-function scanStatusTone(
-  status: ScanSnapshot["status"]
-): "error" | "muted" | "pending" | "running" | "success" {
-  if (status === "COMPLETED") {
-    return "success";
-  }
-
-  if (status === "FAILED") {
-    return "error";
-  }
-
-  if (status === "RUNNING") {
-    return "running";
-  }
-
-  if (status === "PENDING") {
-    return "pending";
-  }
-
-  return "muted";
 }
 
 export function RepositoryDetailsView() {
@@ -92,6 +59,11 @@ export function RepositoryDetailsView() {
     queryFn: () => getScanHistory(apiAccessToken, id ?? "", 1, 1),
     enabled: Boolean(apiAccessToken && id)
   });
+  const dashboardProjectsQuery = useQuery({
+    queryKey: ["dashboard", "projects"],
+    queryFn: () => listDashboardProjects(apiAccessToken),
+    enabled: Boolean(apiAccessToken && id)
+  });
   const syncMutation = useMutation({
     mutationFn: () => syncRepository(apiAccessToken, id ?? ""),
     onSuccess: async () => {
@@ -103,6 +75,8 @@ export function RepositoryDetailsView() {
   });
   const repository = repositoryQuery.data;
   const latestScan = latestScanQuery.data?.items[0] ?? null;
+  const projectSummary =
+    dashboardProjectsQuery.data?.projects.find((project) => project.repository.id === id) ?? null;
 
   if (!apiAccessToken) {
     return (
@@ -168,15 +142,27 @@ export function RepositoryDetailsView() {
     <section className="grid gap-5">
       <ProjectHeader repository={repository} />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="grid gap-4">
-          <ProjectPipeline latestScan={latestScan} repositoryLoaded />
+          <ProjectPipeline
+            latestScan={latestScan}
+            projectSummary={projectSummary}
+            repositoryLoaded
+          />
           <ScanHistory accessToken={apiAccessToken} repositoryId={repository.id} />
           <ProjectMetadata repository={repository} />
         </div>
 
         <aside className="grid content-start gap-3" aria-label="Project actions">
           <RepositoryScanAction accessToken={apiAccessToken} repositoryId={repository.id} />
+          <WorkflowAccess
+            isLoading={dashboardProjectsQuery.isLoading}
+            isError={dashboardProjectsQuery.isError}
+            latestScan={latestScan}
+            projectSummary={projectSummary}
+            repositoryId={repository.id}
+            accessToken={apiAccessToken}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Repository source</CardTitle>
@@ -249,7 +235,7 @@ function ProjectHeader({ repository }: { repository: RepositorySummary }) {
             {repository.description ?? "No repository description provided."}
           </p>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex shrink-0 flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <Star className="size-4" />
             {repository.stars}
@@ -270,9 +256,11 @@ function ProjectHeader({ repository }: { repository: RepositorySummary }) {
 
 function ProjectPipeline({
   latestScan,
+  projectSummary,
   repositoryLoaded
 }: {
   latestScan: ScanSnapshot | null;
+  projectSummary: DashboardProjectSummary | null;
   repositoryLoaded: boolean;
 }) {
   return (
@@ -284,9 +272,9 @@ function ProjectPipeline({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+        <ol className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-6">
           {productPipelineStages.map((stage) => {
-            const state = stageState(stage.key, repositoryLoaded, latestScan);
+            const state = stageState(stage.key, repositoryLoaded, latestScan, projectSummary);
 
             return (
               <li key={stage.key} className="rounded-md border border-border bg-surface/65 p-3">
@@ -298,12 +286,12 @@ function ProjectPipeline({
                   ) : (
                     <Clock3 aria-hidden="true" className="size-4 text-muted-foreground" />
                   )}
-                  <span className="truncate text-sm font-medium text-foreground">
+                  <span className="min-w-0 break-words text-sm font-medium text-foreground">
                     {stage.label}
                   </span>
                 </div>
                 <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                  {stageDescription(stage.key, latestScan)}
+                  {stageDescription(stage.key, latestScan, projectSummary)}
                 </p>
               </li>
             );
@@ -317,7 +305,8 @@ function ProjectPipeline({
 function stageState(
   key: ProductPipelineStageKey,
   repositoryLoaded: boolean,
-  latestScan: ScanSnapshot | null
+  latestScan: ScanSnapshot | null,
+  projectSummary: DashboardProjectSummary | null
 ): "active" | "complete" | "unavailable" {
   if (key === "repository" && repositoryLoaded) {
     return "complete";
@@ -327,10 +316,46 @@ function stageState(
     return latestScan.status === "COMPLETED" ? "complete" : "active";
   }
 
+  if (key === "analysis") {
+    if (projectSummary?.latestAnalysis) {
+      return "complete";
+    }
+
+    return latestScan?.status === "COMPLETED" ? "active" : "unavailable";
+  }
+
+  if (key === "context") {
+    if (projectSummary?.latestContext) {
+      return "complete";
+    }
+
+    return projectSummary?.latestAnalysis ? "active" : "unavailable";
+  }
+
+  if (key === "documents") {
+    if (projectSummary?.documents.available) {
+      return "complete";
+    }
+
+    return projectSummary?.latestContext ? "active" : "unavailable";
+  }
+
+  if (key === "ai-export") {
+    if (projectSummary?.aiExport.available) {
+      return "complete";
+    }
+
+    return projectSummary?.latestContext ? "active" : "unavailable";
+  }
+
   return "unavailable";
 }
 
-function stageDescription(key: ProductPipelineStageKey, latestScan: ScanSnapshot | null): string {
+function stageDescription(
+  key: ProductPipelineStageKey,
+  latestScan: ScanSnapshot | null,
+  projectSummary: DashboardProjectSummary | null
+): string {
   if (key === "repository") {
     return "Connected source project.";
   }
@@ -342,18 +367,193 @@ function stageDescription(key: ProductPipelineStageKey, latestScan: ScanSnapshot
   }
 
   if (key === "analysis") {
-    return "Available from completed scan history.";
+    return projectSummary?.latestAnalysis
+      ? "Analysis is available."
+      : "Available from completed scan history.";
   }
 
   if (key === "context") {
-    return "Generated from an analysis.";
+    return projectSummary?.latestContext
+      ? `Context ${projectSummary.latestContext.contextVersion}.`
+      : "Generated from an analysis.";
   }
 
   if (key === "documents") {
-    return "Generated from project context.";
+    return projectSummary?.documents.available
+      ? `${projectSummary.documents.count} generated document${
+          projectSummary.documents.count === 1 ? "" : "s"
+        }.`
+      : "Generated from project context.";
   }
 
-  return "Available after project context exists.";
+  return projectSummary?.aiExport.available
+    ? "Available from Project Context."
+    : "Available after project context exists.";
+}
+
+function WorkflowAccess({
+  accessToken,
+  isError,
+  isLoading,
+  latestScan,
+  projectSummary,
+  repositoryId
+}: {
+  accessToken: string;
+  isError: boolean;
+  isLoading: boolean;
+  latestScan: ScanSnapshot | null;
+  projectSummary: DashboardProjectSummary | null;
+  repositoryId: string;
+}) {
+  const analysisHref = projectSummary?.latestAnalysis
+    ? `/analyses/${encodeURIComponent(projectSummary.latestAnalysis.analysisId)}`
+    : null;
+  const canAnalyzeLatestScan = Boolean(
+    latestScan?.status === "COMPLETED" && !projectSummary?.latestAnalysis
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Workflow access</CardTitle>
+        <CardDescription>
+          Open existing analysis, Context, document, and AI export workflows.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        {isLoading ? (
+          <StatePanel
+            className="p-3"
+            description="Loading verified project workflow state."
+            title="Loading workflow access"
+            tone="loading"
+          />
+        ) : null}
+
+        {isError ? (
+          <StatePanel
+            className="p-3"
+            description="Workflow availability could not be loaded."
+            title="Workflow access unavailable"
+            tone="error"
+          />
+        ) : null}
+
+        {!isLoading && !isError ? (
+          <>
+            <WorkflowRow
+              available={Boolean(projectSummary?.latestAnalysis)}
+              icon={BarChart3}
+              label="Analysis"
+              value={
+                projectSummary?.latestAnalysis
+                  ? "Completed analysis available"
+                  : "Available from completed scan history"
+              }
+              href={analysisHref}
+              actionLabel="Open analysis"
+            />
+            {canAnalyzeLatestScan && latestScan ? (
+              <div className="grid gap-2 rounded-md border border-dashed p-3">
+                <p className="text-sm font-medium text-foreground">Latest scan is ready</p>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Use the existing Analysis Engine action for this completed scan.
+                </p>
+                <StartAnalysisButton
+                  accessToken={accessToken}
+                  label="Analyze latest scan"
+                  pendingLabel="Analyzing latest scan"
+                  scanId={latestScan.id}
+                />
+              </div>
+            ) : null}
+            <WorkflowRow
+              available={Boolean(projectSummary?.latestContext)}
+              icon={Layers3}
+              label="Project Context"
+              value={
+                projectSummary?.latestContext?.contextVersion ??
+                (projectSummary?.latestAnalysis
+                  ? "Generated from analysis"
+                  : "Waiting for analysis")
+              }
+              href={analysisHref}
+              actionLabel={projectSummary?.latestContext ? "Open Context" : "Open Context workflow"}
+            />
+            <WorkflowRow
+              available={Boolean(projectSummary?.documents.available)}
+              icon={FileText}
+              label="Documents"
+              value={`${projectSummary?.documents.count ?? 0} generated`}
+              href={projectSummary?.latestContext ? analysisHref : null}
+              actionLabel="Open Documents"
+            />
+            <WorkflowRow
+              available={Boolean(projectSummary?.aiExport.available)}
+              icon={Bot}
+              label="AI Export"
+              value={
+                projectSummary?.aiExport.available
+                  ? "Available from Project Context"
+                  : "Available after Context exists"
+              }
+              href={projectSummary?.latestContext ? analysisHref : null}
+              actionLabel="Open AI Export"
+            />
+          </>
+        ) : null}
+
+        <Button asChild variant="utility">
+          <Link to={`/repositories/${encodeURIComponent(repositoryId)}`}>
+            <GitBranch />
+            Project workspace
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function WorkflowRow({
+  actionLabel,
+  available,
+  href,
+  icon: Icon,
+  label,
+  value
+}: {
+  actionLabel: string;
+  available: boolean;
+  href: string | null;
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="grid gap-3 rounded-md border bg-surface/60 p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <Icon className="size-4 text-muted-foreground" />
+            {label}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{value}</p>
+        </div>
+        <Badge className="w-fit" tone={available ? "success" : "muted"}>
+          {available ? "Available" : "Waiting"}
+        </Badge>
+      </div>
+      {href ? (
+        <Button asChild size="sm" variant="outline">
+          <Link to={href}>
+            {actionLabel}
+            <ExternalLink />
+          </Link>
+        </Button>
+      ) : null}
+    </div>
+  );
 }
 
 function CurrentState({
