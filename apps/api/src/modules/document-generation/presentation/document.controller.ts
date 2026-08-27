@@ -115,8 +115,7 @@ export class DocumentController {
         userId: user.id,
         contextId: dto.contextId,
         documentType: dto.documentType,
-        format: dto.format,
-        generatorVersion: dto.generatorVersion
+        format: dto.format
       });
 
       return toGeneratedDocumentResponse(document);

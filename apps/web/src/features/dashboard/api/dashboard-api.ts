@@ -1,6 +1,6 @@
 import type { DashboardProjectsResponse } from "@ai-context/contracts";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api/v1";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 
 type RequestOptions = {
   accessToken: string;
@@ -16,7 +16,7 @@ export class DashboardApiRequestError extends Error {
 }
 
 async function request<T>(path: string, options: RequestOptions): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await authenticatedFetch(path, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${options.accessToken}`,

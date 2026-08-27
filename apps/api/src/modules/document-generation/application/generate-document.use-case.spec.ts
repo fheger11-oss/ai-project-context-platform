@@ -80,8 +80,7 @@ describe("GenerateDocumentUseCase", () => {
         userId: "user_1",
         contextId: "project_context_1",
         documentType: "PROJECT_OVERVIEW",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).resolves.toBe(persistedDocument);
 
@@ -108,8 +107,7 @@ describe("GenerateDocumentUseCase", () => {
       userId: "user_1",
       contextId: "project_context_1",
       documentType: "PROJECT_OVERVIEW",
-      format: "MARKDOWN",
-      generatorVersion: "document-generator@1"
+      format: "MARKDOWN"
     });
 
     expect(result).toBe(persistedDocument);
@@ -123,8 +121,7 @@ describe("GenerateDocumentUseCase", () => {
         userId: "user_1",
         contextId: "missing_context",
         documentType: "PROJECT_OVERVIEW",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).rejects.toThrow(ProjectContextNotFoundForDocumentGenerationError);
     expect(documentGenerator.generate).not.toHaveBeenCalled();
@@ -144,8 +141,7 @@ describe("GenerateDocumentUseCase", () => {
         userId: "user_2",
         contextId: "project_context_1",
         documentType: "PROJECT_OVERVIEW",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).rejects.toBe(inaccessibleContextError);
     expect(projectContextReader.readProjectContext).toHaveBeenCalledWith({

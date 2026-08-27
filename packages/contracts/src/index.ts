@@ -149,6 +149,18 @@ export type ScanSnapshot = {
   updatedAt: string;
 };
 
+export type ScanLatestAnalysisSummary = {
+  analysisId: string;
+  scanId: string;
+  analyzerVersion: string;
+  generatedAt: string;
+  commitSha: string;
+};
+
+export type ScanHistoryItem = ScanSnapshot & {
+  latestAnalysis: ScanLatestAnalysisSummary | null;
+};
+
 export type ScanHistoryPagination = {
   page: number;
   pageSize: number;
@@ -157,6 +169,6 @@ export type ScanHistoryPagination = {
 };
 
 export type ScanHistoryResponse = {
-  items: ScanSnapshot[];
+  items: ScanHistoryItem[];
   pagination: ScanHistoryPagination;
 };

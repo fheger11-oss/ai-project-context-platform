@@ -1,6 +1,6 @@
 import type { ScanHistoryResponse, ScanSnapshot, StartScanRequest } from "@ai-context/contracts";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api/v1";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 
 type RequestOptions = {
   accessToken: string;
@@ -30,7 +30,7 @@ async function request<T>(path: string, options: RequestOptions): Promise<T> {
     init.body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(`${API_URL}${path}`, init);
+  const response = await authenticatedFetch(path, init);
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -80,6 +80,7 @@ export function getScanHistory(
 
 export type {
   ScanHistoryResponse,
+  ScanHistoryItem,
   ScanSnapshot,
   ScanStatus,
   StartScanRequest

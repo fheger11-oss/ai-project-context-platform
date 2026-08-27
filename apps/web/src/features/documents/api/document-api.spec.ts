@@ -29,8 +29,7 @@ const history: DocumentHistoryResponse = {
 const request: GenerateDocumentRequest = {
   contextId: "project_context_1",
   documentType: "PROJECT_OVERVIEW",
-  format: "MARKDOWN",
-  generatorVersion: "document-generator@1"
+  format: "MARKDOWN"
 };
 
 function mockFetch(response: unknown, init: ResponseInit = { status: 200 }) {
@@ -55,6 +54,19 @@ describe("document-api", () => {
         body: JSON.stringify(request),
         method: "POST",
         headers: expect.objectContaining({ Authorization: "Bearer access_token" })
+      })
+    );
+  });
+
+  it("does not send generator version from the frontend", async () => {
+    const fetchMock = mockFetch(document, { status: 201 });
+
+    await generateDocument("access_token", request);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/v1/documents",
+      expect.objectContaining({
+        body: expect.not.stringContaining("generatorVersion")
       })
     );
   });

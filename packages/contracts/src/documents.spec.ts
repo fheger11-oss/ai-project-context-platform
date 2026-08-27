@@ -17,7 +17,6 @@ describe("Document API contracts", () => {
         | "MODULE_DOCUMENTATION"
         | "README";
       format: "MARKDOWN";
-      generatorVersion: string;
     }>();
   });
 

@@ -6,6 +6,7 @@ import type {
 } from "../domain/contracts/document-repository.contract.js";
 import type { DocumentFormat } from "../domain/document-format.js";
 import type { DocumentType } from "../domain/document-type.js";
+import { DOCUMENT_GENERATOR_VERSION } from "./document-generator-version.js";
 import { ProjectContextNotFoundForDocumentGenerationError } from "./errors/project-context-not-found-for-document-generation.error.js";
 
 export type GenerateDocumentCommand = {
@@ -13,7 +14,6 @@ export type GenerateDocumentCommand = {
   contextId: string;
   documentType: DocumentType;
   format: DocumentFormat;
-  generatorVersion: string;
 };
 
 export class GenerateDocumentUseCase {
@@ -37,7 +37,7 @@ export class GenerateDocumentUseCase {
       projectContext: context.projectContext,
       documentType: command.documentType,
       format: command.format,
-      generatorVersion: command.generatorVersion
+      generatorVersion: DOCUMENT_GENERATOR_VERSION
     });
 
     return this.documentRepository.save({

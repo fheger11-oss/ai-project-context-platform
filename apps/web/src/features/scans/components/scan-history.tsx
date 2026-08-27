@@ -17,12 +17,14 @@ import { StatePanel } from "@/components/shared/state-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AnalysisApiRequestError, getAnalysisHistory } from "@/features/analysis/api/analysis-api";
 import { StartAnalysisButton } from "@/features/analysis/components/start-analysis-button";
 import { getScanHistory, ScanApiRequestError } from "@/features/scans/api/scan-api";
 import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
 import type { AnalysisHistoryItem } from "@/features/analysis/api/analysis-api";
-import type { ScanHistoryResponse, ScanSnapshot } from "@/features/scans/api/scan-api";
+import type {
+  ScanHistoryItem as ScanHistoryRecord,
+  ScanHistoryResponse
+} from "@/features/scans/api/scan-api";
 
 const HISTORY_PAGE_SIZE = 20;
 
@@ -61,20 +63,6 @@ function displayDate(value: string | null): string {
 
 function displayDuration(durationMs: number | null): string {
   return durationMs === null ? "Not available" : `${durationMs} ms`;
-}
-
-function analysisHistoryErrorMessage(error: unknown): string {
-  if (error instanceof AnalysisApiRequestError) {
-    if (error.status === 401) {
-      return "Sign in again to load analysis history.";
-    }
-
-    if (error.status === 403 || error.status === 404) {
-      return "Analysis history is not available for this scan.";
-    }
-  }
-
-  return "Analysis history could not be loaded.";
 }
 
 export function ScanHistory({ accessToken, repositoryId }: ScanHistoryProps) {
@@ -194,13 +182,7 @@ export function ScanHistoryContent({
   );
 }
 
-function ScanHistoryItem({ accessToken, scan }: { accessToken: string; scan: ScanSnapshot }) {
-  const analysisHistoryQuery = useQuery({
-    queryKey: ["analysis-history", scan.id],
-    queryFn: () => getAnalysisHistory(accessToken, scan.id),
-    enabled: Boolean(accessToken && scan.status === "COMPLETED")
-  });
-
+function ScanHistoryItem({ accessToken, scan }: { accessToken: string; scan: ScanHistoryRecord }) {
   return (
     <article className="grid gap-3 rounded-md border border-border bg-surface/70 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -272,10 +254,7 @@ function ScanHistoryItem({ accessToken, scan }: { accessToken: string; scan: Sca
         <div className="border-t pt-3">
           <AnalysisActions
             accessToken={accessToken}
-            error={analysisHistoryQuery.error}
-            history={analysisHistoryQuery.data?.items ?? []}
-            isError={analysisHistoryQuery.isError}
-            isLoading={analysisHistoryQuery.isLoading}
+            latestAnalysis={scan.latestAnalysis}
             scanId={scan.id}
           />
         </div>
@@ -286,44 +265,14 @@ function ScanHistoryItem({ accessToken, scan }: { accessToken: string; scan: Sca
 
 function AnalysisActions({
   accessToken,
-  error,
-  history,
-  isError,
-  isLoading,
+  latestAnalysis,
   scanId
 }: {
   accessToken: string;
-  error: unknown;
-  history: readonly AnalysisHistoryItem[];
-  isError: boolean;
-  isLoading: boolean;
+  latestAnalysis: AnalysisHistoryItem | null;
   scanId: string;
 }) {
-  const latest = history[0];
-
-  if (isLoading) {
-    return (
-      <StatePanel
-        className="p-3"
-        description="Checking whether this scan already has analysis results."
-        title="Loading analysis"
-        tone="loading"
-      />
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="grid gap-2">
-        <p className="text-sm text-destructive" role="alert">
-          {analysisHistoryErrorMessage(error)}
-        </p>
-        <StartAnalysisButton accessToken={accessToken} scanId={scanId} />
-      </div>
-    );
-  }
-
-  if (!latest) {
+  if (!latestAnalysis) {
     return (
       <div className="grid gap-2 rounded-md border border-dashed p-3">
         <p className="text-sm font-medium text-foreground">Ready for analysis</p>
@@ -344,12 +293,12 @@ function AnalysisActions({
             Analysis available
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Analyzed {displayDate(latest.generatedAt)}
+            Analyzed {displayDate(latestAnalysis.generatedAt)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild size="sm">
-            <Link to={`/analyses/${encodeURIComponent(latest.analysisId)}`}>
+            <Link to={`/analyses/${encodeURIComponent(latestAnalysis.analysisId)}`}>
               <Eye />
               View analysis
             </Link>
@@ -364,11 +313,9 @@ function AnalysisActions({
       </div>
 
       <div className="grid gap-2">
-        <p className="text-xs uppercase text-muted-foreground">Analysis history</p>
+        <p className="text-xs uppercase text-muted-foreground">Latest analysis</p>
         <div className="grid gap-2">
-          {history.map((item) => (
-            <AnalysisHistoryRow key={item.analysisId} item={item} />
-          ))}
+          <AnalysisHistoryRow item={latestAnalysis} />
         </div>
       </div>
     </div>

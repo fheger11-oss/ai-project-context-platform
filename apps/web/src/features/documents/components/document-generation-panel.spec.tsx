@@ -177,8 +177,7 @@ describe("DocumentGenerationPanel", () => {
     expect(generateDocument).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
       documentType: "PROJECT_OVERVIEW",
-      format: "MARKDOWN",
-      generatorVersion: "document-generator@1"
+      format: "MARKDOWN"
     });
     expect(setQueryData).toHaveBeenCalledWith(["document", "document_1"], firstDocument);
     expect(invalidateQueries).toHaveBeenCalledWith({
@@ -190,8 +189,7 @@ describe("DocumentGenerationPanel", () => {
     expect(createGenerateDocumentRequest("project_context_1", "TECHNICAL_DOCUMENTATION")).toEqual({
       contextId: "project_context_1",
       documentType: "TECHNICAL_DOCUMENTATION",
-      format: "MARKDOWN",
-      generatorVersion: "document-generator@1"
+      format: "MARKDOWN"
     });
   });
 
@@ -199,8 +197,7 @@ describe("DocumentGenerationPanel", () => {
     expect(createGenerateDocumentRequest("project_context_1", "ARCHITECTURE_DOCUMENT")).toEqual({
       contextId: "project_context_1",
       documentType: "ARCHITECTURE_DOCUMENT",
-      format: "MARKDOWN",
-      generatorVersion: "document-generator@1"
+      format: "MARKDOWN"
     });
   });
 
@@ -208,8 +205,7 @@ describe("DocumentGenerationPanel", () => {
     expect(createGenerateDocumentRequest("project_context_1", "MODULE_DOCUMENTATION")).toEqual({
       contextId: "project_context_1",
       documentType: "MODULE_DOCUMENTATION",
-      format: "MARKDOWN",
-      generatorVersion: "document-generator@1"
+      format: "MARKDOWN"
     });
   });
 
@@ -217,8 +213,7 @@ describe("DocumentGenerationPanel", () => {
     expect(createGenerateDocumentRequest("project_context_1", "README")).toEqual({
       contextId: "project_context_1",
       documentType: "README",
-      format: "MARKDOWN",
-      generatorVersion: "document-generator@1"
+      format: "MARKDOWN"
     });
   });
 
@@ -240,8 +235,7 @@ describe("DocumentGenerationPanel", () => {
     expect(generateDocument).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
       documentType: "TECHNICAL_DOCUMENTATION",
-      format: "MARKDOWN",
-      generatorVersion: "document-generator@1"
+      format: "MARKDOWN"
     });
     expect(setQueryData).toHaveBeenCalledWith(
       ["document", "document_technical_1"],
@@ -270,8 +264,7 @@ describe("DocumentGenerationPanel", () => {
     expect(generateDocument).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
       documentType: "ARCHITECTURE_DOCUMENT",
-      format: "MARKDOWN",
-      generatorVersion: "document-generator@1"
+      format: "MARKDOWN"
     });
     expect(setQueryData).toHaveBeenCalledWith(
       ["document", "document_architecture_1"],
@@ -300,8 +293,7 @@ describe("DocumentGenerationPanel", () => {
     expect(generateDocument).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
       documentType: "MODULE_DOCUMENTATION",
-      format: "MARKDOWN",
-      generatorVersion: "document-generator@1"
+      format: "MARKDOWN"
     });
     expect(setQueryData).toHaveBeenCalledWith(["document", "document_module_1"], moduleDocument);
     expect(invalidateQueries).toHaveBeenCalledWith({
@@ -327,8 +319,7 @@ describe("DocumentGenerationPanel", () => {
     expect(generateDocument).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
       documentType: "README",
-      format: "MARKDOWN",
-      generatorVersion: "document-generator@1"
+      format: "MARKDOWN"
     });
     expect(setQueryData).toHaveBeenCalledWith(["document", "document_readme_1"], readmeDocument);
     expect(invalidateQueries).toHaveBeenCalledWith({

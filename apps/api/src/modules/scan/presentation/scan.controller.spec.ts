@@ -50,6 +50,9 @@ function createSnapshot(overrides: Partial<ScanSnapshot> = {}): ScanSnapshot {
 
 function createController(scanService?: Partial<ScanService>) {
   const snapshot = createSnapshot();
+  const scanHistoryAnalysisQueryService = {
+    getLatestCompletedByScanId: vi.fn().mockResolvedValue(new Map())
+  };
   const service = {
     startScan: vi.fn().mockResolvedValue(snapshot),
     getScanHistory: vi.fn().mockResolvedValue({
@@ -65,7 +68,8 @@ function createController(scanService?: Partial<ScanService>) {
   } as ScanService;
 
   return {
-    controller: new ScanController(service),
+    controller: new ScanController(service, scanHistoryAnalysisQueryService as never),
+    scanHistoryAnalysisQueryService,
     service,
     snapshot
   };
@@ -317,6 +321,59 @@ describe("ScanController", () => {
     expect(() => JSON.stringify(response)).not.toThrow(
       new TypeError("Do not know how to serialize a BigInt")
     );
+  });
+
+  it("includes latest completed analysis summaries without per-scan frontend reads", async () => {
+    const snapshots = [
+      createSnapshot({ id: "scan_2" }),
+      createSnapshot({ id: "scan_1" }),
+      createSnapshot({ id: "scan_failed", status: "FAILED" })
+    ];
+    const { controller, scanHistoryAnalysisQueryService } = createController({
+      getScanHistory: vi.fn().mockResolvedValue({
+        items: snapshots,
+        pagination: {
+          page: 1,
+          pageSize: 20,
+          totalItems: 3,
+          totalPages: 1
+        }
+      })
+    });
+    scanHistoryAnalysisQueryService.getLatestCompletedByScanId.mockResolvedValue(
+      new Map([
+        [
+          "scan_1",
+          {
+            analysisId: "analysis_latest",
+            scanId: "scan_1",
+            analyzerVersion: "analysis-engine@1",
+            generatedAt: "2026-08-14T12:05:00.000Z",
+            commitSha: "commit_sha"
+          }
+        ]
+      ])
+    );
+
+    const response = await controller.getRepositoryScanHistory(user, "repository_1", {
+      page: 1,
+      pageSize: 20
+    });
+
+    expect(scanHistoryAnalysisQueryService.getLatestCompletedByScanId).toHaveBeenCalledWith(
+      snapshots
+    );
+    expect(response.items.map((item) => item.latestAnalysis)).toEqual([
+      null,
+      {
+        analysisId: "analysis_latest",
+        scanId: "scan_1",
+        analyzerVersion: "analysis-engine@1",
+        generatedAt: "2026-08-14T12:05:00.000Z",
+        commitSha: "commit_sha"
+      },
+      null
+    ]);
   });
 
   it("returns empty scan history with pagination metadata", async () => {

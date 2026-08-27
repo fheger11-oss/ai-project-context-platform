@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 
 import { ScanService } from "./application/scan.service.js";
+import { ScanHistoryAnalysisQueryService } from "./application/scan-history-analysis-query.service.js";
 import { REPOSITORY_ACCESS_RESOLVER } from "./domain/contracts/repository-access-resolver.contract.js";
 import { REPOSITORY_CONTENT_PROVIDER } from "./domain/contracts/repository-content-provider.contract.js";
 import { REPOSITORY_OWNERSHIP_VERIFIER } from "./domain/contracts/repository-ownership-verifier.contract.js";
@@ -19,6 +20,7 @@ import { RepositoriesModule } from "../repositories/repositories.module.js";
   controllers: [ScanController],
   providers: [
     ScanService,
+    ScanHistoryAnalysisQueryService,
     {
       provide: REPOSITORY_ACCESS_RESOLVER,
       useClass: RepositoryAccessResolverInfrastructure

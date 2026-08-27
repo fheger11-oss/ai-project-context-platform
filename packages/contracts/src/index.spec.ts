@@ -30,6 +30,7 @@ describe("contracts package exports", () => {
         | "MODULE_DOCUMENTATION"
         | "README"
       >();
+    expectTypeOf<GenerateDocumentRequest>().not.toHaveProperty("generatorVersion");
     expectTypeOf<GeneratedDocumentResponse>().toHaveProperty("id").toEqualTypeOf<string>();
     expectTypeOf<GeneratedDocumentResponse>().toHaveProperty("content").toEqualTypeOf<string>();
     expectTypeOf<DocumentHistoryResponse["documents"]>().toMatchTypeOf<readonly unknown[]>();

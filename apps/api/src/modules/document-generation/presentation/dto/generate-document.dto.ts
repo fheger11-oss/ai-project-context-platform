@@ -21,10 +21,4 @@ export class GenerateDocumentDto implements GenerateDocumentRequest {
   @IsString()
   @IsIn(SUPPORTED_DOCUMENT_FORMATS)
   format!: "MARKDOWN";
-
-  @ApiProperty({ example: "document-generator@1" })
-  @IsString()
-  @MinLength(1)
-  @MaxLength(128)
-  generatorVersion!: string;
 }

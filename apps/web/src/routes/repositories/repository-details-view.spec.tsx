@@ -64,7 +64,8 @@ const scan: ScanHistoryResponse["items"][number] = {
   totalFiles: 42,
   totalSize: "2048",
   createdAt: "2026-08-26T10:01:00.000Z",
-  updatedAt: "2026-08-26T10:02:00.000Z"
+  updatedAt: "2026-08-26T10:02:00.000Z",
+  latestAnalysis: null
 };
 
 const projectSummary: DashboardProjectSummary = {

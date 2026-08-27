@@ -19,8 +19,7 @@ describe("GenerateDocumentDto", () => {
       validateDto({
         contextId: "project_context_1",
         documentType: "PROJECT_OVERVIEW",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).resolves.toHaveLength(0);
   });
@@ -30,8 +29,7 @@ describe("GenerateDocumentDto", () => {
       validateDto({
         contextId: "project_context_1",
         documentType: "TECHNICAL_DOCUMENTATION",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).resolves.toHaveLength(0);
   });
@@ -41,8 +39,7 @@ describe("GenerateDocumentDto", () => {
       validateDto({
         contextId: "project_context_1",
         documentType: "ARCHITECTURE_DOCUMENT",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).resolves.toHaveLength(0);
   });
@@ -52,8 +49,7 @@ describe("GenerateDocumentDto", () => {
       validateDto({
         contextId: "project_context_1",
         documentType: "MODULE_DOCUMENTATION",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).resolves.toHaveLength(0);
   });
@@ -63,8 +59,7 @@ describe("GenerateDocumentDto", () => {
       validateDto({
         contextId: "project_context_1",
         documentType: "README",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).resolves.toHaveLength(0);
   });
@@ -73,8 +68,7 @@ describe("GenerateDocumentDto", () => {
     const errors = await validateDto({
       contextId: "project_context_1",
       documentType: "NOT_A_DOCUMENT",
-      format: "HTML",
-      generatorVersion: "document-generator@1"
+      format: "HTML"
     });
 
     expect(errors.map((error) => error.property)).toEqual(["documentType", "format"]);
@@ -85,14 +79,20 @@ describe("GenerateDocumentDto", () => {
       contextId: "",
       documentType: "PROJECT_OVERVIEW",
       format: "MARKDOWN",
-      generatorVersion: "",
       extra: "not allowed"
     });
 
-    expect(errors.map((error) => error.property).sort()).toEqual([
-      "contextId",
-      "extra",
-      "generatorVersion"
-    ]);
+    expect(errors.map((error) => error.property).sort()).toEqual(["contextId", "extra"]);
+  });
+
+  it("rejects client-supplied generator version at the API boundary", async () => {
+    const errors = await validateDto({
+      contextId: "project_context_1",
+      documentType: "PROJECT_OVERVIEW",
+      format: "MARKDOWN",
+      generatorVersion: "client-controlled"
+    });
+
+    expect(errors.map((error) => error.property)).toEqual(["generatorVersion"]);
   });
 });

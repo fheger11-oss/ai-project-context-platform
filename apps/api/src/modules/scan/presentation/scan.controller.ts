@@ -13,6 +13,7 @@ import {
 import { Auth } from "../../auth/decorators/auth.decorator.js";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
+import { ScanHistoryAnalysisQueryService } from "../application/scan-history-analysis-query.service.js";
 import { ScanService } from "../application/scan.service.js";
 import type { ScanSnapshot } from "../domain/contracts/scan-repository.contract.js";
 // Swagger and ValidationPipe need this DTO as a runtime value.
@@ -31,8 +32,20 @@ type ScanResponse = Omit<ScanSnapshot, "totalSize"> & {
   totalSize: string;
 };
 
+type ScanLatestAnalysisResponse = {
+  analysisId: string;
+  scanId: string;
+  analyzerVersion: string;
+  generatedAt: string;
+  commitSha: string;
+};
+
+type ScanHistoryItemResponse = ScanResponse & {
+  latestAnalysis: ScanLatestAnalysisResponse | null;
+};
+
 type ScanHistoryResponse = {
-  items: ScanResponse[];
+  items: ScanHistoryItemResponse[];
   pagination: {
     page: number;
     pageSize: number;
@@ -47,7 +60,11 @@ type ScanHistoryResponse = {
   version: "1"
 })
 export class ScanController {
-  constructor(@Inject(ScanService) private readonly scanService: ScanService) {}
+  constructor(
+    @Inject(ScanService) private readonly scanService: ScanService,
+    @Inject(ScanHistoryAnalysisQueryService)
+    private readonly scanHistoryAnalysisQueryService: ScanHistoryAnalysisQueryService
+  ) {}
 
   @Post("start")
   @ApiCreatedResponse({
@@ -159,8 +176,14 @@ export class ScanController {
       pageSize: query.pageSize
     });
 
+    const latestAnalysesByScanId =
+      await this.scanHistoryAnalysisQueryService.getLatestCompletedByScanId(history.items);
+
     return {
-      items: history.items.map((snapshot) => this.toResponse(snapshot)),
+      items: history.items.map((snapshot) => ({
+        ...this.toResponse(snapshot),
+        latestAnalysis: latestAnalysesByScanId.get(snapshot.id) ?? null
+      })),
       pagination: history.pagination
     };
   }

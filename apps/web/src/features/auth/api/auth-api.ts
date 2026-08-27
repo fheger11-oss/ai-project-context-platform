@@ -1,6 +1,7 @@
 import type { AuthenticatedUser } from "@ai-context/contracts";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api/v1";
+import { API_URL } from "@/lib/api-url";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 
 export class AuthRequestError extends Error {
   constructor(
@@ -38,7 +39,9 @@ async function request<T>(
     init.body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(`${API_URL}${path}`, init);
+  const response = options.accessToken
+    ? await authenticatedFetch(path, init)
+    : await fetch(`${API_URL}${path}`, init);
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { message?: string } | null;

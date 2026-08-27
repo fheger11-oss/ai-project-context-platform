@@ -3,13 +3,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/components/ui/button";
-import type { ScanHistoryResponse, ScanSnapshot } from "@/features/scans/api/scan-api";
+import type {
+  ScanHistoryItem,
+  ScanHistoryResponse,
+  ScanSnapshot
+} from "@/features/scans/api/scan-api";
 import { getScanHistory, ScanApiRequestError } from "@/features/scans/api/scan-api";
-import {
-  getAnalysisHistory,
-  startAnalysis,
-  type AnalysisHistoryResponse
-} from "@/features/analysis/api/analysis-api";
+import { startAnalysis } from "@/features/analysis/api/analysis-api";
 import { ScanHistory, ScanHistoryContent } from "./scan-history";
 
 type QueryOptions = {
@@ -19,7 +19,7 @@ type QueryOptions = {
 };
 
 type QueryState = {
-  data?: AnalysisHistoryResponse | ScanHistoryResponse;
+  data?: ScanHistoryResponse;
   error?: unknown;
   isError?: boolean;
   isFetching?: boolean;
@@ -38,22 +38,17 @@ type ButtonElementProps = {
 
 const queryOptions: QueryOptions[] = [];
 let queryState: QueryState = {};
-const analysisQueryStates = new Map<string, QueryState>();
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (options: QueryOptions) => {
     queryOptions.push(options);
-    const state =
-      options.queryKey[0] === "analysis-history"
-        ? (analysisQueryStates.get(String(options.queryKey[1])) ?? {})
-        : queryState;
 
     return {
-      data: state.data,
-      error: state.error,
-      isError: state.isError ?? false,
-      isFetching: state.isFetching ?? false,
-      isLoading: state.isLoading ?? false
+      data: queryState.data,
+      error: queryState.error,
+      isError: queryState.isError ?? false,
+      isFetching: queryState.isFetching ?? false,
+      isLoading: queryState.isLoading ?? false
     };
   }
 }));
@@ -84,7 +79,6 @@ vi.mock("@/features/analysis/api/analysis-api", async (importOriginal) => {
 
   return {
     ...actual,
-    getAnalysisHistory: vi.fn(),
     startAnalysis: vi.fn()
   };
 });
@@ -114,9 +108,16 @@ const failedScan: ScanSnapshot = {
   totalSize: "98765432101234567890"
 };
 
-function historyResponse(items: ScanSnapshot[], page = 1, totalPages = 1): ScanHistoryResponse {
+function historyResponse(
+  items: Array<ScanSnapshot | ScanHistoryItem>,
+  page = 1,
+  totalPages = 1
+): ScanHistoryResponse {
   return {
-    items,
+    items: items.map((item) => ({
+      ...item,
+      latestAnalysis: "latestAnalysis" in item ? item.latestAnalysis : null
+    })),
     pagination: {
       page,
       pageSize: 20,
@@ -126,24 +127,12 @@ function historyResponse(items: ScanSnapshot[], page = 1, totalPages = 1): ScanH
   };
 }
 
-function analysisHistoryResponse(items: AnalysisHistoryResponse["items"]): AnalysisHistoryResponse {
-  return {
-    items
-  };
-}
-
 const latestAnalysis = {
   analysisId: "analysis_latest",
   scanId: "scan_completed",
   analyzerVersion: "analysis-engine-4.13",
   generatedAt: "2026-08-14T12:05:00.000Z",
   commitSha: "fffed9f5ecab4ebb9a861f357e134b8e16bb4d92"
-};
-
-const olderAnalysis = {
-  ...latestAnalysis,
-  analysisId: "analysis_older",
-  generatedAt: "2026-08-14T12:00:00.000Z"
 };
 
 function renderHistory(state: QueryState = {}, repositoryId = "repository_1") {
@@ -186,9 +175,7 @@ describe("ScanHistory", () => {
   beforeEach(() => {
     queryOptions.length = 0;
     queryState = {};
-    analysisQueryStates.clear();
     vi.mocked(getScanHistory).mockReset();
-    vi.mocked(getAnalysisHistory).mockReset();
     vi.mocked(startAnalysis).mockReset();
   });
 
@@ -209,19 +196,10 @@ describe("ScanHistory", () => {
     expect(getScanHistory).toHaveBeenCalledWith("access_token", "repository_abc", 1, 20);
   });
 
-  it("loads analysis history for completed scans", async () => {
-    vi.mocked(getAnalysisHistory).mockResolvedValue(analysisHistoryResponse([]));
+  it("does not load per-scan analysis history for completed scans", () => {
     renderHistory({ data: historyResponse([completedScan]) }, "repository_abc");
 
-    const analysisOptions = queryOptions.find(
-      (options) => options.queryKey[0] === "analysis-history"
-    );
-
-    await analysisOptions?.queryFn();
-
-    expect(analysisOptions?.queryKey).toEqual(["analysis-history", "scan_completed"]);
-    expect(analysisOptions?.enabled).toBe(true);
-    expect(getAnalysisHistory).toHaveBeenCalledWith("access_token", "scan_completed");
+    expect(queryOptions.map((options) => options.queryKey[0])).not.toContain("analysis-history");
   });
 
   it("scopes the query key by repository id", () => {
@@ -258,10 +236,6 @@ describe("ScanHistory", () => {
   });
 
   it("shows Analyze Scan when a completed scan has no analyses", () => {
-    analysisQueryStates.set("scan_completed", {
-      data: analysisHistoryResponse([])
-    });
-
     const markup = renderHistory({
       data: historyResponse([completedScan])
     });
@@ -272,12 +246,8 @@ describe("ScanHistory", () => {
   });
 
   it("shows View analysis and Analyze again when a completed scan has analyses", () => {
-    analysisQueryStates.set("scan_completed", {
-      data: analysisHistoryResponse([latestAnalysis, olderAnalysis])
-    });
-
     const markup = renderHistory({
-      data: historyResponse([completedScan])
+      data: historyResponse([{ ...completedScan, latestAnalysis }])
     });
 
     expect(markup).toContain("Analysis");
@@ -285,53 +255,23 @@ describe("ScanHistory", () => {
     expect(markup).toContain("/analyses/analysis_latest");
     expect(markup).toContain("Analyze again scan_completed");
     expect(markup).toContain("analysis-engine-4.13");
-    expect(markup).toContain("analysis_older");
+    expect(markup).not.toContain("analysis_older");
   });
 
-  it("uses the latest analysis as the default View analysis target", () => {
-    analysisQueryStates.set("scan_completed", {
-      data: analysisHistoryResponse([latestAnalysis, olderAnalysis])
-    });
-
+  it("uses the embedded latest analysis as the View analysis target", () => {
     const markup = renderHistory({
-      data: historyResponse([completedScan])
+      data: historyResponse([{ ...completedScan, latestAnalysis }])
     });
 
-    expect(markup.indexOf("/analyses/analysis_latest")).toBeLessThan(
-      markup.indexOf("/analyses/analysis_older")
-    );
+    expect(markup).toContain("/analyses/analysis_latest");
   });
 
   it("does not call POST when rendering or viewing existing analyses", () => {
-    analysisQueryStates.set("scan_completed", {
-      data: analysisHistoryResponse([latestAnalysis])
-    });
-
     renderHistory({
-      data: historyResponse([completedScan])
+      data: historyResponse([{ ...completedScan, latestAnalysis }])
     });
 
     expect(startAnalysis).not.toHaveBeenCalled();
-  });
-
-  it("shows analysis history loading and error states", () => {
-    analysisQueryStates.set("scan_completed", {
-      isLoading: true
-    });
-
-    expect(renderHistory({ data: historyResponse([completedScan]) })).toContain("Loading analysis");
-
-    analysisQueryStates.set("scan_completed", {
-      error: new Error("Authorization Bearer secret-token"),
-      isError: true
-    });
-
-    const markup = renderHistory({ data: historyResponse([completedScan]) });
-
-    expect(markup).toContain("Analysis history could not be loaded.");
-    expect(markup).not.toContain("secret-token");
-    expect(markup).not.toContain("Authorization");
-    expect(markup).not.toContain("Bearer");
   });
 
   it("renders an empty state when the backend returns no history items", () => {
@@ -368,15 +308,7 @@ describe("ScanHistory", () => {
 
   it("renders pagination from backend metadata", () => {
     const markup = renderHistory({
-      data: {
-        items: [completedScan],
-        pagination: {
-          page: 2,
-          pageSize: 20,
-          totalItems: 41,
-          totalPages: 3
-        }
-      }
+      data: historyResponse([completedScan], 2, 3)
     });
 
     expect(markup).toContain("Page 2 of 3");
@@ -386,15 +318,7 @@ describe("ScanHistory", () => {
     const onPageChange = vi.fn();
     const element = renderContent(
       {
-        data: {
-          items: [completedScan],
-          pagination: {
-            page: 2,
-            pageSize: 20,
-            totalItems: 41,
-            totalPages: 3
-          }
-        }
+        data: historyResponse([completedScan], 2, 3)
       },
       onPageChange
     );
@@ -415,28 +339,12 @@ describe("ScanHistory", () => {
   it("disables previous on the first page and next on the last page", () => {
     const firstPageButtons = findButtonElements(
       renderContent({
-        data: {
-          items: [completedScan],
-          pagination: {
-            page: 1,
-            pageSize: 20,
-            totalItems: 41,
-            totalPages: 3
-          }
-        }
+        data: historyResponse([completedScan], 1, 3)
       })
     );
     const lastPageButtons = findButtonElements(
       renderContent({
-        data: {
-          items: [completedScan],
-          pagination: {
-            page: 3,
-            pageSize: 20,
-            totalItems: 41,
-            totalPages: 3
-          }
-        }
+        data: historyResponse([completedScan], 3, 3)
       })
     );
 

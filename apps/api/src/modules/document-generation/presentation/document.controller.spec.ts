@@ -111,8 +111,7 @@ describe("DocumentController", () => {
       controller.create(user, {
         contextId: "project_context_1",
         documentType: "PROJECT_OVERVIEW",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).resolves.toEqual({
       id: "document_1",
@@ -128,8 +127,24 @@ describe("DocumentController", () => {
       userId: "user_1",
       contextId: "project_context_1",
       documentType: "PROJECT_OVERVIEW",
-      format: "MARKDOWN",
-      generatorVersion: "document-generator@1"
+      format: "MARKDOWN"
+    });
+  });
+
+  it("does not accept client authority over generator version", async () => {
+    const { controller, generateDocumentUseCase } = createController();
+
+    await controller.create(user, {
+      contextId: "project_context_1",
+      documentType: "PROJECT_OVERVIEW",
+      format: "MARKDOWN"
+    });
+
+    expect(generateDocumentUseCase.execute).toHaveBeenCalledWith({
+      userId: "user_1",
+      contextId: "project_context_1",
+      documentType: "PROJECT_OVERVIEW",
+      format: "MARKDOWN"
     });
   });
 
@@ -145,8 +160,7 @@ describe("DocumentController", () => {
     const response = await controller.create(user, {
       contextId: "project_context_1",
       documentType: "PROJECT_OVERVIEW",
-      format: "MARKDOWN",
-      generatorVersion: "document-generator@1"
+      format: "MARKDOWN"
     });
 
     expect(response.content).toBe(exactContent);
@@ -212,8 +226,7 @@ describe("DocumentController", () => {
       controller.create(user, {
         contextId: "missing",
         documentType: "PROJECT_OVERVIEW",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).rejects.toThrow(NotFoundException);
   });
@@ -237,8 +250,7 @@ describe("DocumentController", () => {
       controller.create(user, {
         contextId: "project_context_1",
         documentType: "PROJECT_OVERVIEW",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).rejects.toThrow(ForbiddenException);
   });
@@ -248,16 +260,14 @@ describe("DocumentController", () => {
       createController({ error: new InvalidDocumentTypeError("README") }).controller.create(user, {
         contextId: "project_context_1",
         documentType: "PROJECT_OVERVIEW",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).rejects.toThrow(BadRequestException);
     await expect(
       createController({ error: new InvalidDocumentFormatError("HTML") }).controller.create(user, {
         contextId: "project_context_1",
         documentType: "PROJECT_OVERVIEW",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).rejects.toThrow(BadRequestException);
   });
@@ -270,8 +280,7 @@ describe("DocumentController", () => {
       controller.create(user, {
         contextId: "project_context_1",
         documentType: "PROJECT_OVERVIEW",
-        format: "MARKDOWN",
-        generatorVersion: "document-generator@1"
+        format: "MARKDOWN"
       })
     ).rejects.toBe(generatorError);
   });

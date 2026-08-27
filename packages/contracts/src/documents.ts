@@ -11,7 +11,6 @@ export type GenerateDocumentRequest = {
   contextId: string;
   documentType: DocumentType;
   format: DocumentFormat;
-  generatorVersion: string;
 };
 
 export type GeneratedDocumentResponse = {
