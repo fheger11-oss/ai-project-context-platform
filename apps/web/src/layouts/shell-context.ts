@@ -67,12 +67,12 @@ export function useShellContext(location: Location): ShellContext {
     if (pathname === "/") {
       return {
         analysisId,
-        breadcrumbs: [{ label: "Overview" }],
+        breadcrumbs: [{ label: "Dashboard" }],
         currentRepository,
         isProjectLoading: repositoryQuery.isLoading || analysisQuery.isLoading,
         projectHref,
         repositoryId,
-        section: "Overview"
+        section: "Dashboard"
       };
     }
 

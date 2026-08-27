@@ -9,6 +9,6 @@ export type NavItem = {
 };
 
 export const primaryNavigation: NavItem[] = [
-  { title: "Overview", href: "/", icon: LayoutDashboard, status: "ready" },
+  { title: "Dashboard", href: "/", icon: LayoutDashboard, status: "ready" },
   { title: "Projects", href: "/repositories", icon: GitBranch, status: "ready" }
 ];

@@ -2,7 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 
 import { AppShell } from "@/layouts/app-shell";
 import { AuthCallbackView } from "@/routes/auth-callback-view";
-import { FoundationView } from "@/routes/foundation-view";
+import { DashboardView } from "@/routes/dashboard-view";
 import { AnalysisResultView } from "@/routes/analyses/analysis-result-view";
 import { ConnectRepositoryView } from "@/routes/repositories/connect-repository-view";
 import { RepositoryDetailsView } from "@/routes/repositories/repository-details-view";
@@ -15,7 +15,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <FoundationView />
+        element: <DashboardView />
       },
       {
         path: "auth/callback",
