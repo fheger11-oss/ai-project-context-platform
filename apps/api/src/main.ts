@@ -38,33 +38,37 @@ async function bootstrap() {
   );
   app.useGlobalFilters(new GlobalExceptionFilter());
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle("AI Project Context Platform API")
-    .setDescription("Infrastructure foundation for the AI Project Context Platform backend.")
-    .setVersion(config.apiVersion)
-    .addBearerAuth()
-    .addTag("auth")
-    .addTag("health")
-    .addTag("repositories")
-    .addTag("scans")
-    .addTag("analyses")
-    .addTag("ai-export")
-    .addTag("documents")
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  if (config.swaggerEnabled) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle("AI Project Context Platform API")
+      .setDescription("Infrastructure foundation for the AI Project Context Platform backend.")
+      .setVersion(config.apiVersion)
+      .addBearerAuth()
+      .addTag("auth")
+      .addTag("health")
+      .addTag("repositories")
+      .addTag("scans")
+      .addTag("analyses")
+      .addTag("ai-export")
+      .addTag("documents")
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
 
-  SwaggerModule.setup(config.swaggerPath, app, document, {
-    swaggerOptions: {
-      persistAuthorization: true
-    }
-  });
+    SwaggerModule.setup(config.swaggerPath, app, document, {
+      swaggerOptions: {
+        persistAuthorization: true
+      }
+    });
+  }
 
   await app.listen(config.port, config.host);
 
   logger.log(
     `API listening on http://${config.host}:${config.port}/${config.apiPrefix}/v${config.apiVersion}`
   );
-  logger.log(`Swagger available at http://${config.host}:${config.port}/${config.swaggerPath}`);
+  if (config.swaggerEnabled) {
+    logger.log(`Swagger available at http://${config.host}:${config.port}/${config.swaggerPath}`);
+  }
 }
 
 void bootstrap();

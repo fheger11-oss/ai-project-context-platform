@@ -35,6 +35,10 @@ export class AppConfigService {
     return this.config.get("SWAGGER_PATH", { infer: true });
   }
 
+  get swaggerEnabled() {
+    return this.nodeEnv !== "production" && this.appEnv !== "production";
+  }
+
   get databaseUrl() {
     return this.config.get("DATABASE_URL", { infer: true });
   }
