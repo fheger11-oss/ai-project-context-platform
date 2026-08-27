@@ -28,11 +28,18 @@ type QueryResult = {
   isSuccess?: boolean;
 };
 
+type MutationOptions = {
+  mutationFn: () => Promise<unknown>;
+  onSuccess?: () => Promise<void>;
+};
+
 const queryOptions: QueryOptions[] = [];
 let accessToken = "access_token";
 let repositoryQuery: QueryResult = {};
 let latestScanQuery: QueryResult = {};
 let dashboardQuery: QueryResult = {};
+let mutationOptions: MutationOptions | null = null;
+const invalidateQueries = vi.fn();
 
 const repository: RepositorySummary = {
   id: "repository_1",
@@ -113,12 +120,16 @@ function dashboardResponse(projects: DashboardProjectSummary[]): DashboardProjec
 }
 
 vi.mock("@tanstack/react-query", () => ({
-  useMutation: () => ({
-    isError: false,
-    isPending: false,
-    isSuccess: false,
-    mutate: vi.fn()
-  }),
+  useMutation: (options: MutationOptions) => {
+    mutationOptions = options;
+
+    return {
+      isError: false,
+      isPending: false,
+      isSuccess: false,
+      mutate: vi.fn()
+    };
+  },
   useQuery: (options: QueryOptions) => {
     queryOptions.push(options);
 
@@ -157,7 +168,7 @@ vi.mock("@tanstack/react-query", () => ({
     };
   },
   useQueryClient: () => ({
-    invalidateQueries: vi.fn()
+    invalidateQueries
   })
 }));
 
@@ -244,6 +255,8 @@ describe("RepositoryDetailsView", () => {
       } satisfies ScanHistoryResponse
     };
     dashboardQuery = { data: dashboardResponse([projectSummary]) };
+    mutationOptions = null;
+    invalidateQueries.mockClear();
     vi.mocked(getRepository).mockReset();
     vi.mocked(getScanHistory).mockReset();
     vi.mocked(listDashboardProjects).mockReset();
@@ -364,5 +377,21 @@ describe("RepositoryDetailsView", () => {
     expect(getRepository).toHaveBeenCalledTimes(1);
     expect(getScanHistory).toHaveBeenCalledTimes(1);
     expect(listDashboardProjects).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes repository and dashboard state after metadata sync succeeds", async () => {
+    renderToStaticMarkup(<RepositoryDetailsView />);
+
+    await mutationOptions?.onSuccess?.();
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1"]
+    });
   });
 });

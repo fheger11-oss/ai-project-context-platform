@@ -132,14 +132,19 @@ export function DocumentGenerationPanel({
     queryFn: () => getDocument(accessToken, selectedDocumentId ?? ""),
     enabled: Boolean(accessToken && selectedDocumentId)
   });
-  const activeDocument = selectedDocumentQuery.data ?? selectedFromHistory ?? documents[0] ?? null;
+  const activeDocument = selectedDocumentId
+    ? (selectedDocumentQuery.data ?? (selectedDocumentQuery.isError ? null : selectedFromHistory))
+    : (documents[0] ?? null);
   const generateMutation = useMutation({
     mutationFn: () =>
       generateDocument(accessToken, createGenerateDocumentRequest(contextId, selectedDocumentType)),
     onSuccess: async (document) => {
       setSelectedDocument({ contextId, documentId: document.id });
       queryClient.setQueryData(["document", document.id], document);
-      await queryClient.invalidateQueries({ queryKey: historyQueryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
+        queryClient.invalidateQueries({ queryKey: historyQueryKey })
+      ]);
     }
   });
   const regenerateMutation = useMutation({
@@ -147,7 +152,10 @@ export function DocumentGenerationPanel({
     onSuccess: async (document) => {
       setSelectedDocument({ contextId, documentId: document.id });
       queryClient.setQueryData(["document", document.id], document);
-      await queryClient.invalidateQueries({ queryKey: historyQueryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
+        queryClient.invalidateQueries({ queryKey: historyQueryKey })
+      ]);
     }
   });
   const isGenerating = generateMutation.isPending;

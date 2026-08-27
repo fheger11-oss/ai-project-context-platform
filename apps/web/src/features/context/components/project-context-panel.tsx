@@ -95,6 +95,7 @@ export function ProjectContextPanel({ accessToken, analysisId }: ProjectContextP
     onSuccess: async (context) => {
       setSelectedContextId(null);
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
         queryClient.invalidateQueries({ queryKey: ["context", "latest", analysisId] }),
         queryClient.invalidateQueries({ queryKey: ["context-history", analysisId] }),
         queryClient.setQueryData(["context", context.id], context)

@@ -68,6 +68,7 @@ export function RepositoryDetailsView() {
     mutationFn: () => syncRepository(apiAccessToken, id ?? ""),
     onSuccess: async () => {
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
         queryClient.invalidateQueries({ queryKey: ["repositories"] }),
         queryClient.invalidateQueries({ queryKey: ["repositories", id] })
       ]);

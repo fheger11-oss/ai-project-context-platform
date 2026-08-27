@@ -27,8 +27,12 @@ let mutationOptions: MutationOptions | null = null;
 let mutationState: MutationState = {};
 const mutate = vi.fn();
 const navigate = vi.fn();
+const invalidateQueries = vi.fn();
 
 vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({
+    invalidateQueries
+  }),
   useMutation: (options: MutationOptions) => {
     mutationOptions = options;
 
@@ -85,6 +89,7 @@ describe("StartAnalysisButton", () => {
     mutationState = {};
     mutate.mockReset();
     navigate.mockReset();
+    invalidateQueries.mockReset();
     vi.mocked(startAnalysis).mockReset();
   });
 
@@ -117,6 +122,16 @@ describe("StartAnalysisButton", () => {
     mutationOptions?.onSuccess?.({ analysisId: "analysis/with space" });
 
     expect(navigate).toHaveBeenCalledWith("/analyses/analysis%2Fwith%20space");
+  });
+
+  it("refreshes dashboard project state after analysis succeeds", () => {
+    renderToStaticMarkup(<StartAnalysisButton accessToken="access_token" scanId="scan_1" />);
+
+    mutationOptions?.onSuccess?.({ analysisId: "analysis_1" });
+
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
   });
 
   it.each([

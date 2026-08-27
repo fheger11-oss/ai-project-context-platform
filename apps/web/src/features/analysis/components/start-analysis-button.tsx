@@ -1,5 +1,5 @@
 import { BarChart3, Loader2 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -43,9 +43,11 @@ export function StartAnalysisButton({
   scanId
 }: StartAnalysisButtonProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const analysisMutation = useMutation({
     mutationFn: () => startAnalysis(accessToken, scanId),
     onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] });
       void navigate(`/analyses/${encodeURIComponent(result.analysisId)}`);
     }
   });

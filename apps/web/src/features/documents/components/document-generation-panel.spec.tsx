@@ -1,5 +1,6 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
+import type * as ReactModule from "react";
 import type { DocumentHistoryResponse, GeneratedDocumentResponse } from "@ai-context/contracts";
 
 import {
@@ -20,6 +21,10 @@ type MutationOptions = {
   mutationFn: (input?: string) => Promise<GeneratedDocumentResponse>;
   onSuccess?: (document: GeneratedDocumentResponse) => Promise<void>;
 };
+
+const reactUseStateOverrides = vi.hoisted(() => ({
+  values: [] as unknown[]
+}));
 
 type QueryState = {
   data?: DocumentHistoryResponse;
@@ -47,6 +52,22 @@ let mutationStates: Array<{
 const mutate = vi.fn();
 const invalidateQueries = vi.fn(async () => undefined);
 const setQueryData = vi.fn();
+
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof ReactModule>();
+  const useStateMock = ((...args: unknown[]) => {
+    if (reactUseStateOverrides.values.length > 0) {
+      return [reactUseStateOverrides.values.shift(), vi.fn()];
+    }
+
+    return actual.useState(args[0] as never);
+  }) as unknown as typeof actual.useState;
+
+  return {
+    ...actual,
+    useState: useStateMock
+  };
+});
 
 const firstDocument: GeneratedDocumentResponse = {
   id: "document_1",
@@ -140,6 +161,7 @@ describe("DocumentGenerationPanel", () => {
     queryOptions = [];
     mutationOptions = [];
     mutationStates = [];
+    reactUseStateOverrides.values = [];
     mutate.mockReset();
     invalidateQueries.mockClear();
     setQueryData.mockClear();
@@ -180,6 +202,9 @@ describe("DocumentGenerationPanel", () => {
       format: "MARKDOWN"
     });
     expect(setQueryData).toHaveBeenCalledWith(["document", "document_1"], firstDocument);
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["document-history", "project_context_1"]
     });
@@ -242,6 +267,9 @@ describe("DocumentGenerationPanel", () => {
       technicalDocument
     );
     expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["document-history", "project_context_1"]
     });
   });
@@ -271,6 +299,9 @@ describe("DocumentGenerationPanel", () => {
       architectureDocument
     );
     expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["document-history", "project_context_1"]
     });
   });
@@ -297,6 +328,9 @@ describe("DocumentGenerationPanel", () => {
     });
     expect(setQueryData).toHaveBeenCalledWith(["document", "document_module_1"], moduleDocument);
     expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["document-history", "project_context_1"]
     });
   });
@@ -322,6 +356,9 @@ describe("DocumentGenerationPanel", () => {
       format: "MARKDOWN"
     });
     expect(setQueryData).toHaveBeenCalledWith(["document", "document_readme_1"], readmeDocument);
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["document-history", "project_context_1"]
     });
@@ -445,6 +482,9 @@ describe("DocumentGenerationPanel", () => {
     expect(regenerateDocument).toHaveBeenCalledWith("access_token", "document_1");
     expect(setQueryData).toHaveBeenCalledWith(["document", "document_2"], secondDocument);
     expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["document-history", "project_context_1"]
     });
   });
@@ -462,6 +502,26 @@ describe("DocumentGenerationPanel", () => {
     expect(markup).toContain("You do not have access to these documents.");
     expect(markup).not.toContain("Authorization");
     expect(markup).not.toContain("secret-token");
+  });
+
+  it("does not render stale history content when a selected document request fails", () => {
+    historyQuery = { data: { documents: [firstDocument] } };
+    selectedDocumentQuery = {
+      error: new DocumentApiRequestError("missing document", 404),
+      isError: true
+    };
+    reactUseStateOverrides.values = [
+      "PROJECT_OVERVIEW",
+      { contextId: "project_context_1", documentId: firstDocument.id }
+    ];
+
+    const markup = renderToStaticMarkup(
+      <DocumentGenerationPanel accessToken="access_token" contextId="project_context_1" />
+    );
+
+    expect(markup).toContain("Selected document unavailable");
+    expect(markup).toContain("The selected document or Context is no longer available.");
+    expect(markup).not.toContain("Observed: first artifact.");
   });
 
   it("does not locally generate Markdown from ProjectContext data", () => {

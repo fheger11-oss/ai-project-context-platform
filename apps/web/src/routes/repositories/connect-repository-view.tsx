@@ -28,6 +28,7 @@ export function ConnectRepositoryView() {
       connectRepository(apiAccessToken, repository.githubId),
     onSuccess: async () => {
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
         queryClient.invalidateQueries({ queryKey: ["repositories"] }),
         availableQuery.refetch()
       ]);
@@ -43,6 +44,7 @@ export function ConnectRepositoryView() {
     },
     onSuccess: async () => {
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
         queryClient.invalidateQueries({ queryKey: ["repositories"] }),
         availableQuery.refetch()
       ]);

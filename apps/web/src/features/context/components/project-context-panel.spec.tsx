@@ -198,6 +198,9 @@ describe("ProjectContextPanel", () => {
 
     expect(generateProjectContext).toHaveBeenCalledWith("access_token", "analysis_1");
     expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["context", "latest", "analysis_1"]
     });
     expect(invalidateQueries).toHaveBeenCalledWith({

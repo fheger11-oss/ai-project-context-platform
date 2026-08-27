@@ -16,7 +16,7 @@ type MutationState = {
 
 type MutationOptions = {
   mutationFn: () => Promise<unknown>;
-  onSuccess?: () => Promise<void>;
+  onSettled?: () => Promise<void>;
 };
 
 type ButtonElementProps = {
@@ -146,20 +146,23 @@ describe("RepositoryScanAction", () => {
     expect(startScan).not.toHaveBeenCalled();
   });
 
-  it("invalidates repository scan history after a successful scan", async () => {
+  it("invalidates repository scan history and dashboard state after a scan settles", async () => {
     renderAction();
 
-    await mutationOptions[0]?.onSuccess?.();
+    await mutationOptions[0]?.onSettled?.();
 
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["scan-history", "repository_1"]
     });
   });
 
-  it("does not invalidate another repository history after a successful scan", async () => {
+  it("does not invalidate another repository history after a scan settles", async () => {
     renderAction(undefined, "repository_a");
 
-    await mutationOptions[0]?.onSuccess?.();
+    await mutationOptions[0]?.onSettled?.();
 
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["scan-history", "repository_a"]

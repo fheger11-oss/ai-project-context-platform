@@ -33,8 +33,11 @@ export function RepositoryScanAction({ accessToken, repositoryId }: RepositorySc
   const canStartScan = Boolean(accessToken);
   const scanMutation = useMutation({
     mutationFn: () => startScan(accessToken, repositoryId),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["scan-history", repositoryId] });
+    onSettled: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["scan-history", repositoryId] })
+      ]);
     }
   });
   const scan = scanMutation.data;
