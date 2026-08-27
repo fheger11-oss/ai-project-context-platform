@@ -51,7 +51,7 @@ function primaryAction(project: DashboardProjectSummary): { href: string; label:
   if (!project.latestAnalysis) {
     return {
       href: repositoryHref,
-      label: "Analyze scan"
+      label: "Analyze latest scan"
     };
   }
 
@@ -66,7 +66,7 @@ function primaryAction(project: DashboardProjectSummary): { href: string; label:
 
   return {
     href: analysisHref,
-    label: "Open Context"
+    label: "Open Project Context"
   };
 }
 
@@ -75,9 +75,9 @@ export function ProjectSummaryCard({ project }: ProjectSummaryCardProps) {
   const action = primaryAction(project);
   const repositoryHref = `/repositories/${encodeURIComponent(repository.id)}`;
   const stateLabel = latestContext
-    ? "Context available"
+    ? "Project Context available"
     : latestScan
-      ? "Scan available"
+      ? `Scan ${scanStatusLabel(latestScan.status).toLowerCase()}`
       : "No scan";
 
   return (
@@ -201,7 +201,7 @@ export function ProjectSummaryCard({ project }: ProjectSummaryCardProps) {
 
         <div className="grid gap-2 border-t border-border/70 pt-3 sm:flex sm:flex-wrap sm:justify-end">
           <Button asChild size="sm" variant="outline">
-            <Link to={repositoryHref}>Open Project</Link>
+            <Link to={repositoryHref}>Open project</Link>
           </Button>
           <Button asChild size="sm">
             <Link to={action.href}>

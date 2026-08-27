@@ -1,4 +1,4 @@
-import { ChevronRight, FolderGit2, Menu, Search } from "lucide-react";
+import { ChevronRight, FolderGit2, Menu } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { ThemeToggle } from "@/components/shared/theme-toggle";
@@ -42,16 +42,8 @@ export function Topbar({ shellContext }: TopbarProps) {
             ) : null}
           </div>
         </div>
-        <Separator orientation="vertical" className="hidden h-5 sm:block" />
+        <Separator orientation="vertical" className="hidden h-5 lg:block" />
         {repository ? <ProjectPill shellContext={shellContext} /> : null}
-        <div
-          aria-label="Global search is not available"
-          className="hidden h-9 min-w-0 items-center gap-2 rounded-md border border-dashed border-border bg-surface-raised px-3 text-sm text-muted-foreground sm:flex sm:max-w-[15rem]"
-          title="Global search is not available yet"
-        >
-          <Search className="size-4 shrink-0" />
-          <span className="truncate">Search unavailable</span>
-        </div>
       </div>
       <ThemeToggle />
     </header>

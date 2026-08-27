@@ -38,7 +38,7 @@ function startAnalysisErrorMessage(error: unknown): string {
 
 export function StartAnalysisButton({
   accessToken,
-  label = "Analyze Scan",
+  label = "Analyze scan",
   pendingLabel = "Analyzing",
   scanId
 }: StartAnalysisButtonProps) {

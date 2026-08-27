@@ -229,7 +229,7 @@ describe("DashboardView", () => {
     expect(markup).toContain("Latest scan");
     expect(markup).toContain("Completed");
     expect(markup).toContain("abcdef123456");
-    expect(markup).toContain("Scan available");
+    expect(markup).toContain("Scan completed");
   });
 
   it("handles missing scan without inventing state", () => {
@@ -264,8 +264,8 @@ describe("DashboardView", () => {
 
     expect(markup).toContain("Context");
     expect(markup).toContain("context-engine@1");
-    expect(markup).toContain("Open Context");
-    expect(markup).toContain("Context available");
+    expect(markup).toContain("Open Project Context");
+    expect(markup).toContain("Project Context available");
   });
 
   it("displays document count and AI export availability", () => {
@@ -297,7 +297,7 @@ describe("DashboardView", () => {
 
     const markup = renderToStaticMarkup(<DashboardView />);
 
-    expect(markup).toContain("Open Project");
+    expect(markup).toContain("Open project");
     expect(markup).toContain("/repositories/repository_1");
   });
 
@@ -312,7 +312,7 @@ describe("DashboardView", () => {
     [
       "with completed scan but no analysis",
       project({ latestScan }),
-      "Analyze scan",
+      "Analyze latest scan",
       "/repositories/repository_1"
     ],
     [
@@ -324,7 +324,7 @@ describe("DashboardView", () => {
     [
       "with context",
       project({ latestAnalysis, latestContext, latestScan }),
-      "Open Context",
+      "Open Project Context",
       "/analyses/analysis_1"
     ]
   ])("sets primary next action for %s", (_label, summary, actionLabel, href) => {

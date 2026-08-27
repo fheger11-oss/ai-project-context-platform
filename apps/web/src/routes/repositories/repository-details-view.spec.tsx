@@ -227,7 +227,7 @@ vi.mock("@/features/analysis/components/start-analysis-button", () => ({
     scanId: string;
   }) => (
     <button type="button">
-      {label ?? "Analyze Scan"} for {scanId}
+      {label ?? "Analyze scan"} for {scanId}
     </button>
   )
 }));
@@ -305,7 +305,7 @@ describe("RepositoryDetailsView", () => {
     const markup = renderToStaticMarkup(<RepositoryDetailsView />);
 
     expect(markup).toContain("Latest scan is ready");
-    expect(markup).toContain("Use the existing Analysis Engine action");
+    expect(markup).toContain("Analyze this completed scan to continue the project workflow.");
     expect(markup).toContain("Analyze latest scan for scan_1");
   });
 

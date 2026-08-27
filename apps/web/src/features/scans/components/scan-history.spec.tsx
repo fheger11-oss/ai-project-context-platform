@@ -67,7 +67,7 @@ vi.mock("@/features/scans/api/scan-api", async (importOriginal) => {
 });
 
 vi.mock("@/features/analysis/components/start-analysis-button", () => ({
-  StartAnalysisButton: ({ label = "Analyze Scan", scanId }: { label?: string; scanId: string }) => (
+  StartAnalysisButton: ({ label = "Analyze scan", scanId }: { label?: string; scanId: string }) => (
     <button type="button">
       {label} {scanId}
     </button>
@@ -231,17 +231,17 @@ describe("ScanHistory", () => {
     expect(markup).toContain("6864 ms");
     expect(markup).toContain("98765432101234567890 bytes");
     expect(markup).toContain("Not available");
-    expect(markup).toContain("Analyze Scan scan_completed");
+    expect(markup).toContain("Analyze scan scan_completed");
     expect(markup).not.toContain("Analyze scan_failed");
   });
 
-  it("shows Analyze Scan when a completed scan has no analyses", () => {
+  it("shows Analyze scan when a completed scan has no analyses", () => {
     const markup = renderHistory({
       data: historyResponse([completedScan])
     });
 
     expect(markup).toContain("Ready for analysis");
-    expect(markup).toContain("Analyze Scan scan_completed");
+    expect(markup).toContain("Analyze scan scan_completed");
     expect(markup).not.toContain("View analysis");
   });
 

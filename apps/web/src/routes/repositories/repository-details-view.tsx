@@ -459,7 +459,7 @@ function WorkflowAccess({
               <div className="grid gap-2 rounded-md border border-dashed p-3">
                 <p className="text-sm font-medium text-foreground">Latest scan is ready</p>
                 <p className="text-xs leading-5 text-muted-foreground">
-                  Use the existing Analysis Engine action for this completed scan.
+                  Analyze this completed scan to continue the project workflow.
                 </p>
                 <StartAnalysisButton
                   accessToken={accessToken}
