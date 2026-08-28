@@ -3,6 +3,7 @@ import { HeroSection } from "@/features/landing/components/hero-section";
 import { HowItWorksSection } from "@/features/landing/components/how-it-works-section";
 import { LandingNav } from "@/features/landing/components/landing-nav";
 import { MotionBackground } from "@/features/landing/components/motion-background";
+import { ProductProofSection } from "@/features/landing/components/product-proof-section";
 
 export function LandingView() {
   return (
@@ -15,6 +16,7 @@ export function LandingView() {
           <div className="min-w-0 flex-1">
             <HeroSection />
             <HowItWorksSection />
+            <ProductProofSection />
           </div>
         </div>
       </main>
