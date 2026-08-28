@@ -43,3 +43,6 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Validate Prisma schema
+        run: pnpm db:validate
