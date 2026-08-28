@@ -235,6 +235,32 @@ samp {
   animation: landing-orbit-breathe 9s ease-in-out infinite;
 }
 
+.landing-section-glow {
+  animation: landing-section-glow-shift 16s ease-in-out infinite alternate;
+}
+
+.landing-pipeline-sheen {
+  animation: landing-pipeline-sheen 7s ease-in-out infinite;
+}
+
+.landing-pipeline-node {
+  animation: landing-pipeline-node 5.6s ease-in-out infinite;
+}
+
+.landing-pipeline-connector::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(69, 211, 154, 0.9), transparent);
+  animation: landing-pipeline-flow 3.8s ease-in-out infinite;
+}
+
+@media (width < 768px) {
+  .landing-pipeline-connector::after {
+    background: linear-gradient(180deg, transparent, rgba(69, 211, 154, 0.9), transparent);
+  }
+}
+
 @keyframes landing-grid-drift {
   from {
     transform: translate3d(0, 0, 0);
@@ -339,6 +365,78 @@ samp {
   }
 }
 
+@keyframes landing-section-glow-shift {
+  from {
+    opacity: 0.52;
+    transform: translate3d(-54%, -2rem, 0) scale(0.96);
+  }
+
+  to {
+    opacity: 0.86;
+    transform: translate3d(-46%, 1rem, 0) scale(1.05);
+  }
+}
+
+@keyframes landing-pipeline-sheen {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: translate3d(-24%, 0, 0);
+  }
+
+  50% {
+    opacity: 0.75;
+    transform: translate3d(24%, 0, 0);
+  }
+}
+
+@keyframes landing-pipeline-node {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(69, 211, 154, 0.16);
+  }
+
+  50% {
+    box-shadow: 0 0 0 6px rgba(69, 211, 154, 0);
+  }
+}
+
+@keyframes landing-pipeline-flow {
+  0% {
+    opacity: 0;
+    transform: translate3d(-100%, 0, 0);
+  }
+
+  20%,
+  70% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+@media (width < 768px) {
+  @keyframes landing-pipeline-flow {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, -100%, 0);
+    }
+
+    20%,
+    70% {
+      opacity: 0.9;
+    }
+
+    100% {
+      opacity: 0;
+      transform: translate3d(0, 100%, 0);
+    }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-grid,
   .landing-glow,
@@ -347,7 +445,11 @@ samp {
   .landing-live-dot,
   .landing-scan-beam,
   .landing-connector::after,
-  .landing-orbit {
+  .landing-orbit,
+  .landing-section-glow,
+  .landing-pipeline-sheen,
+  .landing-pipeline-node,
+  .landing-pipeline-connector::after {
     animation: none;
   }
 }
