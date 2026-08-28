@@ -4,6 +4,7 @@ import { HowItWorksSection } from "@/features/landing/components/how-it-works-se
 import { LandingNav } from "@/features/landing/components/landing-nav";
 import { MotionBackground } from "@/features/landing/components/motion-background";
 import { ProductProofSection } from "@/features/landing/components/product-proof-section";
+import { WhyCtxaroSection } from "@/features/landing/components/why-ctxaro-section";
 
 export function LandingView() {
   return (
@@ -17,6 +18,7 @@ export function LandingView() {
             <HeroSection />
             <HowItWorksSection />
             <ProductProofSection />
+            <WhyCtxaroSection />
           </div>
         </div>
       </main>

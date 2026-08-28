@@ -336,6 +336,80 @@ samp {
   animation: landing-proof-glow 18s ease-in-out infinite alternate;
 }
 
+.landing-why-panel {
+  transform: translate3d(0, 10px, 0);
+  opacity: 0.84;
+  transition:
+    opacity 620ms ease,
+    transform 620ms ease,
+    border-color 620ms ease;
+}
+
+[data-why-active="true"] .landing-why-panel {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+  border-color: rgba(255, 255, 255, 0.13);
+}
+
+.landing-repo-scan,
+.landing-context-organize {
+  opacity: 0;
+}
+
+[data-why-active="true"] .landing-repo-scan,
+[data-why-active="true"] .landing-context-organize {
+  animation: landing-why-panel-scan 4.8s ease-in-out infinite;
+}
+
+.landing-repo-row {
+  animation: landing-repo-row 5.8s ease-in-out infinite;
+}
+
+.landing-context-row {
+  transform: translate3d(0, 8px, 0);
+  opacity: 0;
+  transition:
+    opacity 520ms ease,
+    transform 520ms ease;
+}
+
+[data-why-active="true"] .landing-context-row {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+}
+
+.landing-transform-signal {
+  animation: landing-transform-signal-mobile 4.6s ease-in-out infinite;
+}
+
+.landing-process-label {
+  animation: landing-process-label 4.6s ease-in-out infinite;
+}
+
+.landing-why-sheen {
+  animation: landing-pipeline-sheen 7s ease-in-out infinite;
+}
+
+.landing-loose-row {
+  animation: landing-loose-row 4.8s ease-in-out infinite;
+}
+
+.landing-workflow-connector {
+  position: relative;
+}
+
+.landing-workflow-connector::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(180deg, transparent, rgba(69, 211, 154, 0.9), transparent);
+  animation: landing-proof-flow-down 3.8s ease-in-out infinite;
+}
+
+.landing-why-glow {
+  animation: landing-proof-glow 18s ease-in-out infinite alternate;
+}
+
 @media (width < 768px) {
   .landing-pipeline-connector::after {
     background: linear-gradient(180deg, transparent, rgba(69, 211, 154, 0.9), transparent);
@@ -343,6 +417,17 @@ samp {
 
   .landing-proof-flow::after {
     background: linear-gradient(180deg, transparent, rgba(69, 211, 154, 0.92), transparent);
+  }
+}
+
+@media (width >= 1024px) {
+  .landing-transform-signal {
+    animation-name: landing-transform-signal-desktop;
+  }
+
+  .landing-workflow-connector::after {
+    background: linear-gradient(90deg, transparent, rgba(69, 211, 154, 0.9), transparent);
+    animation-name: landing-pipeline-flow;
   }
 }
 
@@ -609,6 +694,94 @@ samp {
   }
 }
 
+@keyframes landing-why-panel-scan {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -3rem, 0);
+  }
+
+  18%,
+  72% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 20rem, 0);
+  }
+}
+
+@keyframes landing-repo-row {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translate3d(3px, 0, 0);
+  }
+}
+
+@keyframes landing-transform-signal-mobile {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, 0, 0);
+  }
+
+  18%,
+  72% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(-50%, 10rem, 0);
+  }
+}
+
+@keyframes landing-transform-signal-desktop {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -50%, 0);
+  }
+
+  18%,
+  72% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(13rem, -50%, 0);
+  }
+}
+
+@keyframes landing-process-label {
+  0%,
+  100% {
+    border-color: rgba(255, 255, 255, 0.1);
+    color: var(--muted-foreground);
+  }
+
+  50% {
+    border-color: rgba(69, 211, 154, 0.24);
+    color: var(--subtle-foreground);
+  }
+}
+
+@keyframes landing-loose-row {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(4px, 0, 0);
+  }
+}
+
 @media (width < 768px) {
   @keyframes landing-pipeline-flow {
     0% {
@@ -648,14 +821,25 @@ samp {
   .landing-export-pulse,
   .landing-proof-flow::after,
   .landing-proof-node,
-  .landing-proof-glow {
+  .landing-proof-glow,
+  .landing-repo-scan,
+  .landing-context-organize,
+  .landing-repo-row,
+  .landing-transform-signal,
+  .landing-process-label,
+  .landing-why-sheen,
+  .landing-loose-row,
+  .landing-workflow-connector::after,
+  .landing-why-glow {
     animation: none;
   }
 
   .landing-proof-panel,
   .landing-proof-row,
   .landing-document-line,
-  .landing-document-caret {
+  .landing-document-caret,
+  .landing-why-panel,
+  .landing-context-row {
     transform: none;
     opacity: 1;
   }
