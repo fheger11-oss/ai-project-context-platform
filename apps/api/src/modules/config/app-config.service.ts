@@ -23,6 +23,10 @@ export class AppConfigService {
     return this.config.get("API_PORT", { infer: true });
   }
 
+  get trustProxy() {
+    return this.config.get("API_TRUST_PROXY", { infer: true });
+  }
+
   get apiPrefix() {
     return this.config.get("API_PREFIX", { infer: true });
   }
@@ -87,5 +91,21 @@ export class AppConfigService {
     }
 
     return origins.split(",").map((origin) => origin.trim());
+  }
+
+  get rateLimitGlobalTtlMilliseconds() {
+    return this.config.get("RATE_LIMIT_GLOBAL_TTL_SECONDS", { infer: true }) * 1000;
+  }
+
+  get rateLimitGlobalMax() {
+    return this.config.get("RATE_LIMIT_GLOBAL_MAX", { infer: true });
+  }
+
+  get rateLimitAuthTtlMilliseconds() {
+    return this.config.get("RATE_LIMIT_AUTH_TTL_SECONDS", { infer: true }) * 1000;
+  }
+
+  get rateLimitAuthMax() {
+    return this.config.get("RATE_LIMIT_AUTH_MAX", { infer: true });
   }
 }

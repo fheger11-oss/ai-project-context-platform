@@ -18,6 +18,7 @@ async function bootstrap() {
   const config = app.get(AppConfigService);
 
   app.useLogger(["error", "warn", "log", "debug", "verbose"]);
+  app.getHttpAdapter().getInstance().set("trust proxy", config.trustProxy);
   app.use(helmet());
   app.enableCors({
     origin: config.corsOrigins,

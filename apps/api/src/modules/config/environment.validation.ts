@@ -8,10 +8,18 @@ const environmentSchema = z
     APP_ENV: z.enum(["development", "test", "staging", "production"]).default("development"),
     API_HOST: z.string().min(1).default("0.0.0.0"),
     API_PORT: z.coerce.number().int().positive().max(65_535).default(3000),
+    API_TRUST_PROXY: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
     API_PREFIX: z.string().min(1).default("api"),
     API_VERSION: z.string().regex(/^\d+$/).default("1"),
     SWAGGER_PATH: z.string().min(1).default("docs"),
     CORS_ORIGINS: z.string().min(1).default("http://localhost:5173,http://127.0.0.1:5173"),
+    RATE_LIMIT_GLOBAL_TTL_SECONDS: z.coerce.number().int().positive().default(60),
+    RATE_LIMIT_GLOBAL_MAX: z.coerce.number().int().positive().default(300),
+    RATE_LIMIT_AUTH_TTL_SECONDS: z.coerce.number().int().positive().default(60),
+    RATE_LIMIT_AUTH_MAX: z.coerce.number().int().positive().default(10),
     DATABASE_URL: z.string().url(),
     JWT_ACCESS_SECRET: z.string().min(32),
     JWT_REFRESH_SECRET: z.string().min(32),

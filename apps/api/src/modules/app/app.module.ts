@@ -1,11 +1,14 @@
 import { Module } from "@nestjs/common";
 import type { MiddlewareConsumer, NestModule } from "@nestjs/common";
+import { APP_GUARD } from "@nestjs/core";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 
 import { RequestLoggerMiddleware } from "../../shared/middleware/request-logger.middleware.js";
 import { AiExportModule } from "../ai-export/ai-export.module.js";
 import { AnalysisModule } from "../analysis/analysis.module.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { AppConfigModule } from "../config/app-config.module.js";
+import { AppConfigService } from "../config/app-config.service.js";
 import { ContextModule } from "../context/context.module.js";
 import { DashboardModule } from "../dashboard/dashboard.module.js";
 import { DocumentGenerationModule } from "../document-generation/document-generation.module.js";
@@ -18,6 +21,16 @@ import { UsersModule } from "../users/users.module.js";
 @Module({
   imports: [
     AppConfigModule,
+    ThrottlerModule.forRootAsync({
+      imports: [AppConfigModule],
+      inject: [AppConfigService],
+      useFactory: (config: AppConfigService) => [
+        {
+          ttl: config.rateLimitGlobalTtlMilliseconds,
+          limit: config.rateLimitGlobalMax
+        }
+      ]
+    }),
     PrismaModule,
     UsersModule,
     AuthModule,
@@ -29,6 +42,12 @@ import { UsersModule } from "../users/users.module.js";
     DocumentGenerationModule,
     AiExportModule,
     HealthModule
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard
+    }
   ]
 })
 export class AppModule implements NestModule {

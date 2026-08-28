@@ -18,6 +18,7 @@ import {
   ApiOkResponse,
   ApiTags
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import type { Request } from "express";
 import type { Response } from "express";
 
@@ -37,6 +38,7 @@ import { RefreshTokenDto } from "./dto/refresh-token.dto.js";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { RegisterDto } from "./dto/register.dto.js";
 import type { AuthenticatedUser } from "./types/authenticated-user.js";
+import { AUTH_RATE_LIMIT } from "../config/rate-limit.config.js";
 // Swagger decorators need this DTO as a runtime value.
 import { UserResponseDto } from "../users/dto/user-response.dto.js";
 
@@ -49,6 +51,7 @@ export class AuthController {
   constructor(@Inject(AuthService) private readonly authService: AuthService) {}
 
   @Get("github")
+  @Throttle(AUTH_RATE_LIMIT)
   @Redirect()
   async loginWithGitHub() {
     return {
@@ -57,6 +60,7 @@ export class AuthController {
   }
 
   @Get("github/callback")
+  @Throttle(AUTH_RATE_LIMIT)
   @ApiOkResponse({ type: AuthResponseDto })
   async handleGitHubCallback(
     @Query() dto: GitHubCallbackDto,
@@ -80,12 +84,14 @@ export class AuthController {
   }
 
   @Post("register")
+  @Throttle(AUTH_RATE_LIMIT)
   @ApiCreatedResponse({ type: AuthResponseDto })
   register(@Body() dto: RegisterDto, @Req() request: Request) {
     return this.authService.register(dto, this.getSessionMetadata(request));
   }
 
   @Post("login")
+  @Throttle(AUTH_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: AuthResponseDto })
   login(@Body() dto: LoginDto, @Req() request: Request) {
@@ -93,6 +99,7 @@ export class AuthController {
   }
 
   @Post("refresh")
+  @Throttle(AUTH_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: AuthResponseDto })
   refresh(@Body() dto: RefreshTokenDto, @Req() request: Request) {
@@ -100,6 +107,7 @@ export class AuthController {
   }
 
   @Post("logout")
+  @Throttle(AUTH_RATE_LIMIT)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
   async logout(@Body() dto: LogoutDto) {
