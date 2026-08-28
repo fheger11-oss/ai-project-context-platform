@@ -2,14 +2,18 @@ import { createBrowserRouter } from "react-router-dom";
 
 import { AppShell } from "@/layouts/app-shell";
 import { AuthCallbackView } from "@/routes/auth-callback-view";
-import { DashboardView } from "@/routes/dashboard-view";
 import { AnalysisResultView } from "@/routes/analyses/analysis-result-view";
 import { ConnectRepositoryView } from "@/routes/repositories/connect-repository-view";
 import { LandingView } from "@/routes/landing-view";
 import { RepositoryDetailsView } from "@/routes/repositories/repository-details-view";
 import { RepositoryListView } from "@/routes/repositories/repository-list-view";
+import { RootEntryView } from "@/routes/root-entry-view";
 
 export const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <RootEntryView />
+  },
   {
     path: "/landing",
     element: <LandingView />
@@ -18,10 +22,6 @@ export const router = createBrowserRouter([
     path: "/",
     element: <AppShell />,
     children: [
-      {
-        index: true,
-        element: <DashboardView />
-      },
       {
         path: "auth/callback",
         element: <AuthCallbackView />

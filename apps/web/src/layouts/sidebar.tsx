@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { AuthUserSection } from "@/features/auth/components/auth-user-section";
+import { CtxaroMark } from "@/features/brand/components/ctxaro-brand";
 import { primaryNavigation } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import type { ShellContext } from "@/layouts/shell-context";
@@ -70,11 +71,11 @@ export function Sidebar({ shellContext }: SidebarProps) {
         role={mobileOpen ? "dialog" : "complementary"}
       >
         <div className="flex h-16 items-center gap-3 px-4">
-          <div className="grid size-9 place-items-center rounded-md border border-primary/20 bg-primary/10 text-sm font-semibold text-primary shadow-[var(--shadow-control)]">
-            AI
+          <div className="grid size-9 shrink-0 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary shadow-[var(--shadow-control)]">
+            <CtxaroMark className="size-5" />
           </div>
           <div className={cn("min-w-0 flex-1", collapsed && "md:hidden")}>
-            <p className="truncate text-sm font-semibold">Project Context</p>
+            <p className="truncate text-sm font-semibold lowercase">ctxaro</p>
             <p className="truncate text-xs text-muted-foreground">
               <TextShimmer>Developer workspace</TextShimmer>
             </p>

@@ -2,6 +2,7 @@ import { ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { CtxaroWordmark } from "@/features/brand/components/ctxaro-brand";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 
 export function LandingFooter() {
@@ -16,16 +17,11 @@ export function LandingFooter() {
       <div className="mx-auto grid w-full max-w-7xl gap-8 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
           <Link
-            to="/landing"
+            to="/"
             className="inline-flex items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050706]"
-            aria-label="Ctxaro landing page"
+            aria-label="ctxaro home"
           >
-            <span className="grid size-8 place-items-center rounded-md border border-primary/25 bg-primary/10 text-xs font-semibold text-primary">
-              C
-            </span>
-            <span className="font-mono text-sm font-semibold uppercase tracking-[0.18em] text-white">
-              Ctxaro
-            </span>
+            <CtxaroWordmark />
           </Link>
           <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
             Structured context for real codebases.

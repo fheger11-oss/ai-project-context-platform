@@ -2,8 +2,8 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "@/layouts/app-shell";
-import { DashboardView } from "@/routes/dashboard-view";
 import { LandingView } from "@/routes/landing-view";
+import { RootEntryView } from "@/routes/root-entry-view";
 
 const createBrowserRouter = vi.hoisted(() => vi.fn((routes: unknown[]) => ({ routes })));
 
@@ -17,7 +17,7 @@ vi.mock("react-router-dom", async (importOriginal) => {
 });
 
 describe("router", () => {
-  it("keeps the existing AppShell and mounts Dashboard at the index route", async () => {
+  it("mounts the public root through an auth-aware entry view", async () => {
     const { router } = await import("@/app/router");
     const routes = (
       router as {
@@ -29,10 +29,8 @@ describe("router", () => {
       }
     ).routes;
     const rootRoute = routes.find((route) => route.path === "/");
-    const indexRoute = rootRoute?.children?.find((route) => route.index);
 
-    expect(rootRoute?.element.type).toBe(AppShell);
-    expect(indexRoute?.element.type).toBe(DashboardView);
+    expect(rootRoute?.element.type).toBe(RootEntryView);
     expect(createBrowserRouter).toHaveBeenCalledTimes(1);
   });
 
@@ -42,11 +40,12 @@ describe("router", () => {
       router as {
         routes: {
           path?: string;
+          element: ReactElement;
           children?: { path?: string }[];
         }[];
       }
     ).routes;
-    const rootRoute = routes.find((route) => route.path === "/");
+    const rootRoute = routes.find((route) => route.path === "/" && route.element.type === AppShell);
     const paths = rootRoute?.children?.map((route) => route.path).filter(Boolean) ?? [];
 
     expect(paths).toContain("repositories/:id");
@@ -65,7 +64,7 @@ describe("router", () => {
       }
     ).routes;
     const landingRoute = routes.find((route) => route.path === "/landing");
-    const appRoute = routes.find((route) => route.path === "/");
+    const appRoute = routes.find((route) => route.path === "/" && route.element.type === AppShell);
 
     expect(landingRoute?.element.type).toBe(LandingView);
     expect(appRoute?.element.type).toBe(AppShell);
