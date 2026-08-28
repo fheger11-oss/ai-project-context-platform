@@ -124,6 +124,7 @@
 
 html {
   background: var(--background);
+  scroll-behavior: smooth;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -408,6 +409,58 @@ samp {
 
 .landing-why-glow {
   animation: landing-proof-glow 18s ease-in-out infinite alternate;
+}
+
+.landing-final-step {
+  transform: translate3d(0, 10px, 0);
+  opacity: 0.72;
+  transition:
+    opacity 540ms ease,
+    transform 540ms ease,
+    border-color 540ms ease;
+}
+
+[data-final-active="true"] .landing-final-step {
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.landing-final-spine::after,
+.landing-final-converge::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(180deg, transparent, rgba(69, 211, 154, 0.92), transparent);
+  animation: landing-proof-flow-down 4.4s ease-in-out infinite;
+}
+
+.landing-final-spine,
+.landing-final-converge {
+  position: relative;
+}
+
+.landing-final-button {
+  animation: landing-final-button 4.8s ease-in-out infinite;
+}
+
+.landing-final-glow {
+  animation: landing-proof-glow 18s ease-in-out infinite alternate;
+}
+
+.landing-faq-panel {
+  transition: grid-template-rows 220ms ease;
+}
+
+.landing-footer-signal::after {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 18rem;
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(69, 211, 154, 0.75), transparent);
+  animation: landing-footer-signal 12s ease-in-out infinite;
 }
 
 @media (width < 768px) {
@@ -782,6 +835,39 @@ samp {
   }
 }
 
+@keyframes landing-final-button {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(69, 211, 154, 0.16),
+      var(--shadow-control);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 8px rgba(69, 211, 154, 0),
+      0 0 32px rgba(69, 211, 154, 0.16),
+      var(--shadow-control);
+  }
+}
+
+@keyframes landing-footer-signal {
+  0% {
+    opacity: 0;
+    transform: translate3d(-20rem, 0, 0);
+  }
+
+  18%,
+  72% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(100vw, 0, 0);
+  }
+}
+
 @media (width < 768px) {
   @keyframes landing-pipeline-flow {
     0% {
@@ -802,6 +888,10 @@ samp {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   .landing-grid,
   .landing-glow,
   .landing-field-node,
@@ -830,7 +920,12 @@ samp {
   .landing-why-sheen,
   .landing-loose-row,
   .landing-workflow-connector::after,
-  .landing-why-glow {
+  .landing-why-glow,
+  .landing-final-spine::after,
+  .landing-final-converge::after,
+  .landing-final-button,
+  .landing-final-glow,
+  .landing-footer-signal::after {
     animation: none;
   }
 
@@ -839,8 +934,13 @@ samp {
   .landing-document-line,
   .landing-document-caret,
   .landing-why-panel,
-  .landing-context-row {
+  .landing-context-row,
+  .landing-final-step {
     transform: none;
     opacity: 1;
+  }
+
+  .landing-faq-panel {
+    transition: none;
   }
 }

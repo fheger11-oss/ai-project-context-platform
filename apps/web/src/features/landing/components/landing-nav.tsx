@@ -6,9 +6,9 @@ import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 
 const navLinks = [
   { label: "How it works", href: "#how-it-works" },
-  { label: "Product", href: "#product" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Docs", href: "#docs" }
+  { label: "Product", href: "#product-proof" },
+  { label: "Why Ctxaro", href: "#why-ctxaro" },
+  { label: "FAQ", href: "#faq" }
 ];
 
 export function LandingNav() {
