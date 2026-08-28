@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "@/layouts/app-shell";
 import { DashboardView } from "@/routes/dashboard-view";
+import { LandingView } from "@/routes/landing-view";
 
 const createBrowserRouter = vi.hoisted(() => vi.fn((routes: unknown[]) => ({ routes })));
 
@@ -21,12 +22,13 @@ describe("router", () => {
     const routes = (
       router as {
         routes: {
+          path?: string;
           children?: { element: ReactElement; index?: boolean }[];
           element: ReactElement;
         }[];
       }
     ).routes;
-    const rootRoute = routes[0];
+    const rootRoute = routes.find((route) => route.path === "/");
     const indexRoute = rootRoute?.children?.find((route) => route.index);
 
     expect(rootRoute?.element.type).toBe(AppShell);
@@ -39,13 +41,34 @@ describe("router", () => {
     const routes = (
       router as {
         routes: {
+          path?: string;
           children?: { path?: string }[];
         }[];
       }
     ).routes;
-    const paths = routes[0]?.children?.map((route) => route.path).filter(Boolean) ?? [];
+    const rootRoute = routes.find((route) => route.path === "/");
+    const paths = rootRoute?.children?.map((route) => route.path).filter(Boolean) ?? [];
 
     expect(paths).toContain("repositories/:id");
     expect(paths).not.toContain("projects/:id");
+  });
+
+  it("adds the public landing page outside the authenticated application shell", async () => {
+    const { router } = await import("@/app/router");
+    const routes = (
+      router as {
+        routes: {
+          path?: string;
+          element: ReactElement;
+          children?: { path?: string }[];
+        }[];
+      }
+    ).routes;
+    const landingRoute = routes.find((route) => route.path === "/landing");
+    const appRoute = routes.find((route) => route.path === "/");
+
+    expect(landingRoute?.element.type).toBe(LandingView);
+    expect(appRoute?.element.type).toBe(AppShell);
+    expect(appRoute?.children?.some((route) => route.path === "landing")).toBe(false);
   });
 });

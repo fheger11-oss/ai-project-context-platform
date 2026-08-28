@@ -183,3 +183,171 @@ samp {
     background-position: 0% center;
   }
 }
+
+.landing-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-position: 0 0;
+  background-size: 54px 54px;
+  animation: landing-grid-drift 34s linear infinite;
+  mask-image: radial-gradient(circle at 50% 24%, black, transparent 72%);
+}
+
+.landing-noise {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.58) 0.7px, transparent 0.7px);
+  background-size: 5px 5px;
+}
+
+.landing-glow {
+  animation: landing-glow-drift 18s ease-in-out infinite alternate;
+}
+
+.landing-field-node {
+  animation: landing-node-pulse 7s ease-in-out infinite;
+}
+
+.landing-rail-pulse {
+  animation: landing-rail-progress 8s ease-in-out infinite;
+}
+
+.landing-live-dot {
+  animation: landing-live-dot 2.2s ease-in-out infinite;
+}
+
+.landing-scan-beam {
+  animation: landing-scan 3.8s ease-in-out infinite;
+}
+
+.landing-connector::after {
+  position: absolute;
+  top: 0;
+  left: -2px;
+  width: 5px;
+  height: 3rem;
+  content: "";
+  background: linear-gradient(180deg, transparent, rgba(69, 211, 154, 0.95), transparent);
+  border-radius: 999px;
+  animation: landing-connector-signal 4.8s ease-in-out infinite;
+}
+
+.landing-orbit {
+  animation: landing-orbit-breathe 9s ease-in-out infinite;
+}
+
+@keyframes landing-grid-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+
+  to {
+    transform: translate3d(-54px, 54px, 0);
+  }
+}
+
+@keyframes landing-glow-drift {
+  from {
+    transform: translate3d(-58%, -2%, 0) scale(0.95);
+  }
+
+  to {
+    transform: translate3d(-42%, 8%, 0) scale(1.08);
+  }
+}
+
+@keyframes landing-node-pulse {
+  0%,
+  100% {
+    opacity: 0.18;
+    transform: translate3d(0, 0, 0) scale(0.85);
+  }
+
+  50% {
+    opacity: 0.78;
+    transform: translate3d(0, -12px, 0) scale(1);
+  }
+}
+
+@keyframes landing-rail-progress {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+
+  18%,
+  72% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 25rem, 0);
+  }
+}
+
+@keyframes landing-live-dot {
+  0%,
+  100% {
+    opacity: 0.45;
+    box-shadow: 0 0 0 0 rgba(69, 211, 154, 0.3);
+  }
+
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 0 6px rgba(69, 211, 154, 0);
+  }
+}
+
+@keyframes landing-scan {
+  0% {
+    transform: translate3d(-115%, 0, 0);
+  }
+
+  52%,
+  100% {
+    transform: translate3d(315%, 0, 0);
+  }
+}
+
+@keyframes landing-connector-signal {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0);
+  }
+
+  20%,
+  72% {
+    opacity: 0.95;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(0, 17rem, 0);
+  }
+}
+
+@keyframes landing-orbit-breathe {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(0.985);
+  }
+
+  50% {
+    opacity: 0.56;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-grid,
+  .landing-glow,
+  .landing-field-node,
+  .landing-rail-pulse,
+  .landing-live-dot,
+  .landing-scan-beam,
+  .landing-connector::after,
+  .landing-orbit {
+    animation: none;
+  }
+}

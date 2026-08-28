@@ -5,10 +5,15 @@ import { AuthCallbackView } from "@/routes/auth-callback-view";
 import { DashboardView } from "@/routes/dashboard-view";
 import { AnalysisResultView } from "@/routes/analyses/analysis-result-view";
 import { ConnectRepositoryView } from "@/routes/repositories/connect-repository-view";
+import { LandingView } from "@/routes/landing-view";
 import { RepositoryDetailsView } from "@/routes/repositories/repository-details-view";
 import { RepositoryListView } from "@/routes/repositories/repository-list-view";
 
 export const router = createBrowserRouter([
+  {
+    path: "/landing",
+    element: <LandingView />
+  },
   {
     path: "/",
     element: <AppShell />,
