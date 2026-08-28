@@ -2,10 +2,13 @@ import { ArrowDown, ArrowRight, GitBranch } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
+import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { HeroVisualization } from "@/features/landing/components/hero-visualization";
 
 export function HeroSection() {
   const githubLoginUrl = getGitHubLoginUrl();
+  const accessToken = useAuthSessionStore((state) => state.accessToken);
+  const dashboardHref = accessToken ? "/" : githubLoginUrl;
 
   return (
     <section className="relative mx-auto grid min-h-[calc(100svh-4rem)] w-screen max-w-[100vw] items-center gap-12 px-4 py-14 sm:px-6 md:py-20 lg:w-full lg:max-w-7xl lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
@@ -47,7 +50,7 @@ export function HeroSection() {
             <span className="min-w-0">Repository understanding, not chatbot sprawl</span>
           </span>
           <a
-            href="/"
+            href={dashboardHref}
             className="inline-flex items-center gap-2 rounded-md px-1 py-2 text-subtle-foreground outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-primary/75 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050706]"
           >
             Open dashboard

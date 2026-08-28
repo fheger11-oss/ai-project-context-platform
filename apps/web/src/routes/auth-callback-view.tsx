@@ -3,27 +3,21 @@ import { useNavigate } from "react-router-dom";
 
 import { CtxaroWordmark } from "@/features/brand/components/ctxaro-brand";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
+import { readAuthCallbackSession } from "@/routes/auth-callback-session";
 
 export function AuthCallbackView() {
   const navigate = useNavigate();
   const setSession = useAuthSessionStore((state) => state.setSession);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    const accessToken = params.get("access_token");
-    const refreshToken = params.get("refresh_token");
-    const expiresIn = Number(params.get("expires_in"));
+    const session = readAuthCallbackSession(window.location.hash);
 
-    if (!accessToken || !refreshToken || !Number.isFinite(expiresIn)) {
+    if (!session) {
       navigate("/", { replace: true });
       return;
     }
 
-    setSession({
-      accessToken,
-      refreshToken,
-      expiresIn
-    });
+    setSession(session);
     window.history.replaceState(null, "", "/auth/callback");
     navigate("/", { replace: true });
   }, [navigate, setSession]);
