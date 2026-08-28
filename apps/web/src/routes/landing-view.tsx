@@ -11,13 +11,13 @@ import { WhyCtxaroSection } from "@/features/landing/components/why-ctxaro-secti
 
 export function LandingView() {
   return (
-    <div className="dark min-h-screen overflow-x-hidden bg-[#050706] text-foreground">
+    <div className="dark min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#050706] text-foreground">
       <MotionBackground />
       <LandingNav />
       <main className="relative">
         <div className="mx-auto flex w-full max-w-[92rem]">
           <ContextRail className="ml-4" />
-          <div className="min-w-0 flex-1">
+          <div className="w-screen max-w-[100vw] min-w-0 flex-1 lg:w-full">
             <HeroSection />
             <HowItWorksSection />
             <ProductProofSection />

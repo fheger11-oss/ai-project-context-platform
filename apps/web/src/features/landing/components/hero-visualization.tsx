@@ -5,23 +5,26 @@ const contextItems = ["architecture", "workflows", "module map", "AI context"];
 
 export function HeroVisualization() {
   return (
-    <div className="relative mx-auto w-full max-w-[36rem] lg:mx-0" aria-hidden="true">
+    <div
+      className="landing-mobile-visual relative mx-0 min-w-0 max-w-[36rem] sm:mx-auto lg:mx-0"
+      aria-hidden="true"
+    >
       <div className="landing-orbit absolute -inset-7 rounded-[2rem] border border-primary/10" />
-      <div className="relative overflow-hidden rounded-lg border border-white/10 bg-[#07100d]/88 shadow-[0_24px_90px_rgba(0,0,0,0.42),0_0_0_1px_rgba(255,255,255,0.03)_inset] backdrop-blur-xl">
-        <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.025] px-4 py-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-subtle-foreground">
-            <GitBranch className="size-4 text-primary" />
-            github.com/team/product-api
+      <div className="relative min-w-0 overflow-hidden rounded-lg border border-white/10 bg-[#07100d]/88 shadow-[0_24px_90px_rgba(0,0,0,0.42),0_0_0_1px_rgba(255,255,255,0.03)_inset] backdrop-blur-xl">
+        <div className="flex min-w-0 items-center justify-between gap-3 border-b border-white/10 bg-white/[0.025] px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-subtle-foreground">
+            <GitBranch className="size-4 shrink-0 text-primary" />
+            <span className="min-w-0 truncate">github.com/team/product-api</span>
           </div>
-          <div className="flex items-center gap-1.5 text-[11px] text-primary">
+          <div className="hidden shrink-0 items-center gap-1.5 text-[11px] text-primary sm:flex">
             <span className="landing-live-dot size-1.5 rounded-full bg-primary" />
             Understanding repository
           </div>
         </div>
 
-        <div className="grid gap-4 p-4 sm:grid-cols-[0.82fr_1fr] sm:p-5">
-          <div className="grid gap-3">
-            <section className="rounded-md border border-white/10 bg-black/20 p-3">
+        <div className="grid min-w-0 gap-4 p-4 sm:grid-cols-[0.82fr_1fr] sm:p-5">
+          <div className="grid min-w-0 gap-3">
+            <section className="min-w-0 rounded-md border border-white/10 bg-black/20 p-3">
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[11px] font-medium uppercase text-muted-foreground">
                   <FileCode2 className="size-3.5" />
@@ -35,16 +38,20 @@ export function HeroVisualization() {
                 {files.map((file, index) => (
                   <div
                     key={file}
-                    className="flex items-center gap-2 text-xs text-subtle-foreground"
+                    className="flex min-w-0 items-center gap-2 text-xs text-subtle-foreground"
                   >
-                    <span className="h-px w-3 bg-white/16" />
-                    <span className={index === 2 ? "text-white" : undefined}>{file}</span>
+                    <span className="h-px w-3 shrink-0 bg-white/16" />
+                    <span
+                      className={index === 2 ? "min-w-0 truncate text-white" : "min-w-0 truncate"}
+                    >
+                      {file}
+                    </span>
                   </div>
                 ))}
               </div>
             </section>
 
-            <section className="rounded-md border border-primary/20 bg-primary/[0.045] p-3">
+            <section className="min-w-0 rounded-md border border-primary/20 bg-primary/[0.045] p-3">
               <div className="mb-3 flex items-center gap-2 text-[11px] font-medium uppercase text-primary">
                 <ScanLine className="size-3.5" />
                 Scan activity
@@ -58,10 +65,10 @@ export function HeroVisualization() {
             </section>
           </div>
 
-          <div className="relative grid gap-3">
+          <div className="relative grid min-w-0 gap-3">
             <div className="landing-connector absolute left-4 top-8 hidden h-[calc(100%-4rem)] w-px bg-gradient-to-b from-primary/70 via-white/12 to-primary/40 sm:block" />
 
-            <section className="relative rounded-md border border-white/10 bg-[#0b1210]/90 p-3">
+            <section className="relative min-w-0 rounded-md border border-white/10 bg-[#0b1210]/90 p-3">
               <div className="mb-3 flex items-center gap-2 text-[11px] font-medium uppercase text-muted-foreground">
                 <Braces className="size-3.5 text-primary" />
                 Project Context
@@ -70,17 +77,17 @@ export function HeroVisualization() {
                 {contextItems.map((item, index) => (
                   <div
                     key={item}
-                    className="rounded-sm border border-white/10 bg-white/[0.035] px-2 py-2 text-[11px] text-subtle-foreground"
+                    className="min-w-0 rounded-sm border border-white/10 bg-white/[0.035] px-2 py-2 text-[11px] text-subtle-foreground"
                     style={{ animationDelay: `${index * 0.4}s` }}
                   >
                     <CheckCircle2 className="mb-1 size-3 text-primary" />
-                    {item}
+                    <span className="block truncate">{item}</span>
                   </div>
                 ))}
               </div>
             </section>
 
-            <section className="relative rounded-md border border-white/10 bg-black/24 p-3">
+            <section className="relative min-w-0 rounded-md border border-white/10 bg-black/24 p-3">
               <div className="mb-3 flex items-center gap-2 text-[11px] font-medium uppercase text-muted-foreground">
                 <FileText className="size-3.5 text-primary" />
                 Documents
@@ -91,12 +98,12 @@ export function HeroVisualization() {
               </div>
             </section>
 
-            <section className="relative rounded-md border border-primary/25 bg-primary/[0.055] p-3">
+            <section className="relative min-w-0 rounded-md border border-primary/25 bg-primary/[0.055] p-3">
               <div className="flex items-start gap-3">
                 <div className="grid size-8 shrink-0 place-items-center rounded-md border border-primary/25 bg-primary/10 text-primary">
                   <Bot className="size-4" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-white">AI-ready export</p>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
                     Markdown, plain text, and AI Context outputs prepared from the latest project

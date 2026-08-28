@@ -15,14 +15,14 @@ export function LandingNav() {
   const githubLoginUrl = getGitHubLoginUrl();
 
   return (
-    <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#050706]/82 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 w-screen max-w-[100vw] overflow-hidden border-b border-white/[0.07] bg-[#050706]/82 backdrop-blur-xl">
       <nav
         aria-label="Marketing navigation"
-        className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
+        className="mx-auto flex h-16 w-screen max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
       >
         <Link
           to="/landing"
-          className="group flex items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050706]"
+          className="group flex shrink-0 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050706]"
           aria-label="Ctxaro landing page"
         >
           <span className="grid size-8 place-items-center rounded-md border border-primary/25 bg-primary/10 text-xs font-semibold text-primary shadow-[0_0_30px_rgba(69,211,154,0.12)]">
@@ -43,7 +43,7 @@ export function LandingNav() {
           ))}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Button
             asChild
             variant="ghost"
@@ -54,7 +54,7 @@ export function LandingNav() {
               Sign in
             </a>
           </Button>
-          <Button asChild className="h-9">
+          <Button asChild className="hidden h-9 px-3 text-xs sm:inline-flex sm:text-sm">
             <a href={githubLoginUrl}>
               Start for free
               <GitBranch />
