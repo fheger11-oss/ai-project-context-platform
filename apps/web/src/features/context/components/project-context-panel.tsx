@@ -112,7 +112,11 @@ export function ProjectContextPanel({ accessToken, analysisId }: ProjectContextP
     !selectedContextId;
 
   return (
-    <section className="grid gap-4" aria-labelledby="project-context-title">
+    <section
+      id="project-context"
+      className="grid scroll-mt-48 gap-4"
+      aria-labelledby="project-context-title"
+    >
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">

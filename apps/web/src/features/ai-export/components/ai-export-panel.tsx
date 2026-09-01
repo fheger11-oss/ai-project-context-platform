@@ -115,7 +115,11 @@ export function AiExportPanel({ accessToken, contextId }: AiExportPanelProps) {
   const isBusy = previewMutation.isPending || copyMutation.isPending || downloadMutation.isPending;
 
   return (
-    <section className="rounded-md border bg-card/70" aria-labelledby="ai-export-title">
+    <section
+      id="ai-export"
+      className="scroll-mt-48 rounded-md border bg-card/70"
+      aria-labelledby="ai-export-title"
+    >
       <div className="grid gap-5 px-4 py-4 lg:px-5">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2">

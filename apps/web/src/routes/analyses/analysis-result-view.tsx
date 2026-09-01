@@ -1,6 +1,16 @@
-import { ArrowLeft, CalendarClock, GitBranch, Layers3, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  Braces,
+  CalendarClock,
+  FileText,
+  GitBranch,
+  Layers3,
+  Radar,
+  RefreshCw
+} from "lucide-react";
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { StatePanel } from "@/components/shared/state-panel";
 import { StatusDot } from "@/components/shared/status-dot";
@@ -8,10 +18,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AnalysisApiRequestError, getAnalysisResult } from "@/features/analysis/api/analysis-api";
+import {
+  AnalysisWorkflowNav,
+  type AnalysisWorkflowStep,
+  type NextStepRecommendation
+} from "@/features/analysis/components/analysis-workflow-nav";
 import { AnalysisResultDetails } from "@/features/analysis/components/analysis-result-details";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
+import {
+  ContextApiRequestError,
+  generateProjectContext,
+  getLatestProjectContext
+} from "@/features/context/api/context-api";
 import { ProjectContextPanel } from "@/features/context/components/project-context-panel";
+import { getDocumentHistory } from "@/features/documents/api/document-api";
 import { getRepository } from "@/features/repositories/api/repositories-api";
 import type { AnalysisResultResponse, RepositorySummary } from "@ai-context/contracts";
 
@@ -50,6 +71,7 @@ function projectName(repository: RepositorySummary | undefined): string {
 export function AnalysisResultView() {
   const { analysisId } = useParams<{ analysisId: string }>();
   const apiAccessToken = useAuthSessionStore((state) => state.accessToken);
+  const queryClient = useQueryClient();
   const analysisQuery = useQuery({
     queryKey: ["analysis", analysisId],
     queryFn: () => getAnalysisResult(apiAccessToken, analysisId ?? ""),
@@ -59,6 +81,28 @@ export function AnalysisResultView() {
     queryKey: ["repositories", analysisQuery.data?.repositoryId],
     queryFn: () => getRepository(apiAccessToken, analysisQuery.data?.repositoryId ?? ""),
     enabled: Boolean(apiAccessToken && analysisQuery.data?.repositoryId)
+  });
+  const latestContextQuery = useQuery({
+    queryKey: ["context", "latest", analysisQuery.data?.analysisId],
+    queryFn: () => getLatestProjectContext(apiAccessToken, analysisQuery.data?.analysisId ?? ""),
+    enabled: Boolean(apiAccessToken && analysisQuery.data?.analysisId)
+  });
+  const activeContext = latestContextQuery.data;
+  const documentHistoryQuery = useQuery({
+    queryKey: ["document-history", activeContext?.id],
+    queryFn: () => getDocumentHistory(apiAccessToken, activeContext?.id ?? ""),
+    enabled: Boolean(apiAccessToken && activeContext?.id)
+  });
+  const generateContextMutation = useMutation({
+    mutationFn: () => generateProjectContext(apiAccessToken, analysisQuery.data?.analysisId ?? ""),
+    onSuccess: async (context) => {
+      queryClient.setQueryData(["context", context.id], context);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["context", "latest", context.analysisId] }),
+        queryClient.invalidateQueries({ queryKey: ["context-history", context.analysisId] })
+      ]);
+    }
   });
 
   if (!apiAccessToken) {
@@ -128,13 +172,218 @@ export function AnalysisResultView() {
         isRepositoryLoading={repositoryQuery.isLoading}
         repository={repositoryQuery.data}
       />
-      <AnalysisResultDetails result={analysisQuery.data} />
+      <AnalysisWorkflowNav
+        nextStep={buildNextStepRecommendation({
+          canGenerateContext: Boolean(analysisQuery.data.analysisId),
+          contextError: latestContextQuery.error,
+          documentCount: documentHistoryQuery.data?.documents.length ?? 0,
+          documentError: documentHistoryQuery.error,
+          hasContext: Boolean(activeContext),
+          isContextGenerating: generateContextMutation.isPending,
+          isContextLoading: latestContextQuery.isLoading,
+          isDocumentLoading: documentHistoryQuery.isLoading,
+          onGenerateContext: () => generateContextMutation.mutate()
+        })}
+        steps={buildWorkflowSteps({
+          analysis: analysisQuery.data,
+          contextError: latestContextQuery.error,
+          documentCount: documentHistoryQuery.data?.documents.length ?? 0,
+          documentError: documentHistoryQuery.error,
+          hasContext: Boolean(activeContext),
+          isContextGenerating: generateContextMutation.isPending,
+          isContextLoading: latestContextQuery.isLoading,
+          isDocumentLoading: documentHistoryQuery.isLoading
+        })}
+      />
+      <div id="analysis" className="scroll-mt-48">
+        <AnalysisResultDetails result={analysisQuery.data} />
+      </div>
       <ProjectContextPanel
         accessToken={apiAccessToken}
         analysisId={analysisQuery.data.analysisId}
       />
     </div>
   );
+}
+
+function isNotFoundContextError(error: unknown): boolean {
+  return error instanceof ContextApiRequestError && error.status === 404;
+}
+
+function isBlockingError(error: unknown): boolean {
+  return Boolean(error) && !isNotFoundContextError(error);
+}
+
+function buildWorkflowSteps({
+  analysis,
+  contextError,
+  documentCount,
+  documentError,
+  hasContext,
+  isContextGenerating,
+  isContextLoading,
+  isDocumentLoading
+}: {
+  analysis: AnalysisResultResponse;
+  contextError: unknown;
+  documentCount: number;
+  documentError: unknown;
+  hasContext: boolean;
+  isContextGenerating: boolean;
+  isContextLoading: boolean;
+  isDocumentLoading: boolean;
+}): AnalysisWorkflowStep[] {
+  const contextBlocked = isBlockingError(contextError);
+  const documentsBlocked = isBlockingError(documentError);
+
+  const documentStep: AnalysisWorkflowStep = {
+    description: documentCount > 0 ? "Documents available" : "Generate overview",
+    icon: FileText,
+    key: "documents",
+    label: "Documents",
+    status: documentsBlocked
+      ? "failed"
+      : isDocumentLoading
+        ? "running"
+        : documentCount > 0
+          ? "available"
+          : hasContext
+            ? "actionable"
+            : "unavailable"
+  };
+  const aiExportStep: AnalysisWorkflowStep = {
+    description: hasContext ? "Export ready" : "Requires Context",
+    icon: Bot,
+    key: "ai-export",
+    label: "AI Export",
+    status: hasContext ? "available" : "unavailable"
+  };
+
+  if (hasContext) {
+    documentStep.href = "#documents";
+    aiExportStep.href = "#ai-export";
+  }
+
+  return [
+    {
+      description: "Repository connected",
+      href: `/repositories/${encodeURIComponent(analysis.repositoryId)}`,
+      icon: GitBranch,
+      key: "repository",
+      label: "Repository",
+      status: "completed"
+    },
+    {
+      description: "Scan source ready",
+      icon: Radar,
+      key: "scan",
+      label: "Scan",
+      status: "completed"
+    },
+    {
+      description: "Viewing results",
+      href: "#analysis",
+      icon: Braces,
+      key: "analysis",
+      label: "Analysis",
+      status: "current"
+    },
+    {
+      description: hasContext ? "Context available" : "Generate from analysis",
+      href: "#project-context",
+      icon: Braces,
+      key: "project-context",
+      label: "Project Context",
+      status: contextBlocked
+        ? "failed"
+        : isContextGenerating || isContextLoading
+          ? "running"
+          : hasContext
+            ? "available"
+            : "actionable"
+    },
+    documentStep,
+    aiExportStep
+  ];
+}
+
+function buildNextStepRecommendation({
+  canGenerateContext,
+  contextError,
+  documentCount,
+  documentError,
+  hasContext,
+  isContextGenerating,
+  isContextLoading,
+  isDocumentLoading,
+  onGenerateContext
+}: {
+  canGenerateContext: boolean;
+  contextError: unknown;
+  documentCount: number;
+  documentError: unknown;
+  hasContext: boolean;
+  isContextGenerating: boolean;
+  isContextLoading: boolean;
+  isDocumentLoading: boolean;
+  onGenerateContext: () => void;
+}): NextStepRecommendation {
+  if (isBlockingError(contextError)) {
+    return {
+      action: { href: "#project-context", label: "Review Context" },
+      description:
+        "Ctxaro could not load Project Context state. Review the section below and retry there.",
+      eyebrow: "Next step",
+      title: "Check Project Context"
+    };
+  }
+
+  if (!hasContext) {
+    return {
+      action: {
+        busy: isContextGenerating,
+        disabled: !canGenerateContext || isContextLoading || isContextGenerating,
+        label: isContextGenerating ? "Generating Context" : "Generate Project Context",
+        onClick: onGenerateContext
+      },
+      description:
+        "Analysis is complete. Generate structured Project Context so Documents and AI Export can use this repository knowledge.",
+      eyebrow: "Next step",
+      title: "Generate Project Context"
+    };
+  }
+
+  if (isBlockingError(documentError)) {
+    return {
+      action: { href: "#documents", label: "Review Documents" },
+      description:
+        "Ctxaro could not load document state for this Context. Review the section below.",
+      eyebrow: "Next step",
+      title: "Check document generation"
+    };
+  }
+
+  if (documentCount === 0) {
+    return {
+      action: {
+        disabled: isDocumentLoading,
+        href: "#documents",
+        label: isDocumentLoading ? "Loading Documents" : "Generate Project Overview"
+      },
+      description:
+        "Project Context is ready. Move to Documents and generate the first readable Markdown overview.",
+      eyebrow: "Next step",
+      title: "Generate Project Overview"
+    };
+  }
+
+  return {
+    action: { href: "#ai-export", label: "Open AI Export" },
+    description:
+      "Context and documentation are available. Package the selected Project Context for AI tools.",
+    eyebrow: "Workflow ready",
+    title: "Export your project context"
+  };
 }
 
 function AnalysisHeader({

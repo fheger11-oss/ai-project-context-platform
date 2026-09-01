@@ -181,7 +181,11 @@ export function DocumentGenerationPanel({
   }
 
   return (
-    <section className="rounded-md border bg-card/70" aria-labelledby="document-workspace-title">
+    <section
+      id="documents"
+      className="scroll-mt-48 rounded-md border bg-card/70"
+      aria-labelledby="document-workspace-title"
+    >
       <div className="grid gap-4 border-b px-4 py-4 lg:px-5">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap items-center gap-2">
