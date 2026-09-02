@@ -808,6 +808,36 @@ describe("ScanService", () => {
     );
   });
 
+  it("marks the scan failed and does not complete when scan limits fail during streaming", async () => {
+    const limitError = new Error("Repository scan exceeded the maximum file count.");
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        listSnapshotFiles: vi.fn().mockReturnValue(snapshotFilesThatThrowAfter([], limitError))
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(limitError);
+
+    expect(scanRepository.storeScanFiles).not.toHaveBeenCalled();
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(1, {
+      scanId: "scan_1",
+      status: "RUNNING"
+    });
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(2, {
+      scanId: "scan_1",
+      status: "FAILED"
+    });
+    expect(scanRepository.updateScanStatus).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: "COMPLETED" })
+    );
+  });
+
   it("marks the scan failed and rethrows the original error when batch persistence fails", async () => {
     const fileBatchSize = 250;
     const files = Array.from({ length: fileBatchSize }, (_, index) =>

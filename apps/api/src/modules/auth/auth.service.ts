@@ -1,7 +1,7 @@
 import { ConflictException, Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import bcrypt from "bcrypt";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 
 import type { UserModel } from "../../generated/prisma/models.js";
 import { AppConfigService } from "../config/app-config.service.js";
@@ -29,6 +29,7 @@ type UserWithGitHubAccount = UserModel & {
 
 const PASSWORD_SALT_ROUNDS = 12;
 const GITHUB_OAUTH_STATE_TTL_SECONDS = 600;
+const GITHUB_OAUTH_NONCE_BYTES = 32;
 
 @Injectable()
 export class AuthService {
@@ -51,10 +52,14 @@ export class AuthService {
     return this.config.webAuthCallbackUrl;
   }
 
-  async createGitHubAuthorizationUrl(): Promise<string> {
+  createGitHubOAuthNonce(): string {
+    return randomBytes(GITHUB_OAUTH_NONCE_BYTES).toString("base64url");
+  }
+
+  async createGitHubAuthorizationUrl(nonce: string): Promise<string> {
     const state = await this.jwtService.signAsync(
       {
-        nonce: randomUUID(),
+        nonceHash: this.hashToken(nonce),
         type: "github_oauth_state"
       },
       {
@@ -69,9 +74,10 @@ export class AuthService {
   async loginWithGitHub(
     code: string,
     state: string,
+    stateCookieNonce: string | null,
     metadata: SessionMetadata
   ): Promise<AuthResponseDto> {
-    await this.verifyGitHubOAuthState(state);
+    await this.verifyGitHubOAuthState(state, stateCookieNonce);
 
     const profile = await this.githubOAuthProvider.exchangeCodeForProfile(code);
     const existingGitHubAccount = await this.prisma.gitHubAccount.findUnique({
@@ -137,46 +143,70 @@ export class AuthService {
   async refresh(refreshToken: string, metadata: SessionMetadata): Promise<AuthResponseDto> {
     const payload = await this.verifyRefreshToken(refreshToken);
     const tokenHash = this.hashToken(refreshToken);
-    const storedToken = await this.prisma.refreshToken.findUnique({
+    const existingToken = await this.prisma.refreshToken.findUnique({
       where: { id: payload.jti },
       include: { user: true }
     });
 
     if (
-      !storedToken ||
-      storedToken.tokenHash !== tokenHash ||
-      storedToken.revokedAt ||
-      storedToken.expiresAt <= new Date()
+      !existingToken ||
+      existingToken.tokenHash !== tokenHash ||
+      existingToken.expiresAt <= new Date()
     ) {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
+    if (existingToken.revokedAt) {
+      await this.revokeRefreshTokenFamily(existingToken);
+      throw new UnauthorizedException("Invalid refresh token");
+    }
+
+    const now = new Date();
     const nextRefreshTokenId = randomUUID();
-    const tokens = await this.signTokens(storedToken.user, nextRefreshTokenId);
+    const familyId = existingToken.familyId;
+    const tokens = await this.signTokens(existingToken.user, nextRefreshTokenId);
     const nextTokenHash = this.hashToken(tokens.refreshToken);
 
-    await this.prisma.$transaction([
-      this.prisma.refreshToken.update({
-        where: { id: storedToken.id },
+    const rotation = await this.prisma.$transaction(async (transaction) => {
+      const consumed = await transaction.refreshToken.updateMany({
+        where: {
+          id: existingToken.id,
+          tokenHash,
+          revokedAt: null,
+          expiresAt: { gt: now }
+        },
         data: {
-          revokedAt: new Date(),
+          revokedAt: now,
           replacedByTokenId: nextRefreshTokenId
         }
-      }),
-      this.prisma.refreshToken.create({
+      });
+
+      if (consumed.count !== 1) {
+        return { consumed: false };
+      }
+
+      await transaction.refreshToken.create({
         data: {
           id: nextRefreshTokenId,
           tokenHash: nextTokenHash,
-          user: { connect: { id: storedToken.userId } },
+          familyId,
+          user: { connect: { id: existingToken.userId } },
           userAgent: metadata.userAgent ?? null,
           ipAddress: metadata.ipAddress ?? null,
           expiresAt: this.refreshTokenExpiresAt()
         }
-      })
-    ]);
+      });
+
+      return { consumed: true };
+    });
+
+    if (!rotation.consumed) {
+      await this.revokeRefreshTokenFamily(existingToken);
+      throw new UnauthorizedException("Invalid refresh token");
+    }
 
     return {
-      user: this.toUserResponse(storedToken.user),
+      user: this.toUserResponse(existingToken.user),
       tokens
     };
   }
@@ -228,6 +258,7 @@ export class AuthService {
       data: {
         id: refreshTokenId,
         tokenHash: this.hashToken(tokens.refreshToken),
+        familyId: refreshTokenId,
         user: { connect: { id: user.id } },
         userAgent: metadata.userAgent ?? null,
         ipAddress: metadata.ipAddress ?? null,
@@ -273,25 +304,32 @@ export class AuthService {
   }
 
   private async verifyRefreshToken(refreshToken: string) {
-    const payload = await this.jwtService.verifyAsync<RefreshTokenPayload>(refreshToken, {
-      secret: this.config.jwtRefreshSecret
-    });
+    const payload = await this.jwtService
+      .verifyAsync<RefreshTokenPayload>(refreshToken, {
+        secret: this.config.jwtRefreshSecret
+      })
+      .catch(() => null);
 
-    if (payload.type !== "refresh") {
+    if (payload?.type !== "refresh") {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
     return payload;
   }
 
-  private async verifyGitHubOAuthState(state: string) {
+  private async verifyGitHubOAuthState(state: string, stateCookieNonce: string | null) {
     const payload = await this.jwtService
-      .verifyAsync<{ type?: string }>(state, {
+      .verifyAsync<{ nonceHash?: string; type?: string }>(state, {
         secret: this.config.jwtAccessSecret
       })
       .catch(() => null);
 
-    if (payload?.type !== "github_oauth_state") {
+    if (
+      payload?.type !== "github_oauth_state" ||
+      typeof payload.nonceHash !== "string" ||
+      !stateCookieNonce ||
+      !this.hashesMatch(payload.nonceHash, this.hashToken(stateCookieNonce))
+    ) {
       throw new UnauthorizedException("Invalid GitHub OAuth state");
     }
   }
@@ -302,6 +340,29 @@ export class AuthService {
 
   private hashToken(token: string) {
     return createHash("sha256").update(token).digest("hex");
+  }
+
+  private hashesMatch(left: string, right: string): boolean {
+    const leftBuffer = Buffer.from(left, "hex");
+    const rightBuffer = Buffer.from(right, "hex");
+
+    return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+  }
+
+  private async revokeRefreshTokenFamily(token: {
+    familyId: string;
+    id: string;
+    userId: string;
+  }): Promise<void> {
+    const now = new Date();
+
+    await this.prisma.refreshToken.updateMany({
+      where: {
+        userId: token.userId,
+        OR: [{ familyId: token.familyId }, { id: token.familyId }]
+      },
+      data: { revokedAt: now }
+    });
   }
 
   private toUserResponse(user: UserModel | UserWithGitHubAccount) {

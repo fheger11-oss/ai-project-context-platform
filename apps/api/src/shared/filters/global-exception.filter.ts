@@ -2,6 +2,8 @@ import { Catch, HttpException, HttpStatus, Logger } from "@nestjs/common";
 import type { ArgumentsHost, ExceptionFilter } from "@nestjs/common";
 import type { Request, Response } from "express";
 
+import { safeRequestPath } from "../http/safe-request-path.js";
+
 type ErrorResponse = {
   statusCode: number;
   message: string | string[];
@@ -23,14 +25,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     if (status >= 500) {
       this.logger.error(
-        `${request.method} ${request.url} ${status}`,
+        `${request.method} ${safeRequestPath(request)} ${status}`,
         exception instanceof Error ? exception.stack : undefined
       );
     }
 
     response.status(status).json({
       ...payload,
-      path: request.url,
+      path: safeRequestPath(request),
       timestamp: new Date().toISOString()
     });
   }

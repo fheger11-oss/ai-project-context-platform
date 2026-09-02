@@ -7,6 +7,9 @@ import type {
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
 const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
+export const GITHUB_SCAN_MAX_FILE_COUNT = 5_000;
+export const GITHUB_SCAN_MAX_FILE_SIZE_BYTES = 1_048_576;
+export const GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES = 26_214_400;
 
 type GitHubCommitResponse = {
   sha: string;
@@ -109,6 +112,8 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
     const githubAccess = this.toGitHubAccess(access);
     const rootTreeSha = await this.resolveCommitTreeSha(githubAccess, commitSha);
     const treeStack = [{ pathPrefix: "", treeSha: rootTreeSha }];
+    let fileCount = 0;
+    let totalSize = 0n;
 
     while (treeStack.length > 0) {
       const currentTree = treeStack.pop();
@@ -129,6 +134,14 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
 
         if (entry.type === "blob") {
           const file = this.mapTreeEntry(entry, path);
+
+          if (this.isSecretBearingPath(path)) {
+            continue;
+          }
+
+          fileCount += 1;
+          totalSize += file.size;
+          this.assertScanLimits(file, fileCount, totalSize);
 
           yield {
             ...file,
@@ -328,6 +341,59 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
 
   private isHiddenPath(path: string): boolean {
     return path.split("/").some((segment) => segment.startsWith(".") && segment.length > 1);
+  }
+
+  private assertScanLimits(
+    file: RepositoryContentFileMetadata,
+    fileCount: number,
+    totalSize: bigint
+  ): void {
+    if (fileCount > GITHUB_SCAN_MAX_FILE_COUNT) {
+      throw new Error(
+        `Repository scan exceeded the maximum file count of ${GITHUB_SCAN_MAX_FILE_COUNT}.`
+      );
+    }
+
+    if (!file.isBinary && file.size > BigInt(GITHUB_SCAN_MAX_FILE_SIZE_BYTES)) {
+      throw new Error(
+        `Repository scan file ${file.path} exceeded the maximum file size of ${GITHUB_SCAN_MAX_FILE_SIZE_BYTES} bytes.`
+      );
+    }
+
+    if (totalSize > BigInt(GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES)) {
+      throw new Error(
+        `Repository scan exceeded the maximum total size of ${GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES} bytes.`
+      );
+    }
+  }
+
+  private isSecretBearingPath(path: string): boolean {
+    const filename = path.split("/").at(-1)?.toLowerCase() ?? path.toLowerCase();
+
+    if (filename === ".env" || filename.startsWith(".env.")) {
+      return true;
+    }
+
+    if (
+      filename === ".npmrc" ||
+      filename === ".pypirc" ||
+      filename === ".netrc" ||
+      filename === "credentials.json" ||
+      filename === "service-account.json" ||
+      filename === "id_rsa" ||
+      filename === "id_dsa" ||
+      filename === "id_ecdsa" ||
+      filename === "id_ed25519"
+    ) {
+      return true;
+    }
+
+    return (
+      filename.endsWith(".pem") ||
+      filename.endsWith(".key") ||
+      filename.endsWith(".p12") ||
+      filename.endsWith(".pfx")
+    );
   }
 
   private joinPath(prefix: string, path: string): string {

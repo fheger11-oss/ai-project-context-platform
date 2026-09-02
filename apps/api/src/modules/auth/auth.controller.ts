@@ -42,6 +42,9 @@ import { AUTH_RATE_LIMIT } from "../config/rate-limit.config.js";
 // Swagger decorators need this DTO as a runtime value.
 import { UserResponseDto } from "../users/dto/user-response.dto.js";
 
+const GITHUB_OAUTH_STATE_COOKIE = "ctxaro_github_oauth_state";
+const GITHUB_OAUTH_STATE_COOKIE_MAX_AGE_SECONDS = 600;
+
 @ApiTags("auth")
 @Controller({
   path: "auth",
@@ -53,9 +56,13 @@ export class AuthController {
   @Get("github")
   @Throttle(AUTH_RATE_LIMIT)
   @Redirect()
-  async loginWithGitHub() {
+  async loginWithGitHub(@Res({ passthrough: true }) response: Response) {
+    const nonce = this.authService.createGitHubOAuthNonce();
+
+    this.setGitHubOAuthStateCookie(response, nonce);
+
     return {
-      url: await this.authService.createGitHubAuthorizationUrl()
+      url: await this.authService.createGitHubAuthorizationUrl(nonce)
     };
   }
 
@@ -67,9 +74,14 @@ export class AuthController {
     @Req() request: Request,
     @Res() response: Response
   ) {
+    const stateCookieNonce = this.readCookie(request, GITHUB_OAUTH_STATE_COOKIE);
+
+    this.clearGitHubOAuthStateCookie(response);
+
     const authResponse = await this.authService.loginWithGitHub(
       dto.code,
       dto.state,
+      stateCookieNonce,
       this.getSessionMetadata(request)
     );
     const redirectUrl = new URL(this.authService.webAuthCallbackUrl);
@@ -127,5 +139,45 @@ export class AuthController {
       ipAddress: request.ip,
       userAgent: request.get("user-agent")
     };
+  }
+
+  private setGitHubOAuthStateCookie(response: Response, nonce: string): void {
+    response.cookie(GITHUB_OAUTH_STATE_COOKIE, nonce, {
+      httpOnly: true,
+      maxAge: GITHUB_OAUTH_STATE_COOKIE_MAX_AGE_SECONDS * 1000,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production" || process.env.APP_ENV === "production"
+    });
+  }
+
+  private clearGitHubOAuthStateCookie(response: Response): void {
+    response.clearCookie(GITHUB_OAUTH_STATE_COOKIE, {
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production" || process.env.APP_ENV === "production"
+    });
+  }
+
+  private readCookie(request: Request, name: string): string | null {
+    const cookieHeader = request.headers.cookie;
+
+    if (!cookieHeader) {
+      return null;
+    }
+
+    for (const cookie of cookieHeader.split(";")) {
+      const [rawKey, ...rawValue] = cookie.trim().split("=");
+
+      if (rawKey === name) {
+        try {
+          return decodeURIComponent(rawValue.join("="));
+        } catch {
+          return null;
+        }
+      }
+    }
+
+    return null;
   }
 }

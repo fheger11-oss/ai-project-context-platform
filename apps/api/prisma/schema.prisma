@@ -85,6 +85,7 @@ model GitHubAccount {
 model RefreshToken {
   id                String    @id @default(cuid())
   tokenHash         String    @unique @map("token_hash")
+  familyId          String    @map("family_id")
   userId            String    @map("user_id")
   userAgent         String?   @map("user_agent")
   ipAddress         String?   @map("ip_address")
@@ -96,6 +97,7 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([familyId])
   @@index([expiresAt])
   @@map("refresh_tokens")
 }
