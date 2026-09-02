@@ -155,6 +155,42 @@ The host must rewrite application routes to `/index.html`:
 
 Do not add a frontend server for the MVP.
 
+## SEO and Crawl Controls
+
+The frontend is a static Vite SPA, so the host rewrites application routes to the same
+`index.html`. Vite does not emit different HTTP headers for different SPA routes by itself.
+
+Before public launch, replace the SEO origin placeholder `https://ctxaro.example` in:
+
+- `apps/web/index.html`
+- `apps/web/public/robots.txt`
+- `apps/web/public/sitemap.xml`
+
+Use the exact HTTPS production frontend origin. Keep `/landing` available as a public alias, but
+do not include it in the sitemap because `/` is the canonical public URL.
+
+Configure the production static host to return this header for private or transient app routes:
+
+```text
+X-Robots-Tag: noindex, nofollow
+```
+
+Required path coverage:
+
+```text
+/repositories
+/repositories/*
+/analyses
+/analyses/*
+/auth/callback
+/auth/callback/*
+```
+
+Keep the matching `robots.txt` disallow rules as a crawler hint, but do not rely on
+`robots.txt` alone for authenticated application routes. The production hosting provider is not
+defined in this repository, so add the path-based header configuration in the selected host's
+deployment settings or host-specific config.
+
 ## GitHub OAuth
 
 Configure the production GitHub OAuth app callback URL to exactly match:

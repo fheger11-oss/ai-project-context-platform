@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /repositories
+Disallow: /repositories/
+Disallow: /repositories/*
+Disallow: /analyses
+Disallow: /analyses/
+Disallow: /analyses/*
+Disallow: /auth/callback
+Disallow: /auth/callback/*
+
+Sitemap: https://ctxaro.example/sitemap.xml

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Replace https://ctxaro.example with the production frontend origin before public launch. -->
+  <url>
+    <loc>https://ctxaro.example/</loc>
+  </url>
+</urlset>
