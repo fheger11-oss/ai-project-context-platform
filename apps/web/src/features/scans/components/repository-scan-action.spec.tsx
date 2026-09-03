@@ -127,6 +127,14 @@ describe("RepositoryScanAction", () => {
     expect(markup).toContain("Start scan");
   });
 
+  it("discloses repository source processing and storage before starting a scan", () => {
+    const markup = staticMarkup(renderAction());
+
+    expect(markup).toContain("store eligible non-binary source content");
+    expect(markup).toContain("Obvious sensitive files are skipped");
+    expect(markup).toContain("does not send repository content to an external AI provider");
+  });
+
   it("clicking scan calls startScan with the existing access token and repository id", () => {
     vi.mocked(startScan).mockResolvedValue(completedScan);
     const button = findButtonElement(renderAction());

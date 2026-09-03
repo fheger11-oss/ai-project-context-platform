@@ -42,6 +42,12 @@ export function LandingFooter() {
             Resources
           </p>
           <div className="mt-4 grid gap-3 text-sm text-muted-foreground">
+            <Link
+              to="/privacy"
+              className="w-fit rounded-md outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-primary/75 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050706]"
+            >
+              Privacy
+            </Link>
             <span>Documentation — Coming soon</span>
             <span>Pricing — Coming soon</span>
           </div>

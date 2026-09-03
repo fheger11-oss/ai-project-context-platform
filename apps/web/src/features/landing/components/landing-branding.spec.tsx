@@ -3,6 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { HeroSection } from "@/features/landing/components/hero-section";
+import { LandingFooter } from "@/features/landing/components/landing-footer";
 import { LandingNav } from "@/features/landing/components/landing-nav";
 
 let accessToken = "";
@@ -49,5 +50,16 @@ describe("landing branding and CTAs", () => {
 
     expect(markup).toContain("Open dashboard");
     expect(markup).toContain('href="/"');
+  });
+
+  it("links to the public privacy page from the landing footer", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <LandingFooter />
+      </MemoryRouter>
+    );
+
+    expect(markup).toContain("Privacy");
+    expect(markup).toContain('href="/privacy"');
   });
 });

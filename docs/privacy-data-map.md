@@ -1,0 +1,79 @@
+# Ctxaro Privacy Data Map
+
+This document describes the technical data behavior of the Ctxaro MVP. It is not a legal Privacy Policy, Terms of Service, GDPR statement, CCPA statement, SOC 2 statement, or compliance certification.
+
+The public product now includes a factual `/privacy` page. That page still requires legal review and a real production privacy/contact mechanism before public launch.
+
+## Data Inventory
+
+| Category            | Data                                                                                                                                                                                   | Storage                                               | Purpose                                                    | Sensitivity                                                                                                      | Retention                                                                   | Deletion                                                                                 |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Account             | User id, email, optional password hash, role, optional tenant id, created and updated timestamps                                                                                       | PostgreSQL `users`                                    | Authentication and account ownership                       | Personal data; password hash is authentication data                                                              | Indefinite until application or manual user deletion                        | No self-service account deletion endpoint in MVP; cascades if user row is deleted        |
+| GitHub account      | GitHub id, login, display name, avatar URL, granted scope, encrypted provider access token, IV, auth tag, timestamps                                                                   | PostgreSQL `github_accounts`                          | GitHub OAuth identity and repository API access            | Personal data; provider token is sensitive authentication data                                                   | Indefinite while the GitHub account connection remains                      | Cascades if user row is deleted; no standalone GitHub-account disconnect endpoint in MVP |
+| Refresh sessions    | Refresh token hash, token family id, user id, user agent, IP address, expiry, revocation and replacement metadata, created timestamp                                                   | PostgreSQL `refresh_tokens`                           | Session refresh, rotation, logout, replay detection        | Authentication/session data; IP and user agent can be personal data                                              | Until expiry/revocation; persisted records are not automatically purged     | Logout revokes supplied refresh token; user deletion cascades                            |
+| App tokens          | JWT access token and raw refresh token                                                                                                                                                 | Browser persisted auth store                          | Authenticated API access and silent refresh                | Sensitive authentication data                                                                                    | Until logout, refresh failure, user clears browser storage, or token expiry | Logout/clear-session removes browser session state                                       |
+| OAuth state         | Signed state JWT with nonce hash and expiry; raw nonce in HttpOnly cookie                                                                                                              | Callback URL parameter and temporary browser cookie   | Login CSRF and response-injection protection               | Sensitive transient auth data                                                                                    | Cookie max age is 10 minutes; state expires after 10 minutes                | Callback clears cookie on success or failure                                             |
+| Repository metadata | GitHub repository id, name, full name, owner, description, default branch, visibility, language, stars, forks, archive flag, clone URL, HTML URL, GitHub updated time, sync timestamps | PostgreSQL `repositories`; API responses to owner     | Repository selection, dashboard, scanning, synchronization | May reveal private repository names/metadata                                                                     | Indefinite while repository remains connected                               | Repository disconnect deletes the repository row and cascades derived records            |
+| Scan metadata       | Scan id, repository id, status, commit SHA, timings, total files, total size, timestamps                                                                                               | PostgreSQL `scans`; API responses to owner            | Track scan lifecycle and history                           | May reveal private repo activity                                                                                 | Indefinite while repository remains connected                               | Repository disconnect cascades scans                                                     |
+| Scan files          | File path, extension, size, SHA, binary/hidden flags, optional text content                                                                                                            | PostgreSQL `scan_files`                               | Analysis input and repository context generation           | Source code and repository content; potentially confidential                                                     | Indefinite while repository remains connected                               | Repository disconnect cascades scan files                                                |
+| Analysis results    | Project/profile JSON, file classifications, source structures, relationships, dependencies, issues, commit and timing metadata                                                         | PostgreSQL `analyses`; API responses to owner         | Generate analysis views and Project Context                | Derived repository intelligence; may include file paths, dependency names, scripts, declarations, and issue text | Indefinite while parent repository remains connected                        | Repository disconnect cascades analyses                                                  |
+| Project Context     | Context id, analysis id, scan id, repository id, commit SHA, context version, generated time, snapshot JSON                                                                            | PostgreSQL `project_contexts`; API responses to owner | Structured project context for documents and exports       | Derived repository intelligence; may include sensitive project architecture and dependency metadata              | Indefinite while parent repository remains connected                        | Repository disconnect cascades contexts                                                  |
+| Documents           | Document id, project context id, context id, document type, format, generator version, Markdown content, timestamp                                                                     | PostgreSQL `documents`; API responses to owner        | Generated project documentation                            | Derived repository documentation; may include private repository details                                         | Indefinite while parent Project Context/repository remains                  | Repository disconnect cascades documents                                                 |
+| AI exports          | AI_CONTEXT JSON, Markdown, or plain text generated from Project Context                                                                                                                | Generated on demand in API response/download          | Provide AI-ready local export formats                      | Derived repository intelligence; may include private repository details                                          | Not persisted as export records in MVP                                      | No stored export record to delete; source Project Context deletion removes source data   |
+| Logs                | Request method/path/status/timing; exception class/message/status/path/timestamp                                                                                                       | API runtime logs/provider logs                        | Operations and debugging                                   | Can be sensitive if paths contain private ids; query strings are redacted                                        | Determined by hosting/log provider settings                                 | No in-app log deletion controls in MVP                                                   |
+| Environment/secrets | Database URL, JWT secrets, GitHub OAuth secret, provider token encryption key, deployment URLs                                                                                         | Runtime environment, not committed                    | Application configuration and cryptographic protection     | Highly sensitive                                                                                                 | Host-managed                                                                | Rotate through hosting provider secret management                                        |
+
+## Source Content Behavior
+
+Ctxaro persists scanned non-binary repository file content in PostgreSQL `scan_files.content`. Binary files are represented by metadata with `content` set to null. The scan provider skips obvious secret-bearing paths such as `.env`, `.env.*`, `.npmrc`, `.pypirc`, `.netrc`, `credentials.json`, `service-account.json`, private key names, and common key/certificate extensions.
+
+The MVP does not implement full secret scanning. Normal source files can still contain secrets, credentials, personal data, or confidential business information. Those files may be stored, analyzed, transformed into Project Context, rendered in generated documents, or included in AI-ready exports depending on analysis results.
+
+## Data Flow
+
+GitHub OAuth redirects the browser to GitHub, then GitHub returns an authorization code and state to the Ctxaro API callback. The API exchanges the code with GitHub, stores GitHub identity data, encrypts the GitHub provider access token with AES-256-GCM, and redirects the browser to the frontend callback with Ctxaro app tokens in the URL fragment.
+
+Repository metadata is read from GitHub through the backend using the encrypted provider token after decryption in memory. Repository scans fetch tree/blob data from GitHub, persist scan metadata and eligible scanned file content, and then analysis reads completed scan content from PostgreSQL. Project Context and documents are generated locally from persisted analysis/context data. AI exports are deterministic local serializations generated on demand from Project Context.
+
+The browser stores Ctxaro app access and refresh tokens in the frontend persisted auth store. The browser does not store GitHub provider access tokens, OAuth codes, OAuth state, scan files, repository source content, Project Context snapshots, generated documents, or exports as durable application state.
+
+## Deletion And Retention Notes
+
+Most persisted data is retained indefinitely until explicit application deletion or manual database deletion. User/account data has no automatic application-level expiration. GitHub account and provider-token data remains while the GitHub account connection remains. Repository metadata and scanned source content remain while the repository remains connected. Analysis, Project Context, and documents remain while their parent repository/context remains.
+
+Repository disconnect deletes the repository row. Database foreign keys cascade the repository-derived chain:
+
+Repository -> Scans / ScanFiles -> Analyses -> ProjectContext -> Documents
+
+Disconnecting a repository does not delete the user's Ctxaro account or GitHub account connection. Account deletion is not exposed as a self-service MVP endpoint, but deleting the user row cascades refresh tokens, GitHub account data, repositories, and repository-derived records.
+
+Exports are not persisted as first-class database records. Runtime logs and database backups are retained according to the hosting and database provider configuration, which must be verified in production.
+
+Refresh tokens have expiry and revocation semantics, but there is currently no scheduled purge job for expired or revoked refresh-token rows.
+
+## Privacy Requests
+
+Privacy and data requests currently require a manual operator process. There is no self-service account deletion or data-export feature in the MVP.
+
+Launch configuration required: publish and configure a real privacy/contact mechanism before public launch. Do not publish a fake placeholder email address.
+
+## Third Parties
+
+| Provider            | Data Received                                                                                                                   | Purpose                                                 |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| GitHub              | OAuth request, authorization code exchange, GitHub API calls with provider token, repository metadata/content requests          | Authentication, repository listing, repository scanning |
+| Vercel              | Frontend static application delivery, browser requests to public routes/assets                                                  | Serve React/Vite frontend                               |
+| Railway             | API HTTP requests, operational logs, runtime environment variables                                                              | Host NestJS API                                         |
+| Supabase/PostgreSQL | Account/session records, GitHub account records, repository metadata, scan files/source content, analysis/context/document data | Primary database                                        |
+
+No external AI provider is currently used by the inspected MVP analysis, document generation, or AI export pipeline.
+
+## Launch Privacy Gaps
+
+- A public `/privacy` page is present, but it is product/legal copy that still requires legal review.
+- Public Terms of Service are not present in this repository.
+- The public `/privacy` page is factual product copy, but it requires legal review before public launch.
+- A real privacy/contact mechanism is not configured yet.
+- Account self-service deletion is not implemented.
+- Automatic retention/purge jobs for expired refresh tokens, disconnected historical backups, old scans, analyses, contexts, documents, and logs are not implemented.
+- Hosting-provider log retention, database backup retention, and production data restoration/deletion procedures require provider-level verification.

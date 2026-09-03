@@ -100,6 +100,14 @@ describe("ConnectRepositoryView", () => {
     expect(markup).toContain("Disconnect");
   });
 
+  it("discloses repository source storage before connection actions", () => {
+    const markup = renderToStaticMarkup(<ConnectRepositoryView />);
+
+    expect(markup).toContain("Repository data notice");
+    expect(markup).toContain("store relevant non-binary source content");
+    expect(markup).toContain("disconnecting it removes repository-derived");
+  });
+
   it("refreshes dashboard and repository state after connect succeeds", async () => {
     renderToStaticMarkup(<ConnectRepositoryView />);
 

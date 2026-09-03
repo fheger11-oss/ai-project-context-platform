@@ -61,6 +61,20 @@ export function ConnectRepositoryView() {
         description="Import repository metadata from your GitHub account."
       />
 
+      <section
+        aria-labelledby="repository-data-notice-title"
+        className="rounded-md border border-primary/20 bg-primary/5 p-4 text-sm leading-6 text-muted-foreground"
+      >
+        <h2 id="repository-data-notice-title" className="text-sm font-medium text-foreground">
+          Repository data notice
+        </h2>
+        <p className="mt-2">
+          Ctxaro uses your GitHub permissions to access connected repositories. Scans can store
+          relevant non-binary source content while a repository remains connected; disconnecting it
+          removes repository-derived scans, analysis, Project Context, and documents.
+        </p>
+      </section>
+
       {!canLoad ? (
         <RepositoryState
           title="Session required"

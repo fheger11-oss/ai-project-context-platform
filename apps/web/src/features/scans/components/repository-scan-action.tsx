@@ -71,6 +71,12 @@ export function RepositoryScanAction({ accessToken, repositoryId }: RepositorySc
         </Button>
       </div>
 
+      <p className="text-xs leading-5 text-muted-foreground">
+        Scans process repository content from GitHub and store eligible non-binary source content
+        for analysis while this repository remains connected. Obvious sensitive files are skipped;
+        AI Export does not send repository content to an external AI provider in the current MVP.
+      </p>
+
       <div id={feedbackId} className="grid gap-2" aria-live="polite">
         {!canStartScan ? (
           <p className="text-sm text-muted-foreground" role="status">
