@@ -36,6 +36,9 @@ function scan(status: ScanSnapshot["status"] = "COMPLETED"): ScanSnapshot {
     durationMs: null,
     totalFiles: 1,
     totalSize: 10n,
+    filesProcessed: 1,
+    totalBytesConsidered: 10n,
+    scanLimitReason: null,
     createdAt: now,
     updatedAt: now
   };

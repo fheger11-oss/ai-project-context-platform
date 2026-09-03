@@ -17,9 +17,12 @@ import { StatusDot } from "@/components/shared/status-dot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ScanLimits } from "@/features/scans/api/scan-api";
 import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
+import { formatBytes, limitReasonLabel } from "@/features/scans/utils/scan-usage";
 
 type ProjectSummaryCardProps = {
+  limits?: ScanLimits | undefined;
   project: DashboardProjectSummary;
 };
 
@@ -70,7 +73,7 @@ function primaryAction(project: DashboardProjectSummary): { href: string; label:
   };
 }
 
-export function ProjectSummaryCard({ project }: ProjectSummaryCardProps) {
+export function ProjectSummaryCard({ limits, project }: ProjectSummaryCardProps) {
   const { repository, latestAnalysis, latestContext, latestScan } = project;
   const action = primaryAction(project);
   const repositoryHref = `/repositories/${encodeURIComponent(repository.id)}`;
@@ -145,7 +148,9 @@ export function ProjectSummaryCard({ project }: ProjectSummaryCardProps) {
             </h3>
             {latestScan ? (
               <Badge tone={scanStatusTone(latestScan.status)}>
-                {scanStatusLabel(latestScan.status)}
+                {latestScan.limit.reached
+                  ? limitReasonLabel(latestScan.limit.reason)
+                  : scanStatusLabel(latestScan.status)}
               </Badge>
             ) : (
               <Badge tone="unavailable">No scan</Badge>
@@ -160,6 +165,20 @@ export function ProjectSummaryCard({ project }: ProjectSummaryCardProps) {
                 value={shortCommit(latestScan.commitSha)}
                 title={latestScan.commitSha}
               />
+              {limits ? (
+                <>
+                  <SummaryLine
+                    label="Files"
+                    value={`${latestScan.usage.filesProcessed.toLocaleString()} / ${limits.maxFiles.toLocaleString()}`}
+                  />
+                  <SummaryLine
+                    label="Data"
+                    value={`${formatBytes(latestScan.usage.totalBytesConsidered)} / ${formatBytes(
+                      limits.maxTotalSizeBytes
+                    )}`}
+                  />
+                </>
+              ) : null}
             </dl>
           ) : (
             <p className="text-sm text-muted-foreground">

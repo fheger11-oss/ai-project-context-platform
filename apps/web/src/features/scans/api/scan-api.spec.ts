@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getScanHistory, ScanApiRequestError, startScan } from "./scan-api";
+import { getScanHistory, getScanLimits, ScanApiRequestError, startScan } from "./scan-api";
 
 const scanSnapshot = {
   id: "scan_1",
@@ -12,6 +12,14 @@ const scanSnapshot = {
   durationMs: 6000,
   totalFiles: 91,
   totalSize: "563302",
+  usage: {
+    filesProcessed: 91,
+    totalBytesConsidered: "563302"
+  },
+  limit: {
+    reached: false,
+    reason: null
+  },
   createdAt: "2026-08-10T10:00:00.000Z",
   updatedAt: "2026-08-10T10:00:06.000Z"
 } as const;
@@ -69,6 +77,51 @@ describe("scan-api", () => {
     await expect(startScan("access_token", "repository_2", "main")).rejects.toMatchObject({
       status: 404,
       message: "Repository was not found"
+    });
+  });
+
+  it("preserves structured scan limit error details", async () => {
+    const limitError = {
+      statusCode: 422,
+      message: "This repository exceeds the file limit for a single scan.",
+      error: "Scan Limit Reached",
+      code: "SCAN_LIMIT_REACHED",
+      limit: {
+        reached: true,
+        reason: "FILE_COUNT_LIMIT"
+      },
+      usage: {
+        filesProcessed: 5000,
+        totalBytesConsidered: "12345"
+      },
+      limits: {
+        maxFiles: 5000,
+        maxIndividualFileSizeBytes: 1048576,
+        maxTotalSizeBytes: 26214400
+      }
+    } as const;
+    mockFetch(limitError, { status: 422 });
+
+    await expect(startScan("access_token", "repository_2", "main")).rejects.toMatchObject({
+      status: 422,
+      details: limitError
+    });
+  });
+
+  it("loads canonical scan limits without an independent frontend constant", async () => {
+    const limits = {
+      maxFiles: 5000,
+      maxIndividualFileSizeBytes: 1048576,
+      maxTotalSizeBytes: 26214400
+    };
+    const fetchMock = mockFetch(limits);
+
+    await expect(getScanLimits()).resolves.toEqual(limits);
+    expect(fetchMock).toHaveBeenCalledWith("http://localhost:3000/api/v1/scans/limits", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json"
+      }
     });
   });
 

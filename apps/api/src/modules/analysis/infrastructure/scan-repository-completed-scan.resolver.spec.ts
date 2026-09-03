@@ -17,6 +17,9 @@ const scan = {
   durationMs: 1000,
   totalFiles: 1,
   totalSize: 42n,
+  filesProcessed: 1,
+  totalBytesConsidered: 42n,
+  scanLimitReason: null,
   createdAt: new Date("2026-08-14T10:00:00.000Z"),
   updatedAt: new Date("2026-08-14T10:00:01.000Z")
 } satisfies ScanSnapshot;

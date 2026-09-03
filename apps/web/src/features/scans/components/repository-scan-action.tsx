@@ -1,10 +1,15 @@
 import { Play, ScanLine } from "lucide-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScanApiRequestError, startScan } from "@/features/scans/api/scan-api";
+import { getScanLimits, ScanApiRequestError, startScan } from "@/features/scans/api/scan-api";
 import type { ScanSnapshot } from "@/features/scans/api/scan-api";
+import {
+  ScanLimitAlert,
+  ScanLimitsSummary,
+  ScanUsagePanel
+} from "@/features/scans/components/scan-usage";
 import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
 
 type RepositoryScanActionProps = {
@@ -22,6 +27,10 @@ function scanErrorMessage(error: unknown): string {
       return "This repository is not available for scanning.";
     }
 
+    if (error.details?.code === "SCAN_LIMIT_REACHED") {
+      return "Scan limit reached.";
+    }
+
     return "Scan could not be started.";
   }
 
@@ -31,6 +40,10 @@ function scanErrorMessage(error: unknown): string {
 export function RepositoryScanAction({ accessToken, repositoryId }: RepositoryScanActionProps) {
   const queryClient = useQueryClient();
   const canStartScan = Boolean(accessToken);
+  const limitsQuery = useQuery({
+    queryKey: ["scan-limits"],
+    queryFn: () => getScanLimits(accessToken)
+  });
   const scanMutation = useMutation({
     mutationFn: () => startScan(accessToken, repositoryId),
     onSettled: async () => {
@@ -41,6 +54,9 @@ export function RepositoryScanAction({ accessToken, repositoryId }: RepositorySc
     }
   });
   const scan = scanMutation.data;
+  const limits = limitsQuery.data;
+  const limitError =
+    scanMutation.error instanceof ScanApiRequestError ? scanMutation.error.details : undefined;
   const feedbackId = `scan-feedback-${repositoryId}`;
 
   function handleStartScan() {
@@ -77,6 +93,15 @@ export function RepositoryScanAction({ accessToken, repositoryId }: RepositorySc
         AI Export does not send repository content to an external AI provider in the current MVP.
       </p>
 
+      {limits ? (
+        <div className="grid gap-2 rounded-md border border-border bg-background/35 p-3">
+          <p className="text-xs font-medium uppercase text-muted-foreground">Scan limits</p>
+          <ScanLimitsSummary limits={limits} />
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">Loading scan limits.</p>
+      )}
+
       <div id={feedbackId} className="grid gap-2" aria-live="polite">
         {!canStartScan ? (
           <p className="text-sm text-muted-foreground" role="status">
@@ -85,9 +110,15 @@ export function RepositoryScanAction({ accessToken, repositoryId }: RepositorySc
         ) : null}
 
         {scanMutation.isPending ? (
-          <p className="text-sm text-muted-foreground" role="status">
-            Scan request is running.
-          </p>
+          <div className="grid gap-2" role="status">
+            <p className="text-sm text-muted-foreground">Scanning repository.</p>
+            {limits ? (
+              <ScanUsagePanel limits={limits} title="Running scan" variant="compact" />
+            ) : null}
+            <p className="text-xs text-muted-foreground">
+              Live counters are not available until the scan returns.
+            </p>
+          </div>
         ) : null}
       </div>
 
@@ -95,13 +126,18 @@ export function RepositoryScanAction({ accessToken, repositoryId }: RepositorySc
         <div className="grid gap-2" role="status" aria-live="polite">
           <p className="text-sm font-medium text-primary">Repository snapshot captured.</p>
           <ScanSnapshotSummary scan={scan} />
+          {limits ? <ScanUsagePanel limits={limits} scan={scan} /> : null}
         </div>
       ) : null}
 
       {scanMutation.isError ? (
-        <p className="text-sm text-destructive" role="alert">
-          {scanErrorMessage(scanMutation.error)}
-        </p>
+        <div role="alert">
+          {limitError ? (
+            <ScanLimitAlert error={limitError} limits={limits} />
+          ) : (
+            <p className="text-sm text-destructive">{scanErrorMessage(scanMutation.error)}</p>
+          )}
+        </div>
       ) : null}
     </div>
   );

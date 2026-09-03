@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Inject, Param, Post, Query } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  Post,
+  Query,
+  UnprocessableEntityException
+} from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -16,6 +25,8 @@ import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
 import { ScanHistoryAnalysisQueryService } from "../application/scan-history-analysis-query.service.js";
 import { ScanService } from "../application/scan.service.js";
 import type { ScanSnapshot } from "../domain/contracts/scan-repository.contract.js";
+import { ScanLimitExceededError } from "../domain/errors/scan-limit-exceeded.error.js";
+import { SCAN_LIMITS } from "../domain/scan-limits.js";
 // Swagger and ValidationPipe need this DTO as a runtime value.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { StartScanDto } from "./dto/start-scan.dto.js";
@@ -28,8 +39,19 @@ import {
   ScanHistoryQueryDto
 } from "./dto/scan-history-query.dto.js";
 
-type ScanResponse = Omit<ScanSnapshot, "totalSize"> & {
+type ScanResponse = Omit<
+  ScanSnapshot,
+  "totalSize" | "filesProcessed" | "totalBytesConsidered" | "scanLimitReason"
+> & {
   totalSize: string;
+  usage: {
+    filesProcessed: number;
+    totalBytesConsidered: string;
+  };
+  limit: {
+    reached: boolean;
+    reason: ScanSnapshot["scanLimitReason"];
+  };
 };
 
 type ScanLatestAnalysisResponse = {
@@ -84,6 +106,24 @@ export class ScanController {
         durationMs: { type: "number", nullable: true },
         totalFiles: { type: "number" },
         totalSize: { type: "string" },
+        usage: {
+          type: "object",
+          properties: {
+            filesProcessed: { type: "number" },
+            totalBytesConsidered: { type: "string" }
+          }
+        },
+        limit: {
+          type: "object",
+          properties: {
+            reached: { type: "boolean" },
+            reason: {
+              type: "string",
+              enum: ["FILE_COUNT_LIMIT", "INDIVIDUAL_FILE_SIZE_LIMIT", "TOTAL_SIZE_LIMIT"],
+              nullable: true
+            }
+          }
+        },
         createdAt: { type: "string", format: "date-time" },
         updatedAt: { type: "string", format: "date-time" }
       }
@@ -96,13 +136,39 @@ export class ScanController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: StartScanDto
   ): Promise<ScanResponse> {
-    const snapshot = await this.scanService.startScan({
-      repositoryId: dto.repositoryId,
-      reference: dto.reference ?? "main",
-      userId: user.id
-    });
+    let snapshot: ScanSnapshot;
+
+    try {
+      snapshot = await this.scanService.startScan({
+        repositoryId: dto.repositoryId,
+        reference: dto.reference ?? "main",
+        userId: user.id
+      });
+    } catch (error) {
+      if (error instanceof ScanLimitExceededError) {
+        throw this.toScanLimitException(error);
+      }
+
+      throw error;
+    }
 
     return this.toResponse(snapshot);
+  }
+
+  @Get("limits")
+  @ApiOkResponse({
+    description: "Current per-scan repository processing limits.",
+    schema: {
+      type: "object",
+      properties: {
+        maxFiles: { type: "number" },
+        maxIndividualFileSizeBytes: { type: "number" },
+        maxTotalSizeBytes: { type: "number" }
+      }
+    }
+  })
+  getScanLimits() {
+    return SCAN_LIMITS;
   }
 
   @Get("repositories/:repositoryId/history")
@@ -143,6 +209,24 @@ export class ScanController {
               durationMs: { type: "number", nullable: true },
               totalFiles: { type: "number" },
               totalSize: { type: "string" },
+              usage: {
+                type: "object",
+                properties: {
+                  filesProcessed: { type: "number" },
+                  totalBytesConsidered: { type: "string" }
+                }
+              },
+              limit: {
+                type: "object",
+                properties: {
+                  reached: { type: "boolean" },
+                  reason: {
+                    type: "string",
+                    enum: ["FILE_COUNT_LIMIT", "INDIVIDUAL_FILE_SIZE_LIMIT", "TOTAL_SIZE_LIMIT"],
+                    nullable: true
+                  }
+                }
+              },
               createdAt: { type: "string", format: "date-time" },
               updatedAt: { type: "string", format: "date-time" }
             }
@@ -190,8 +274,56 @@ export class ScanController {
 
   private toResponse(snapshot: ScanSnapshot): ScanResponse {
     return {
-      ...snapshot,
-      totalSize: snapshot.totalSize.toString()
+      id: snapshot.id,
+      repositoryId: snapshot.repositoryId,
+      status: snapshot.status,
+      commitSha: snapshot.commitSha,
+      startedAt: snapshot.startedAt,
+      completedAt: snapshot.completedAt,
+      durationMs: snapshot.durationMs,
+      totalFiles: snapshot.totalFiles,
+      totalSize: snapshot.totalSize.toString(),
+      usage: {
+        filesProcessed: snapshot.filesProcessed,
+        totalBytesConsidered: snapshot.totalBytesConsidered.toString()
+      },
+      limit: {
+        reached: snapshot.scanLimitReason !== null,
+        reason: snapshot.scanLimitReason
+      },
+      createdAt: snapshot.createdAt,
+      updatedAt: snapshot.updatedAt
     };
+  }
+
+  private toScanLimitException(error: ScanLimitExceededError): UnprocessableEntityException {
+    return new UnprocessableEntityException({
+      statusCode: 422,
+      message: this.scanLimitMessage(error),
+      error: "Scan Limit Reached",
+      code: "SCAN_LIMIT_REACHED",
+      limit: {
+        reached: true,
+        reason: error.reason
+      },
+      usage: {
+        filesProcessed: error.usage.filesProcessed,
+        totalBytesConsidered: error.usage.totalBytesConsidered.toString()
+      },
+      limits: error.limits,
+      ...(error.filePath ? { filePath: error.filePath } : {})
+    });
+  }
+
+  private scanLimitMessage(error: ScanLimitExceededError): string {
+    if (error.reason === "FILE_COUNT_LIMIT") {
+      return "This repository exceeds the file limit for a single scan.";
+    }
+
+    if (error.reason === "INDIVIDUAL_FILE_SIZE_LIMIT") {
+      return "A non-binary file exceeds the maximum file size for a single scan.";
+    }
+
+    return "This repository exceeds the total file-data limit for a single scan.";
   }
 }

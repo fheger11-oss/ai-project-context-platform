@@ -18,12 +18,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StartAnalysisButton } from "@/features/analysis/components/start-analysis-button";
-import { getScanHistory, ScanApiRequestError } from "@/features/scans/api/scan-api";
+import { getScanHistory, getScanLimits, ScanApiRequestError } from "@/features/scans/api/scan-api";
 import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
+import { ScanLimitsSummary, ScanUsagePanel } from "@/features/scans/components/scan-usage";
+import { limitReasonLabel } from "@/features/scans/utils/scan-usage";
 import type { AnalysisHistoryItem } from "@/features/analysis/api/analysis-api";
 import type {
   ScanHistoryItem as ScanHistoryRecord,
-  ScanHistoryResponse
+  ScanHistoryResponse,
+  ScanLimits
 } from "@/features/scans/api/scan-api";
 
 const HISTORY_PAGE_SIZE = 20;
@@ -40,6 +43,7 @@ type ScanHistoryContentProps = {
   isError: boolean;
   isFetching: boolean;
   isLoading: boolean;
+  limits?: ScanLimits | undefined;
   onPageChange: (page: number) => void;
 };
 
@@ -72,6 +76,11 @@ export function ScanHistory({ accessToken, repositoryId }: ScanHistoryProps) {
     queryFn: () => getScanHistory(accessToken, repositoryId, page, HISTORY_PAGE_SIZE),
     enabled: Boolean(accessToken && repositoryId)
   });
+  const limitsQuery = useQuery({
+    queryKey: ["scan-limits"],
+    queryFn: () => getScanLimits(accessToken),
+    enabled: Boolean(accessToken)
+  });
 
   return (
     <ScanHistoryContent
@@ -81,6 +90,7 @@ export function ScanHistory({ accessToken, repositoryId }: ScanHistoryProps) {
       isError={historyQuery.isError}
       isFetching={historyQuery.isFetching}
       isLoading={historyQuery.isLoading}
+      limits={limitsQuery.data}
       onPageChange={setPage}
     />
   );
@@ -93,6 +103,7 @@ export function ScanHistoryContent({
   isError,
   isFetching,
   isLoading,
+  limits,
   onPageChange
 }: ScanHistoryContentProps) {
   const scans = data?.items ?? [];
@@ -144,7 +155,12 @@ export function ScanHistoryContent({
 
         {!isLoading && !isError
           ? scans.map((scan) => (
-              <ScanHistoryItem key={scan.id} accessToken={accessToken} scan={scan} />
+              <ScanHistoryItem
+                key={scan.id}
+                accessToken={accessToken}
+                limits={limits}
+                scan={scan}
+              />
             ))
           : null}
 
@@ -182,7 +198,19 @@ export function ScanHistoryContent({
   );
 }
 
-function ScanHistoryItem({ accessToken, scan }: { accessToken: string; scan: ScanHistoryRecord }) {
+function ScanHistoryItem({
+  accessToken,
+  limits,
+  scan
+}: {
+  accessToken: string;
+  limits?: ScanLimits | undefined;
+  scan: ScanHistoryRecord;
+}) {
+  const scanTitle = scan.limit.reached
+    ? limitReasonLabel(scan.limit.reason)
+    : `Scan ${scanStatusLabel(scan.status).toLowerCase()}`;
+
   return (
     <article className="grid gap-3 rounded-md border border-border bg-surface/70 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -191,9 +219,7 @@ function ScanHistoryItem({ accessToken, scan }: { accessToken: string; scan: Sca
             <ScanLine className="size-4 text-primary" />
           </span>
           <div className="min-w-0">
-            <h3 className="text-sm font-medium text-foreground">
-              Scan {scanStatusLabel(scan.status).toLowerCase()}
-            </h3>
+            <h3 className="text-sm font-medium text-foreground">{scanTitle}</h3>
             <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
               <CalendarClock className="size-3.5" />
               Created {displayDate(scan.createdAt)}
@@ -227,6 +253,8 @@ function ScanHistoryItem({ accessToken, scan }: { accessToken: string; scan: Sca
         </div>
       </dl>
 
+      {limits ? <ScanUsagePanel limits={limits} scan={scan} variant="compact" /> : null}
+
       <details className="rounded-md border border-border bg-background/35">
         <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background">
           Technical provenance
@@ -247,6 +275,20 @@ function ScanHistoryItem({ accessToken, scan }: { accessToken: string; scan: Sca
               {displayDate(scan.startedAt)}
             </dd>
           </div>
+          {scan.limit.reached ? (
+            <div className="min-w-0">
+              <dt className="text-muted-foreground">Limit</dt>
+              <dd className="mt-1 text-subtle-foreground">{limitReasonLabel(scan.limit.reason)}</dd>
+            </div>
+          ) : null}
+          {limits ? (
+            <div className="min-w-0 sm:col-span-2">
+              <dt className="text-muted-foreground">Scan limits</dt>
+              <dd className="mt-2">
+                <ScanLimitsSummary limits={limits} />
+              </dd>
+            </div>
+          ) : null}
         </dl>
       </details>
 

@@ -9,12 +9,18 @@ import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
 import { ProjectSummaryCard } from "@/features/dashboard/components/project-summary-card";
+import { getScanLimits } from "@/features/scans/api/scan-api";
 
 export function DashboardView() {
   const apiAccessToken = useAuthSessionStore((state) => state.accessToken);
   const dashboardProjectsQuery = useQuery({
     queryKey: ["dashboard", "projects"],
     queryFn: () => listDashboardProjects(apiAccessToken),
+    enabled: Boolean(apiAccessToken)
+  });
+  const scanLimitsQuery = useQuery({
+    queryKey: ["scan-limits"],
+    queryFn: () => getScanLimits(apiAccessToken),
     enabled: Boolean(apiAccessToken)
   });
   const projects = dashboardProjectsQuery.data?.projects ?? [];
@@ -115,7 +121,11 @@ export function DashboardView() {
           </div>
           <div className="grid gap-3 lg:grid-cols-2">
             {projects.map((project) => (
-              <ProjectSummaryCard key={project.repository.id} project={project} />
+              <ProjectSummaryCard
+                key={project.repository.id}
+                limits={scanLimitsQuery.data}
+                project={project}
+              />
             ))}
           </div>
         </section>

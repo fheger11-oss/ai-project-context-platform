@@ -1,3 +1,5 @@
+import type { ScanLimitFailureReason } from "../errors/scan-limit-exceeded.error.js";
+
 export const SCAN_REPOSITORY = Symbol("SCAN_REPOSITORY");
 
 export type ScanStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
@@ -12,6 +14,9 @@ export type ScanSnapshot = {
   durationMs: number | null;
   totalFiles: number;
   totalSize: bigint;
+  filesProcessed: number;
+  totalBytesConsidered: bigint;
+  scanLimitReason: ScanLimitFailureReason | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -30,6 +35,9 @@ export type UpdateScanStatusInput = {
   durationMs?: number;
   totalFiles?: number;
   totalSize?: bigint;
+  filesProcessed?: number;
+  totalBytesConsidered?: bigint;
+  scanLimitReason?: ScanLimitFailureReason | null;
 };
 
 export type StoreScanFileInput = {

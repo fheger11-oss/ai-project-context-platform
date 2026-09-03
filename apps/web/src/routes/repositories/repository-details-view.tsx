@@ -31,6 +31,7 @@ import { getScanHistory, type ScanSnapshot } from "@/features/scans/api/scan-api
 import { StartAnalysisButton } from "@/features/analysis/components/start-analysis-button";
 import { RepositoryScanAction } from "@/features/scans/components/repository-scan-action";
 import { ScanHistory } from "@/features/scans/components/scan-history";
+import { limitReasonLabel } from "@/features/scans/utils/scan-usage";
 import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
 import { productPipelineStages, type ProductPipelineStageKey } from "@/lib/product-pipeline";
 import type { DashboardProjectSummary } from "@ai-context/contracts";
@@ -363,7 +364,9 @@ function stageDescription(
 
   if (key === "scan") {
     return latestScan
-      ? `Latest scan ${scanStatusLabel(latestScan.status).toLowerCase()}.`
+      ? latestScan.limit.reached
+        ? `Latest scan failed: ${limitReasonLabel(latestScan.limit.reason).toLowerCase()}.`
+        : `Latest scan ${scanStatusLabel(latestScan.status).toLowerCase()}.`
       : "Start a repository scan.";
   }
 

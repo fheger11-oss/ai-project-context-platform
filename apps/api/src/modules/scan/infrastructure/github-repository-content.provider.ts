@@ -4,12 +4,17 @@ import type {
   RepositoryContentProvider,
   RepositoryContentAccess
 } from "../domain/contracts/repository-content-provider.contract.js";
+import {
+  ScanLimitExceededError,
+  type ScanLimitUsage
+} from "../domain/errors/scan-limit-exceeded.error.js";
+import { SCAN_LIMITS } from "../domain/scan-limits.js";
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
 const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
-export const GITHUB_SCAN_MAX_FILE_COUNT = 5_000;
-export const GITHUB_SCAN_MAX_FILE_SIZE_BYTES = 1_048_576;
-export const GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES = 26_214_400;
+export const GITHUB_SCAN_MAX_FILE_COUNT = SCAN_LIMITS.maxFiles;
+export const GITHUB_SCAN_MAX_FILE_SIZE_BYTES = SCAN_LIMITS.maxIndividualFileSizeBytes;
+export const GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES = SCAN_LIMITS.maxTotalSizeBytes;
 
 type GitHubCommitResponse = {
   sha: string;
@@ -114,6 +119,7 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
     const treeStack = [{ pathPrefix: "", treeSha: rootTreeSha }];
     let fileCount = 0;
     let totalSize = 0n;
+    let filesProcessed = 0;
 
     while (treeStack.length > 0) {
       const currentTree = treeStack.pop();
@@ -141,12 +147,18 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
 
           fileCount += 1;
           totalSize += file.size;
-          this.assertScanLimits(file, fileCount, totalSize);
+          this.assertScanLimits(file, fileCount, totalSize, {
+            filesProcessed,
+            totalBytesConsidered: totalSize
+          });
 
-          yield {
+          const snapshotFile = {
             ...file,
             content: file.isBinary ? null : await this.loadBlobContent(githubAccess, entry.sha)
           };
+
+          filesProcessed += 1;
+          yield snapshotFile;
         }
       }
     }
@@ -346,24 +358,19 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
   private assertScanLimits(
     file: RepositoryContentFileMetadata,
     fileCount: number,
-    totalSize: bigint
+    totalSize: bigint,
+    usage: ScanLimitUsage
   ): void {
     if (fileCount > GITHUB_SCAN_MAX_FILE_COUNT) {
-      throw new Error(
-        `Repository scan exceeded the maximum file count of ${GITHUB_SCAN_MAX_FILE_COUNT}.`
-      );
+      throw new ScanLimitExceededError("FILE_COUNT_LIMIT", usage, SCAN_LIMITS);
     }
 
     if (!file.isBinary && file.size > BigInt(GITHUB_SCAN_MAX_FILE_SIZE_BYTES)) {
-      throw new Error(
-        `Repository scan file ${file.path} exceeded the maximum file size of ${GITHUB_SCAN_MAX_FILE_SIZE_BYTES} bytes.`
-      );
+      throw new ScanLimitExceededError("INDIVIDUAL_FILE_SIZE_LIMIT", usage, SCAN_LIMITS, file.path);
     }
 
     if (totalSize > BigInt(GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES)) {
-      throw new Error(
-        `Repository scan exceeded the maximum total size of ${GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES} bytes.`
-      );
+      throw new ScanLimitExceededError("TOTAL_SIZE_LIMIT", usage, SCAN_LIMITS);
     }
   }
 

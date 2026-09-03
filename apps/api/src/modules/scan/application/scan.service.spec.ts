@@ -17,6 +17,8 @@ import type {
 } from "../domain/contracts/scan-repository.contract.js";
 import { InvalidScanStateTransitionError } from "../domain/errors/invalid-scan-state-transition.error.js";
 import { RepositoryAccessResolutionError } from "../domain/errors/repository-access-resolution.error.js";
+import { ScanLimitExceededError } from "../domain/errors/scan-limit-exceeded.error.js";
+import { SCAN_LIMITS } from "../domain/scan-limits.js";
 import { ScanService } from "./scan.service.js";
 
 const createdAt = new Date("2026-08-07T10:00:00.000Z");
@@ -40,6 +42,9 @@ const pendingScan: ScanSnapshot = {
   durationMs: null,
   totalFiles: 0,
   totalSize: 0n,
+  filesProcessed: 0,
+  totalBytesConsidered: 0n,
+  scanLimitReason: null,
   createdAt,
   updatedAt
 };
@@ -121,7 +126,10 @@ function createService(overrides?: {
         completedAt: input.completedAt ?? null,
         durationMs: input.durationMs ?? null,
         totalFiles: input.totalFiles ?? 0,
-        totalSize: input.totalSize ?? 0n
+        totalSize: input.totalSize ?? 0n,
+        filesProcessed: input.filesProcessed ?? 0,
+        totalBytesConsidered: input.totalBytesConsidered ?? 0n,
+        scanLimitReason: input.scanLimitReason ?? null
       };
     }
 
@@ -309,7 +317,10 @@ describe("ScanService", () => {
       completedAt: expect.any(Date),
       durationMs: expect.any(Number),
       totalFiles: 0,
-      totalSize: 0n
+      totalSize: 0n,
+      filesProcessed: 0,
+      totalBytesConsidered: 0n,
+      scanLimitReason: null
     });
   });
 
@@ -333,7 +344,10 @@ describe("ScanService", () => {
       completedAt: expect.any(Date),
       durationMs: expect.any(Number),
       totalFiles: 0,
-      totalSize: 0n
+      totalSize: 0n,
+      filesProcessed: 0,
+      totalBytesConsidered: 0n,
+      scanLimitReason: null
     });
   });
 
@@ -344,7 +358,9 @@ describe("ScanService", () => {
       repositoryId: "repository_1",
       commitSha: "abc123",
       totalFiles: 5,
-      totalSize: 1500n
+      totalSize: 1500n,
+      filesProcessed: 5,
+      totalBytesConsidered: 1500n
     };
     const { repositoryContentProvider, scanRepository, service } = createService({
       repositoryContentProvider: {
@@ -549,7 +565,10 @@ describe("ScanService", () => {
     expect(result).toMatchObject({
       status: "COMPLETED",
       totalFiles: 2,
-      totalSize: 13n
+      totalSize: 13n,
+      filesProcessed: 2,
+      totalBytesConsidered: 13n,
+      scanLimitReason: null
     });
     expect(result.completedAt).toBeInstanceOf(Date);
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
@@ -559,7 +578,10 @@ describe("ScanService", () => {
       completedAt: expect.any(Date),
       durationMs: expect.any(Number),
       totalFiles: 2,
-      totalSize: 13n
+      totalSize: 13n,
+      filesProcessed: 2,
+      totalBytesConsidered: 13n,
+      scanLimitReason: null
     });
   });
 
@@ -809,7 +831,14 @@ describe("ScanService", () => {
   });
 
   it("marks the scan failed and does not complete when scan limits fail during streaming", async () => {
-    const limitError = new Error("Repository scan exceeded the maximum file count.");
+    const limitError = new ScanLimitExceededError(
+      "FILE_COUNT_LIMIT",
+      {
+        filesProcessed: 5_000,
+        totalBytesConsidered: 12_345n
+      },
+      SCAN_LIMITS
+    );
     const { scanRepository, service } = createService({
       repositoryContentProvider: {
         listSnapshotFiles: vi.fn().mockReturnValue(snapshotFilesThatThrowAfter([], limitError))
@@ -831,11 +860,52 @@ describe("ScanService", () => {
     });
     expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(2, {
       scanId: "scan_1",
-      status: "FAILED"
+      status: "FAILED",
+      totalFiles: 5_000,
+      totalSize: 12_345n,
+      filesProcessed: 5_000,
+      totalBytesConsidered: 12_345n,
+      scanLimitReason: "FILE_COUNT_LIMIT"
     });
     expect(scanRepository.updateScanStatus).not.toHaveBeenCalledWith(
       expect.objectContaining({ status: "COMPLETED" })
     );
+  });
+
+  it("flushes known-good files before persisting a structured limit failure", async () => {
+    const files = [createFile("src/one.ts", 4n), createFile("src/two.ts", 9n)];
+    const limitError = new ScanLimitExceededError(
+      "TOTAL_SIZE_LIMIT",
+      {
+        filesProcessed: 2,
+        totalBytesConsidered: BigInt(SCAN_LIMITS.maxTotalSizeBytes) + 1n
+      },
+      SCAN_LIMITS
+    );
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        listSnapshotFiles: vi.fn().mockReturnValue(snapshotFilesThatThrowAfter(files, limitError))
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(limitError);
+
+    expect(scanRepository.storeScanFiles).toHaveBeenCalledWith("scan_1", files);
+    expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(2, {
+      scanId: "scan_1",
+      status: "FAILED",
+      totalFiles: 2,
+      totalSize: BigInt(SCAN_LIMITS.maxTotalSizeBytes) + 1n,
+      filesProcessed: 2,
+      totalBytesConsidered: BigInt(SCAN_LIMITS.maxTotalSizeBytes) + 1n,
+      scanLimitReason: "TOTAL_SIZE_LIMIT"
+    });
   });
 
   it("marks the scan failed and rethrows the original error when batch persistence fails", async () => {
@@ -918,7 +988,10 @@ describe("ScanService", () => {
       completedAt: expect.any(Date),
       durationMs: expect.any(Number),
       totalFiles: 0,
-      totalSize: 0n
+      totalSize: 0n,
+      filesProcessed: 0,
+      totalBytesConsidered: 0n,
+      scanLimitReason: null
     });
     expect(scanRepository.updateScanStatus).toHaveBeenNthCalledWith(3, {
       scanId: "scan_1",

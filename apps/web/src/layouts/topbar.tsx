@@ -1,11 +1,15 @@
 import { ChevronRight, FolderGit2, Menu } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { getScanHistory, getScanLimits } from "@/features/scans/api/scan-api";
+import { ScanUsagePill } from "@/features/scans/components/scan-usage";
 import type { ShellContext } from "@/layouts/shell-context";
 import { repositoryDisplayName, repositoryOwner } from "@/layouts/shell-context";
+import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { useLayoutStore } from "@/stores/layout-store";
 
 type TopbarProps = {
@@ -14,7 +18,19 @@ type TopbarProps = {
 
 export function Topbar({ shellContext }: TopbarProps) {
   const toggleMobileSidebar = useLayoutStore((state) => state.toggleMobileSidebar);
+  const apiAccessToken = useAuthSessionStore((state) => state.accessToken);
   const repository = shellContext.currentRepository;
+  const latestScanQuery = useQuery({
+    queryKey: ["scan-history", repository?.id, 1, 1],
+    queryFn: () => getScanHistory(apiAccessToken, repository?.id ?? "", 1, 1),
+    enabled: Boolean(apiAccessToken && repository)
+  });
+  const limitsQuery = useQuery({
+    queryKey: ["scan-limits"],
+    queryFn: () => getScanLimits(apiAccessToken),
+    enabled: Boolean(apiAccessToken)
+  });
+  const latestScan = latestScanQuery.data?.items[0] ?? null;
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border/80 bg-surface/88 px-4 backdrop-blur-xl md:px-6 lg:px-8">
@@ -44,6 +60,9 @@ export function Topbar({ shellContext }: TopbarProps) {
         </div>
         <Separator orientation="vertical" className="hidden h-5 lg:block" />
         {repository ? <ProjectPill shellContext={shellContext} /> : null}
+        {repository && limitsQuery.data ? (
+          <ScanUsagePill limits={limitsQuery.data} scan={latestScan} />
+        ) : null}
       </div>
       <ThemeToggle />
     </header>

@@ -16,7 +16,7 @@ describe("PrivacyView", () => {
     expect(markup).toContain("Last updated: September 3, 2026");
     expect(markup).toContain("repo");
     expect(markup).toContain("Source-Code Processing And Storage");
-    expect(markup).toContain("Maximum 5,000 files per scan");
+    expect(markup).toContain("Scan limit values are loaded from the scan API.");
     expect(markup).toContain(
       "Full secret scanning and content-level redaction are not currently implemented"
     );

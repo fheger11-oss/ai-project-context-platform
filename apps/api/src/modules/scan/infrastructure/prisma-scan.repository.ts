@@ -37,7 +37,12 @@ export class PrismaScanRepository implements ScanRepository {
         ...(input.completedAt ? { completedAt: input.completedAt } : {}),
         ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
         ...(input.totalFiles !== undefined ? { totalFiles: input.totalFiles } : {}),
-        ...(input.totalSize !== undefined ? { totalSize: input.totalSize } : {})
+        ...(input.totalSize !== undefined ? { totalSize: input.totalSize } : {}),
+        ...(input.filesProcessed !== undefined ? { filesProcessed: input.filesProcessed } : {}),
+        ...(input.totalBytesConsidered !== undefined
+          ? { totalBytesConsidered: input.totalBytesConsidered }
+          : {}),
+        ...(input.scanLimitReason !== undefined ? { scanLimitReason: input.scanLimitReason } : {})
       }
     });
 
@@ -127,6 +132,9 @@ export class PrismaScanRepository implements ScanRepository {
       durationMs: scan.durationMs,
       totalFiles: scan.totalFiles,
       totalSize: scan.totalSize,
+      filesProcessed: scan.filesProcessed,
+      totalBytesConsidered: scan.totalBytesConsidered,
+      scanLimitReason: scan.scanLimitReason,
       createdAt: scan.createdAt,
       updatedAt: scan.updatedAt
     };

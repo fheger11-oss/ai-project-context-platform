@@ -1,6 +1,6 @@
 import "reflect-metadata";
 
-import { RequestMethod } from "@nestjs/common";
+import { RequestMethod, UnprocessableEntityException } from "@nestjs/common";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { describe, expect, it, vi } from "vitest";
@@ -10,6 +10,8 @@ import { RolesGuard } from "../../auth/guards/roles.guard.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
 import type { ScanService } from "../application/scan.service.js";
 import type { ScanSnapshot } from "../domain/contracts/scan-repository.contract.js";
+import { ScanLimitExceededError } from "../domain/errors/scan-limit-exceeded.error.js";
+import { SCAN_LIMITS } from "../domain/scan-limits.js";
 import {
   DEFAULT_SCAN_HISTORY_PAGE,
   DEFAULT_SCAN_HISTORY_PAGE_SIZE,
@@ -42,6 +44,9 @@ function createSnapshot(overrides: Partial<ScanSnapshot> = {}): ScanSnapshot {
     durationMs: 1000,
     totalFiles: 2,
     totalSize: 42n,
+    filesProcessed: 2,
+    totalBytesConsidered: 42n,
+    scanLimitReason: null,
     createdAt: new Date("2026-08-07T10:00:00.000Z"),
     updatedAt: new Date("2026-08-07T10:00:01.000Z"),
     ...overrides
@@ -124,6 +129,15 @@ describe("ScanController", () => {
     ).toBe(RequestMethod.GET);
   });
 
+  it("exposes GET /scans/limits", () => {
+    expect(Reflect.getMetadata(PATH_METADATA, ScanController.prototype.getScanLimits)).toBe(
+      "limits"
+    );
+    expect(Reflect.getMetadata(METHOD_METADATA, ScanController.prototype.getScanLimits)).toBe(
+      RequestMethod.GET
+    );
+  });
+
   it("protects scan start by the existing Auth guard mechanism", () => {
     const guards = Reflect.getMetadata(
       GUARDS_METADATA,
@@ -178,7 +192,7 @@ describe("ScanController", () => {
   });
 
   it("maps totalSize to a string in the HTTP response", async () => {
-    const snapshot = createSnapshot({ totalSize: 1500n });
+    const snapshot = createSnapshot({ totalSize: 1500n, totalBytesConsidered: 1500n });
     const { controller } = createController({
       startScan: vi.fn().mockResolvedValue(snapshot)
     });
@@ -189,10 +203,11 @@ describe("ScanController", () => {
     });
 
     expect(response.totalSize).toBe("1500");
+    expect(response.usage.totalBytesConsidered).toBe("1500");
   });
 
   it("returns no JavaScript bigint values in the HTTP response", async () => {
-    const snapshot = createSnapshot({ totalSize: 1500n });
+    const snapshot = createSnapshot({ totalSize: 1500n, totalBytesConsidered: 1500n });
     const { controller } = createController({
       startScan: vi.fn().mockResolvedValue(snapshot)
     });
@@ -205,7 +220,7 @@ describe("ScanController", () => {
     expect(containsBigInt(response)).toBe(false);
   });
 
-  it("preserves existing response fields while mapping totalSize", async () => {
+  it("preserves existing response fields while adding usage and limit state", async () => {
     const { controller, snapshot } = createController();
 
     const response = await controller.startScan(user, {
@@ -214,8 +229,25 @@ describe("ScanController", () => {
     });
 
     expect(response).toEqual({
-      ...snapshot,
-      totalSize: snapshot.totalSize.toString()
+      id: snapshot.id,
+      repositoryId: snapshot.repositoryId,
+      status: snapshot.status,
+      commitSha: snapshot.commitSha,
+      startedAt: snapshot.startedAt,
+      completedAt: snapshot.completedAt,
+      durationMs: snapshot.durationMs,
+      totalFiles: snapshot.totalFiles,
+      totalSize: snapshot.totalSize.toString(),
+      usage: {
+        filesProcessed: snapshot.filesProcessed,
+        totalBytesConsidered: snapshot.totalBytesConsidered.toString()
+      },
+      limit: {
+        reached: false,
+        reason: null
+      },
+      createdAt: snapshot.createdAt,
+      updatedAt: snapshot.updatedAt
     });
   });
 
@@ -236,7 +268,7 @@ describe("ScanController", () => {
   });
 
   it("returns a response that can be serialized as JSON", async () => {
-    const snapshot = createSnapshot({ totalSize: 1500n });
+    const snapshot = createSnapshot({ totalSize: 1500n, totalBytesConsidered: 1500n });
     const { controller } = createController({
       startScan: vi.fn().mockResolvedValue(snapshot)
     });
@@ -249,6 +281,51 @@ describe("ScanController", () => {
     expect(() => JSON.stringify(response)).not.toThrow(
       new TypeError("Do not know how to serialize a BigInt")
     );
+  });
+
+  it("returns canonical scan limits from the scan endpoint", () => {
+    const { controller } = createController();
+
+    expect(controller.getScanLimits()).toBe(SCAN_LIMITS);
+  });
+
+  it("maps scan limit failures to structured 422 responses", async () => {
+    const limitError = new ScanLimitExceededError(
+      "INDIVIDUAL_FILE_SIZE_LIMIT",
+      {
+        filesProcessed: 7,
+        totalBytesConsidered: 1048577n
+      },
+      SCAN_LIMITS,
+      "src/large.ts"
+    );
+    const { controller } = createController({
+      startScan: vi.fn().mockRejectedValue(limitError)
+    });
+
+    const request = controller.startScan(user, {
+      repositoryId: "repository_1",
+      reference: "main"
+    });
+
+    await expect(request).rejects.toBeInstanceOf(UnprocessableEntityException);
+    await expect(request).rejects.toMatchObject({
+      response: {
+        statusCode: 422,
+        code: "SCAN_LIMIT_REACHED",
+        error: "Scan Limit Reached",
+        limit: {
+          reached: true,
+          reason: "INDIVIDUAL_FILE_SIZE_LIMIT"
+        },
+        usage: {
+          filesProcessed: 7,
+          totalBytesConsidered: "1048577"
+        },
+        limits: SCAN_LIMITS,
+        filePath: "src/large.ts"
+      }
+    });
   });
 
   it("does not expose credential-shaped values in the HTTP response", async () => {

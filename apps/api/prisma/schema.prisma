@@ -26,6 +26,12 @@ enum ScanStatus {
   CANCELLED
 }
 
+enum ScanLimitFailureReason {
+  FILE_COUNT_LIMIT
+  INDIVIDUAL_FILE_SIZE_LIMIT
+  TOTAL_SIZE_LIMIT
+}
+
 enum AnalysisStatus {
   PENDING
   RUNNING
@@ -123,9 +129,9 @@ model Repository {
   createdAt       DateTime             @default(now()) @map("created_at")
   updatedAt       DateTime             @updatedAt @map("updated_at")
 
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  scans Scan[]
-  analyses Analysis[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scans           Scan[]
+  analyses        Analysis[]
   projectContexts ProjectContext[]
 
   @@unique([userId, githubId])
@@ -135,21 +141,24 @@ model Repository {
 }
 
 model Scan {
-  id           String     @id @default(cuid())
-  repositoryId String     @map("repository_id")
-  status       ScanStatus @default(PENDING)
-  commitSha    String     @map("commit_sha")
-  startedAt    DateTime?  @map("started_at")
-  completedAt  DateTime?  @map("completed_at")
-  durationMs   Int?       @map("duration_ms")
-  totalFiles   Int        @default(0) @map("total_files")
-  totalSize    BigInt     @default(0) @map("total_size")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
+  id                   String                  @id @default(cuid())
+  repositoryId         String                  @map("repository_id")
+  status               ScanStatus              @default(PENDING)
+  commitSha            String                  @map("commit_sha")
+  startedAt            DateTime?               @map("started_at")
+  completedAt          DateTime?               @map("completed_at")
+  durationMs           Int?                    @map("duration_ms")
+  totalFiles           Int                     @default(0) @map("total_files")
+  totalSize            BigInt                  @default(0) @map("total_size")
+  filesProcessed       Int                     @default(0) @map("files_processed")
+  totalBytesConsidered BigInt                  @default(0) @map("total_bytes_considered")
+  scanLimitReason      ScanLimitFailureReason? @map("scan_limit_reason")
+  createdAt            DateTime                @default(now()) @map("created_at")
+  updatedAt            DateTime                @updatedAt @map("updated_at")
 
-  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  files      ScanFile[]
-  analyses   Analysis[]
+  repository      Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  files           ScanFile[]
+  analyses        Analysis[]
   projectContexts ProjectContext[]
 
   @@index([repositoryId])
@@ -178,8 +187,8 @@ model Analysis {
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
 
-  scan       Scan       @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  scan            Scan             @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  repository      Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   projectContexts ProjectContext[]
 
   @@index([scanId])

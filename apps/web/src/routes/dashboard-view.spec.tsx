@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardProjectsResponse } from "@ai-context/contracts";
 
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
+import { getScanLimits } from "@/features/scans/api/scan-api";
 import { DashboardView } from "./dashboard-view";
 
 type QueryOptions = {
@@ -19,6 +20,12 @@ type QueryState = {
   isFetching?: boolean;
   isLoading?: boolean;
   isSuccess?: boolean;
+};
+
+const scanLimits = {
+  maxFiles: 5000,
+  maxIndividualFileSizeBytes: 1048576,
+  maxTotalSizeBytes: 26214400
 };
 
 const queryOptions: QueryOptions[] = [];
@@ -64,7 +71,15 @@ const latestScan: NonNullable<DashboardProjectsResponse["projects"][number]["lat
   updatedAt: "2026-08-26T10:02:00.000Z",
   completedAt: "2026-08-26T10:02:00.000Z",
   totalFiles: 42,
-  totalSize: "2048"
+  totalSize: "2048",
+  usage: {
+    filesProcessed: 42,
+    totalBytesConsidered: "2048"
+  },
+  limit: {
+    reached: false,
+    reason: null
+  }
 };
 
 const latestAnalysis: NonNullable<DashboardProjectsResponse["projects"][number]["latestAnalysis"]> =
@@ -91,6 +106,18 @@ const nonEmptyResponse: DashboardProjectsResponse = {
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (options: QueryOptions) => {
     queryOptions.push(options);
+
+    if (options.queryKey[0] === "scan-limits") {
+      return {
+        data: scanLimits,
+        error: null,
+        isError: false,
+        isFetching: false,
+        isLoading: false,
+        isSuccess: true,
+        refetch
+      };
+    }
 
     return {
       data: queryState.data,
@@ -122,6 +149,15 @@ vi.mock("@/features/dashboard/api/dashboard-api", async (importOriginal) => {
   };
 });
 
+vi.mock("@/features/scans/api/scan-api", async (importOriginal) => {
+  const actual = (await importOriginal()) as object;
+
+  return {
+    ...actual,
+    getScanLimits: vi.fn()
+  };
+});
+
 describe("DashboardView", () => {
   beforeEach(() => {
     queryOptions.length = 0;
@@ -129,6 +165,7 @@ describe("DashboardView", () => {
     accessToken = "access_token";
     refetch.mockReset();
     vi.mocked(listDashboardProjects).mockReset();
+    vi.mocked(getScanLimits).mockReset();
   });
 
   it("renders the Dashboard route foundation", () => {
@@ -143,10 +180,14 @@ describe("DashboardView", () => {
     renderToStaticMarkup(<DashboardView />);
 
     await queryOptions[0]?.queryFn();
+    await queryOptions[1]?.queryFn();
 
     expect(queryOptions[0]?.queryKey).toEqual(["dashboard", "projects"]);
     expect(queryOptions[0]?.enabled).toBe(true);
     expect(listDashboardProjects).toHaveBeenCalledWith("access_token");
+    expect(queryOptions[1]?.queryKey).toEqual(["scan-limits"]);
+    expect(queryOptions[1]?.enabled).toBe(true);
+    expect(getScanLimits).toHaveBeenCalledWith("access_token");
   });
 
   it("displays the loading state", () => {
@@ -215,7 +256,7 @@ describe("DashboardView", () => {
     expect(markup).toContain("2 connected projects shown.");
     expect(markup).toContain("owner/project");
     expect(markup).toContain("owner/second-project");
-    expect(queryOptions).toHaveLength(1);
+    expect(queryOptions.filter((options) => options.queryKey[0] === "dashboard")).toHaveLength(1);
   });
 
   it("displays latest scan status and commit when available", () => {
@@ -230,6 +271,38 @@ describe("DashboardView", () => {
     expect(markup).toContain("Completed");
     expect(markup).toContain("abcdef123456");
     expect(markup).toContain("Scan completed");
+    expect(markup).toContain("42 / 5,000");
+    expect(markup).toContain("2,048 bytes / 25 MiB");
+  });
+
+  it("displays scan limit failures in dashboard scan summaries", () => {
+    queryState = {
+      data: {
+        projects: [
+          project({
+            latestScan: {
+              ...latestScan,
+              status: "FAILED",
+              completedAt: null,
+              limit: {
+                reached: true,
+                reason: "FILE_COUNT_LIMIT"
+              },
+              usage: {
+                filesProcessed: 5000,
+                totalBytesConsidered: "12345"
+              }
+            }
+          })
+        ]
+      },
+      isSuccess: true
+    };
+
+    const markup = renderToStaticMarkup(<DashboardView />);
+
+    expect(markup).toContain("File limit reached");
+    expect(markup).toContain("5,000 / 5,000");
   });
 
   it("handles missing scan without inventing state", () => {
@@ -349,7 +422,7 @@ describe("DashboardView", () => {
 
     renderToStaticMarkup(<DashboardView />);
 
-    expect(queryOptions).toHaveLength(1);
+    expect(queryOptions.filter((options) => options.queryKey[0] === "dashboard")).toHaveLength(1);
     expect(queryOptions[0]?.queryKey).toEqual(["dashboard", "projects"]);
   });
 

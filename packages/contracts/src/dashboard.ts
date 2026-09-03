@@ -1,4 +1,4 @@
-import type { RepositoryVisibility, ScanStatus } from "./index.js";
+import type { RepositoryVisibility, ScanLimitState, ScanStatus, ScanUsage } from "./index.js";
 
 export type DashboardProjectRepositorySummary = {
   id: string;
@@ -22,6 +22,8 @@ export type DashboardProjectLatestScanSummary = {
   completedAt: string | null;
   totalFiles: number;
   totalSize: string;
+  usage: ScanUsage;
+  limit: ScanLimitState;
 };
 
 export type DashboardProjectLatestAnalysisSummary = {

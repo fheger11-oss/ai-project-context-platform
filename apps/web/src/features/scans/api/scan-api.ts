@@ -1,9 +1,15 @@
-import type { ScanHistoryResponse, ScanSnapshot, StartScanRequest } from "@ai-context/contracts";
+import type {
+  ScanHistoryResponse,
+  ScanLimitErrorResponse,
+  ScanLimits,
+  ScanSnapshot,
+  StartScanRequest
+} from "@ai-context/contracts";
 
 import { authenticatedFetch } from "@/lib/authenticated-fetch";
 
 type RequestOptions = {
-  accessToken: string;
+  accessToken?: string;
   body?: unknown;
   method?: "GET" | "POST";
 };
@@ -11,7 +17,8 @@ type RequestOptions = {
 export class ScanApiRequestError extends Error {
   constructor(
     message: string,
-    readonly status: number
+    readonly status: number,
+    readonly details?: ScanLimitErrorResponse
   ) {
     super(message);
   }
@@ -21,10 +28,16 @@ async function request<T>(path: string, options: RequestOptions): Promise<T> {
   const init: RequestInit = {
     method: options.method ?? "GET",
     headers: {
-      Authorization: `Bearer ${options.accessToken}`,
       "Content-Type": "application/json"
     }
   };
+
+  if (options.accessToken) {
+    init.headers = {
+      ...init.headers,
+      Authorization: `Bearer ${options.accessToken}`
+    };
+  }
 
   if (options.body) {
     init.body = JSON.stringify(options.body);
@@ -33,9 +46,16 @@ async function request<T>(path: string, options: RequestOptions): Promise<T> {
   const response = await authenticatedFetch(path, init);
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    const payload = (await response.json().catch(() => null)) as
+      ({ message?: string; code?: string } & Partial<ScanLimitErrorResponse>) | null;
+    const details =
+      payload?.code === "SCAN_LIMIT_REACHED" ? (payload as ScanLimitErrorResponse) : undefined;
 
-    throw new ScanApiRequestError(payload?.message ?? "Scan request failed", response.status);
+    throw new ScanApiRequestError(
+      payload?.message ?? "Scan request failed",
+      response.status,
+      details
+    );
   }
 
   return response.json() as Promise<T>;
@@ -52,6 +72,10 @@ export function startScan(accessToken: string, repositoryId: string, reference?:
     method: "POST",
     body
   });
+}
+
+export function getScanLimits(accessToken?: string) {
+  return request<ScanLimits>("/scans/limits", accessToken ? { accessToken } : {});
 }
 
 export function getScanHistory(
@@ -81,6 +105,10 @@ export function getScanHistory(
 export type {
   ScanHistoryResponse,
   ScanHistoryItem,
+  ScanLimitErrorResponse,
+  ScanLimitFailureReason,
+  ScanLimits,
+  ScanUsage,
   ScanSnapshot,
   ScanStatus,
   StartScanRequest

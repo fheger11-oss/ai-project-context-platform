@@ -16,6 +16,9 @@ const prismaScan = {
   durationMs: null,
   totalFiles: 12,
   totalSize: 2048n,
+  filesProcessed: 12,
+  totalBytesConsidered: 2048n,
+  scanLimitReason: null,
   createdAt,
   updatedAt
 };
@@ -44,6 +47,9 @@ describe("PrismaScanRepository", () => {
       durationMs: null,
       totalFiles: 12,
       totalSize: 2048n,
+      filesProcessed: 12,
+      totalBytesConsidered: 2048n,
+      scanLimitReason: null,
       createdAt,
       updatedAt
     });
@@ -69,6 +75,9 @@ describe("PrismaScanRepository", () => {
       durationMs: null,
       totalFiles: 12,
       totalSize: 2048n,
+      filesProcessed: 12,
+      totalBytesConsidered: 2048n,
+      scanLimitReason: null,
       createdAt,
       updatedAt
     });
@@ -163,6 +172,9 @@ describe("PrismaScanRepository", () => {
           durationMs: null,
           totalFiles: 12,
           totalSize: 2048n,
+          filesProcessed: 12,
+          totalBytesConsidered: 2048n,
+          scanLimitReason: null,
           createdAt: new Date("2026-08-07T11:00:00.000Z"),
           updatedAt
         },
@@ -176,6 +188,9 @@ describe("PrismaScanRepository", () => {
           durationMs: null,
           totalFiles: 12,
           totalSize: 2048n,
+          filesProcessed: 12,
+          totalBytesConsidered: 2048n,
+          scanLimitReason: null,
           createdAt,
           updatedAt
         }

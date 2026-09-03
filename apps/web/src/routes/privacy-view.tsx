@@ -1,16 +1,13 @@
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { CtxaroWordmark } from "@/features/brand/components/ctxaro-brand";
+import { getScanLimits, type ScanLimits } from "@/features/scans/api/scan-api";
+import { formatBytes } from "@/features/scans/utils/scan-usage";
 
 const LAST_UPDATED = "September 3, 2026";
-
-const sourceLimits = [
-  "Maximum 5,000 files per scan",
-  "Maximum 1 MiB per individual non-binary file",
-  "Maximum 25 MiB total scanned content"
-];
 
 const skippedFiles = [
   ".env",
@@ -37,6 +34,28 @@ const documentTypes = [
 ];
 
 export function PrivacyView() {
+  const [scanLimits, setScanLimits] = useState<ScanLimits | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getScanLimits()
+      .then((limits) => {
+        if (isMounted) {
+          setScanLimits(limits);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setScanLimits(null);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <div className="dark min-h-screen bg-[#050706] text-foreground">
       <header className="border-b border-white/[0.07] bg-[#050706]/88">
@@ -132,11 +151,21 @@ export function PrivacyView() {
             remains connected. Binary files are not stored as raw binary content in the scan model.
           </p>
           <p>Current scan limits are:</p>
-          <ul>
-            {sourceLimits.map((limit) => (
-              <li key={limit}>{limit}</li>
-            ))}
-          </ul>
+          {scanLimits ? (
+            <ul>
+              <li>Maximum {scanLimits.maxFiles.toLocaleString()} eligible files per scan</li>
+              <li>
+                Maximum {formatBytes(scanLimits.maxIndividualFileSizeBytes)} per individual
+                non-binary file
+              </li>
+              <li>
+                Maximum {formatBytes(scanLimits.maxTotalSizeBytes)} total eligible repository file
+                data per scan
+              </li>
+            </ul>
+          ) : (
+            <p>Scan limit values are loaded from the scan API.</p>
+          )}
           <p>
             Ctxaro skips obvious sensitive files such as {skippedFiles.join(", ")}. This is a
             conservative guardrail, not a complete secret detector. Full secret scanning and

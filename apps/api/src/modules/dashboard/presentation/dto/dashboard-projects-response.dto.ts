@@ -68,6 +68,30 @@ export class DashboardProjectLatestScanSummaryDto implements DashboardProjectLat
 
   @ApiProperty()
   totalSize!: string;
+
+  @ApiProperty({
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      filesProcessed: { type: "number" },
+      totalBytesConsidered: { type: "string" }
+    }
+  })
+  usage!: DashboardProjectLatestScanSummary["usage"];
+
+  @ApiProperty({
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      reached: { type: "boolean" },
+      reason: {
+        type: "string",
+        enum: ["FILE_COUNT_LIMIT", "INDIVIDUAL_FILE_SIZE_LIMIT", "TOTAL_SIZE_LIMIT"],
+        nullable: true
+      }
+    }
+  })
+  limit!: DashboardProjectLatestScanSummary["limit"];
 }
 
 export class DashboardProjectLatestAnalysisSummaryDto implements DashboardProjectLatestAnalysisSummary {

@@ -14,6 +14,9 @@ function scan(id: string, status: ScanSnapshot["status"] = "COMPLETED"): ScanSna
     durationMs: 60000,
     totalFiles: 10,
     totalSize: 100n,
+    filesProcessed: 10,
+    totalBytesConsidered: 100n,
+    scanLimitReason: null,
     createdAt: new Date("2026-08-14T12:00:00.000Z"),
     updatedAt: new Date("2026-08-14T12:01:00.000Z")
   };

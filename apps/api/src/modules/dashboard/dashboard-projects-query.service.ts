@@ -27,6 +27,13 @@ type DashboardRepositoryRecord = {
     completedAt: Date | null;
     totalFiles: number;
     totalSize: bigint;
+    filesProcessed: number;
+    totalBytesConsidered: bigint;
+    scanLimitReason: DashboardProjectSummary["latestScan"] extends infer T
+      ? T extends { limit: { reason: infer R } }
+        ? R
+        : never
+      : never;
   }[];
   analyses: {
     id: string;
@@ -77,7 +84,10 @@ export class DashboardProjectsQueryService {
             updatedAt: true,
             completedAt: true,
             totalFiles: true,
-            totalSize: true
+            totalSize: true,
+            filesProcessed: true,
+            totalBytesConsidered: true,
+            scanLimitReason: true
           }
         },
         analyses: {
@@ -148,7 +158,15 @@ function toProjectSummary(repository: DashboardRepositoryRecord): DashboardProje
           updatedAt: latestScan.updatedAt.toISOString(),
           completedAt: latestScan.completedAt?.toISOString() ?? null,
           totalFiles: latestScan.totalFiles,
-          totalSize: latestScan.totalSize.toString()
+          totalSize: latestScan.totalSize.toString(),
+          usage: {
+            filesProcessed: latestScan.filesProcessed,
+            totalBytesConsidered: latestScan.totalBytesConsidered.toString()
+          },
+          limit: {
+            reached: latestScan.scanLimitReason !== null,
+            reason: latestScan.scanLimitReason
+          }
         }
       : null,
     latestAnalysis:

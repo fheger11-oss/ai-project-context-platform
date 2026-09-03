@@ -130,9 +130,28 @@ export type AuthenticatedUser = {
 
 export type ScanStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
 
+export type ScanLimitFailureReason =
+  "FILE_COUNT_LIMIT" | "INDIVIDUAL_FILE_SIZE_LIMIT" | "TOTAL_SIZE_LIMIT";
+
 export type StartScanRequest = {
   repositoryId: string;
   reference?: string;
+};
+
+export type ScanLimits = {
+  maxFiles: number;
+  maxIndividualFileSizeBytes: number;
+  maxTotalSizeBytes: number;
+};
+
+export type ScanUsage = {
+  filesProcessed: number;
+  totalBytesConsidered: string;
+};
+
+export type ScanLimitState = {
+  reached: boolean;
+  reason: ScanLimitFailureReason | null;
 };
 
 export type ScanSnapshot = {
@@ -145,8 +164,21 @@ export type ScanSnapshot = {
   durationMs: number | null;
   totalFiles: number;
   totalSize: string;
+  usage: ScanUsage;
+  limit: ScanLimitState;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ScanLimitErrorResponse = {
+  statusCode: number;
+  message: string;
+  error: "Scan Limit Reached";
+  code: "SCAN_LIMIT_REACHED";
+  limit: ScanLimitState;
+  usage: ScanUsage;
+  limits: ScanLimits;
+  filePath?: string;
 };
 
 export type ScanLatestAnalysisSummary = {

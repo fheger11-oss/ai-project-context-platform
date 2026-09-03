@@ -24,7 +24,10 @@ const scan = {
   updatedAt: new Date("2026-08-26T10:02:00.000Z"),
   completedAt: new Date("2026-08-26T10:02:00.000Z"),
   totalFiles: 42,
-  totalSize: 2048n
+  totalSize: 2048n,
+  filesProcessed: 42,
+  totalBytesConsidered: 2048n,
+  scanLimitReason: null
 };
 
 const context = {
@@ -151,7 +154,15 @@ describe("DashboardProjectsQueryService", () => {
       updatedAt: "2026-08-26T10:02:00.000Z",
       completedAt: "2026-08-26T10:02:00.000Z",
       totalFiles: 42,
-      totalSize: "2048"
+      totalSize: "2048",
+      usage: {
+        filesProcessed: 42,
+        totalBytesConsidered: "2048"
+      },
+      limit: {
+        reached: false,
+        reason: null
+      }
     });
     expect(response.projects[0]?.latestAnalysis).toBeNull();
     expect(response.projects[0]?.latestContext).toBeNull();

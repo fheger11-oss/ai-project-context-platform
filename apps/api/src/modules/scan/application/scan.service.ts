@@ -19,6 +19,7 @@ import {
   type StoreScanFileInput
 } from "../domain/contracts/scan-repository.contract.js";
 import { InvalidScanStateTransitionError } from "../domain/errors/invalid-scan-state-transition.error.js";
+import { ScanLimitExceededError } from "../domain/errors/scan-limit-exceeded.error.js";
 import { assertValidScanStatusTransition } from "../domain/scan-state-machine.js";
 
 export type StartScanInput = {
@@ -45,8 +46,8 @@ export type ScanHistoryResult = {
 };
 
 type SnapshotPersistenceStats = {
-  totalFiles: number;
-  totalSize: bigint;
+  filesProcessed: number;
+  totalBytesConsidered: bigint;
 };
 
 type ScanFailureStage = "FILE_STREAM" | "BATCH_PERSISTENCE" | "COMPLETION_PERSISTENCE";
@@ -155,22 +156,34 @@ export class ScanService {
   ): Promise<SnapshotPersistenceStats> {
     let batch: StoreScanFileInput[] = [];
     const stats: SnapshotPersistenceStats = {
-      totalFiles: 0,
-      totalSize: 0n
+      filesProcessed: 0,
+      totalBytesConsidered: 0n
     };
 
-    for await (const file of this.repositoryContentProvider.listSnapshotFiles(access, commitSha)) {
-      setFailureStage("FILE_STREAM");
-      batch.push(file);
-      stats.totalFiles += 1;
-      stats.totalSize += file.size;
+    try {
+      for await (const file of this.repositoryContentProvider.listSnapshotFiles(
+        access,
+        commitSha
+      )) {
+        setFailureStage("FILE_STREAM");
+        batch.push(file);
+        stats.filesProcessed += 1;
+        stats.totalBytesConsidered += file.size;
 
-      if (batch.length === ScanService.FILE_BATCH_SIZE) {
+        if (batch.length === ScanService.FILE_BATCH_SIZE) {
+          setFailureStage("BATCH_PERSISTENCE");
+          await this.flushFileBatch(scanId, batch);
+          batch = [];
+          setFailureStage("FILE_STREAM");
+        }
+      }
+    } catch (error) {
+      if (error instanceof ScanLimitExceededError) {
         setFailureStage("BATCH_PERSISTENCE");
         await this.flushFileBatch(scanId, batch);
-        batch = [];
-        setFailureStage("FILE_STREAM");
       }
+
+      throw error;
     }
 
     setFailureStage("BATCH_PERSISTENCE");
@@ -203,16 +216,29 @@ export class ScanService {
       status: "COMPLETED",
       completedAt,
       durationMs: Math.max(0, completedAt.getTime() - startedAtMs),
-      totalFiles: stats.totalFiles,
-      totalSize: stats.totalSize
+      totalFiles: stats.filesProcessed,
+      totalSize: stats.totalBytesConsidered,
+      filesProcessed: stats.filesProcessed,
+      totalBytesConsidered: stats.totalBytesConsidered,
+      scanLimitReason: null
     });
   }
 
-  private async failScan(scan: ScanSnapshot): Promise<void> {
+  private async failScan(scan: ScanSnapshot, error?: unknown): Promise<void> {
     assertValidScanStatusTransition(scan.status, "FAILED");
+    const limitFailure = error instanceof ScanLimitExceededError ? error : null;
     await this.scanRepository.updateScanStatus({
       scanId: scan.id,
-      status: "FAILED"
+      status: "FAILED",
+      ...(limitFailure
+        ? {
+            totalFiles: limitFailure.usage.filesProcessed,
+            totalSize: limitFailure.usage.totalBytesConsidered,
+            filesProcessed: limitFailure.usage.filesProcessed,
+            totalBytesConsidered: limitFailure.usage.totalBytesConsidered,
+            scanLimitReason: limitFailure.reason
+          }
+        : {})
     });
   }
 
@@ -224,7 +250,7 @@ export class ScanService {
     this.logScanFailure(scan, stage, error);
 
     try {
-      await this.failScan(scan);
+      await this.failScan(scan, error);
     } catch (failurePersistenceError) {
       this.logFailedTransitionPersistence(scan, failurePersistenceError);
     }

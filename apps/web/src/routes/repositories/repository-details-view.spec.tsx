@@ -70,6 +70,14 @@ const scan: ScanHistoryResponse["items"][number] = {
   durationMs: 60000,
   totalFiles: 42,
   totalSize: "2048",
+  usage: {
+    filesProcessed: 42,
+    totalBytesConsidered: "2048"
+  },
+  limit: {
+    reached: false,
+    reason: null
+  },
   createdAt: "2026-08-26T10:01:00.000Z",
   updatedAt: "2026-08-26T10:02:00.000Z",
   latestAnalysis: null
@@ -96,7 +104,15 @@ const projectSummary: DashboardProjectSummary = {
     updatedAt: "2026-08-26T10:02:00.000Z",
     completedAt: "2026-08-26T10:02:00.000Z",
     totalFiles: 42,
-    totalSize: "2048"
+    totalSize: "2048",
+    usage: {
+      filesProcessed: 42,
+      totalBytesConsidered: "2048"
+    },
+    limit: {
+      reached: false,
+      reason: null
+    }
   },
   latestAnalysis: {
     analysisId: "analysis_1",

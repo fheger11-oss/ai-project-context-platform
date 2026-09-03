@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/components/ui/button";
 import type { ScanSnapshot } from "@/features/scans/api/scan-api";
-import { ScanApiRequestError, startScan } from "@/features/scans/api/scan-api";
+import { getScanLimits, ScanApiRequestError, startScan } from "@/features/scans/api/scan-api";
 import { RepositoryScanAction } from "./repository-scan-action";
 
 type MutationState = {
@@ -19,6 +19,11 @@ type MutationOptions = {
   onSettled?: () => Promise<void>;
 };
 
+type QueryOptions = {
+  queryFn: () => Promise<unknown>;
+  queryKey: readonly unknown[];
+};
+
 type ButtonElementProps = {
   "aria-busy"?: boolean;
   "aria-describedby"?: string;
@@ -28,13 +33,27 @@ type ButtonElementProps = {
 };
 
 const mutationOptions: MutationOptions[] = [];
+const queryOptions: QueryOptions[] = [];
 let mutationStates: MutationState[] = [];
 const invalidateQueries = vi.fn();
+const scanLimits = {
+  maxFiles: 5000,
+  maxIndividualFileSizeBytes: 1048576,
+  maxTotalSizeBytes: 26214400
+};
 
 vi.mock("@tanstack/react-query", () => ({
   useQueryClient: () => ({
     invalidateQueries
   }),
+  useQuery: (options: QueryOptions) => {
+    queryOptions.push(options);
+
+    return {
+      data: scanLimits,
+      isLoading: false
+    };
+  },
   useMutation: (options: MutationOptions) => {
     mutationOptions.push(options);
     const state = mutationStates.shift() ?? {};
@@ -56,6 +75,7 @@ vi.mock("@/features/scans/api/scan-api", async (importOriginal) => {
 
   return {
     ...actual,
+    getScanLimits: vi.fn(),
     startScan: vi.fn()
   };
 });
@@ -70,6 +90,14 @@ const completedScan: ScanSnapshot = {
   durationMs: 6864,
   totalFiles: 91,
   totalSize: "563302",
+  usage: {
+    filesProcessed: 91,
+    totalBytesConsidered: "563302"
+  },
+  limit: {
+    reached: false,
+    reason: null
+  },
   createdAt: "2026-08-10T10:00:00.000Z",
   updatedAt: "2026-08-10T10:00:06.000Z"
 };
@@ -116,8 +144,10 @@ function findButtonElement(node: ReactNode): ReactElement<ButtonElementProps> | 
 describe("RepositoryScanAction", () => {
   beforeEach(() => {
     mutationOptions.length = 0;
+    queryOptions.length = 0;
     mutationStates = [];
     invalidateQueries.mockReset();
+    vi.mocked(getScanLimits).mockReset();
     vi.mocked(startScan).mockReset();
   });
 
@@ -133,6 +163,16 @@ describe("RepositoryScanAction", () => {
     expect(markup).toContain("store eligible non-binary source content");
     expect(markup).toContain("Obvious sensitive files are skipped");
     expect(markup).toContain("does not send repository content to an external AI provider");
+  });
+
+  it("discloses canonical scan limits before starting a scan", () => {
+    const markup = staticMarkup(renderAction());
+
+    expect(markup).toContain("Scan limits");
+    expect(markup).toContain("5,000");
+    expect(markup).toContain("1 MiB");
+    expect(markup).toContain("25 MiB");
+    expect(queryOptions[0]?.queryKey).toEqual(["scan-limits"]);
   });
 
   it("clicking scan calls startScan with the existing access token and repository id", () => {
@@ -189,7 +229,9 @@ describe("RepositoryScanAction", () => {
     expect(button?.props["aria-busy"]).toBe(true);
     expect(button?.props["aria-describedby"]).toBe("scan-feedback-repository_1");
     expect(markup).toContain("Scanning");
-    expect(markup).toContain("Scan request is running.");
+    expect(markup).toContain("Scanning repository.");
+    expect(markup).toContain("Live counters are not available until the scan returns.");
+    expect(markup).toContain("0 / 5,000");
     expect(markup).toContain('role="status"');
   });
 
@@ -201,6 +243,8 @@ describe("RepositoryScanAction", () => {
     expect(markup).toContain("fffed9f5ecab4ebb9a861f357e134b8e16bb4d92");
     expect(markup).toContain("91");
     expect(markup).toContain("563302 bytes");
+    expect(markup).toContain("91 / 5,000");
+    expect(markup).toContain("563,302 bytes / 25 MiB");
     expect(markup).toContain("6864 ms");
     expect(markup).toContain('role="status"');
   });
@@ -211,13 +255,99 @@ describe("RepositoryScanAction", () => {
         data: {
           ...completedScan,
           totalFiles: 999,
-          totalSize: "12345678901234567890"
+          totalSize: "12345678901234567890",
+          usage: {
+            filesProcessed: 999,
+            totalBytesConsidered: "12345678901234567890"
+          }
         }
       })
     );
 
     expect(markup).toContain("999");
     expect(markup).toContain("12345678901234567890 bytes");
+  });
+
+  it("displays a file-count scan limit error with usage", () => {
+    const markup = staticMarkup(
+      renderAction({
+        error: new ScanApiRequestError("limit", 422, {
+          statusCode: 422,
+          message: "This repository exceeds the file limit for a single scan.",
+          error: "Scan Limit Reached",
+          code: "SCAN_LIMIT_REACHED",
+          limit: {
+            reached: true,
+            reason: "FILE_COUNT_LIMIT"
+          },
+          usage: {
+            filesProcessed: 5000,
+            totalBytesConsidered: "12345"
+          },
+          limits: scanLimits
+        }),
+        isError: true
+      })
+    );
+
+    expect(markup).toContain("Scan limit reached");
+    expect(markup).toContain("5,000-file limit");
+    expect(markup).toContain("5,000 files were processed");
+    expect(markup).not.toContain("Scan could not be started.");
+  });
+
+  it("displays an individual file-size scan limit error", () => {
+    const markup = staticMarkup(
+      renderAction({
+        error: new ScanApiRequestError("limit", 422, {
+          statusCode: 422,
+          message: "A non-binary file exceeds the maximum file size for a single scan.",
+          error: "Scan Limit Reached",
+          code: "SCAN_LIMIT_REACHED",
+          limit: {
+            reached: true,
+            reason: "INDIVIDUAL_FILE_SIZE_LIMIT"
+          },
+          usage: {
+            filesProcessed: 7,
+            totalBytesConsidered: "1048577"
+          },
+          limits: scanLimits,
+          filePath: "src/large.ts"
+        }),
+        isError: true
+      })
+    );
+
+    expect(markup).toContain("A non-binary file exceeds the 1 MiB maximum file size");
+    expect(markup).toContain("src/large.ts");
+  });
+
+  it("displays a total-size scan limit error with considered bytes", () => {
+    const markup = staticMarkup(
+      renderAction({
+        error: new ScanApiRequestError("limit", 422, {
+          statusCode: 422,
+          message: "This repository exceeds the total file-data limit for a single scan.",
+          error: "Scan Limit Reached",
+          code: "SCAN_LIMIT_REACHED",
+          limit: {
+            reached: true,
+            reason: "TOTAL_SIZE_LIMIT"
+          },
+          usage: {
+            filesProcessed: 4000,
+            totalBytesConsidered: "26214401"
+          },
+          limits: scanLimits
+        }),
+        isError: true
+      })
+    );
+
+    expect(markup).toContain("25 MiB total repository file-data limit");
+    expect(markup).toContain("4,000 files were processed");
+    expect(markup).toContain("25 MiB were considered");
   });
 
   it("displays a safe authentication error message for 401 responses", () => {

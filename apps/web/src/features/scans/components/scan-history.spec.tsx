@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import type {
   ScanHistoryItem,
   ScanHistoryResponse,
+  ScanLimits,
   ScanSnapshot
 } from "@/features/scans/api/scan-api";
-import { getScanHistory, ScanApiRequestError } from "@/features/scans/api/scan-api";
+import { getScanHistory, getScanLimits, ScanApiRequestError } from "@/features/scans/api/scan-api";
 import { startAnalysis } from "@/features/analysis/api/analysis-api";
 import { ScanHistory, ScanHistoryContent } from "./scan-history";
 
@@ -19,7 +20,7 @@ type QueryOptions = {
 };
 
 type QueryState = {
-  data?: ScanHistoryResponse;
+  data?: ScanHistoryResponse | ScanLimits;
   error?: unknown;
   isError?: boolean;
   isFetching?: boolean;
@@ -39,9 +40,25 @@ type ButtonElementProps = {
 const queryOptions: QueryOptions[] = [];
 let queryState: QueryState = {};
 
+const scanLimits: ScanLimits = {
+  maxFiles: 5000,
+  maxIndividualFileSizeBytes: 1048576,
+  maxTotalSizeBytes: 26214400
+};
+
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (options: QueryOptions) => {
     queryOptions.push(options);
+
+    if (options.queryKey[0] === "scan-limits") {
+      return {
+        data: scanLimits,
+        error: null,
+        isError: false,
+        isFetching: false,
+        isLoading: false
+      };
+    }
 
     return {
       data: queryState.data,
@@ -62,7 +79,8 @@ vi.mock("@/features/scans/api/scan-api", async (importOriginal) => {
 
   return {
     ...actual,
-    getScanHistory: vi.fn()
+    getScanHistory: vi.fn(),
+    getScanLimits: vi.fn()
   };
 });
 
@@ -93,6 +111,14 @@ const completedScan: ScanSnapshot = {
   durationMs: 6864,
   totalFiles: 91,
   totalSize: "563302",
+  usage: {
+    filesProcessed: 91,
+    totalBytesConsidered: "563302"
+  },
+  limit: {
+    reached: false,
+    reason: null
+  },
   createdAt: "2026-08-10T10:00:00.000Z",
   updatedAt: "2026-08-10T10:00:06.000Z"
 };
@@ -105,7 +131,15 @@ const failedScan: ScanSnapshot = {
   completedAt: null,
   durationMs: null,
   totalFiles: 12,
-  totalSize: "98765432101234567890"
+  totalSize: "98765432101234567890",
+  usage: {
+    filesProcessed: 12,
+    totalBytesConsidered: "98765432101234567890"
+  },
+  limit: {
+    reached: false,
+    reason: null
+  }
 };
 
 function historyResponse(
@@ -176,6 +210,7 @@ describe("ScanHistory", () => {
     queryOptions.length = 0;
     queryState = {};
     vi.mocked(getScanHistory).mockReset();
+    vi.mocked(getScanLimits).mockReset();
     vi.mocked(startAnalysis).mockReset();
   });
 
@@ -196,6 +231,17 @@ describe("ScanHistory", () => {
     expect(getScanHistory).toHaveBeenCalledWith("access_token", "repository_abc", 1, 20);
   });
 
+  it("loads canonical scan limits for history usage summaries", async () => {
+    vi.mocked(getScanLimits).mockResolvedValue(scanLimits);
+    renderHistory({ data: historyResponse([completedScan]) }, "repository_abc");
+
+    await queryOptions[1]?.queryFn();
+
+    expect(queryOptions[1]?.queryKey).toEqual(["scan-limits"]);
+    expect(queryOptions[1]?.enabled).toBe(true);
+    expect(getScanLimits).toHaveBeenCalledWith("access_token");
+  });
+
   it("does not load per-scan analysis history for completed scans", () => {
     renderHistory({ data: historyResponse([completedScan]) }, "repository_abc");
 
@@ -206,8 +252,12 @@ describe("ScanHistory", () => {
     renderHistory({ data: historyResponse([]) }, "repository_a");
     renderHistory({ data: historyResponse([]) }, "repository_b");
 
-    expect(queryOptions[0]?.queryKey).toContain("repository_a");
-    expect(queryOptions[1]?.queryKey).toContain("repository_b");
+    const historyKeys = queryOptions
+      .filter((options) => options.queryKey[0] === "scan-history")
+      .map((options) => options.queryKey);
+
+    expect(historyKeys[0]).toContain("repository_a");
+    expect(historyKeys[1]).toContain("repository_b");
   });
 
   it("shows a loading state while history is loading", () => {
@@ -228,11 +278,35 @@ describe("ScanHistory", () => {
     expect(markup).toContain("Failed");
     expect(markup).toContain("91");
     expect(markup).toContain("563302 bytes");
+    expect(markup).toContain("91 / 5,000");
+    expect(markup).toContain("563,302 bytes / 25 MiB");
     expect(markup).toContain("6864 ms");
     expect(markup).toContain("98765432101234567890 bytes");
     expect(markup).toContain("Not available");
     expect(markup).toContain("Analyze scan scan_completed");
     expect(markup).not.toContain("Analyze scan_failed");
+  });
+
+  it("shows meaningful scan-limit failures in scan history", () => {
+    const markup = renderHistory({
+      data: historyResponse([
+        {
+          ...failedScan,
+          limit: {
+            reached: true,
+            reason: "TOTAL_SIZE_LIMIT"
+          },
+          usage: {
+            filesProcessed: 488,
+            totalBytesConsidered: "26214401"
+          }
+        }
+      ])
+    });
+
+    expect(markup).toContain("Total data limit reached");
+    expect(markup).toContain("488 / 5,000");
+    expect(markup).toContain("25 MiB / 25 MiB");
   });
 
   it("shows Analyze scan when a completed scan has no analyses", () => {
