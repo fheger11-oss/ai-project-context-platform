@@ -47,6 +47,10 @@ describe("AuthController rate limiting", () => {
 });
 
 describe("AuthController GitHub OAuth state cookie", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("sets an HttpOnly OAuth state cookie before redirecting to GitHub", async () => {
     const authService = {
       createGitHubOAuthNonce: vi.fn().mockReturnValue("nonce-value"),
@@ -70,6 +74,28 @@ describe("AuthController GitHub OAuth state cookie", () => {
         maxAge: 600_000,
         path: "/",
         sameSite: "lax"
+      })
+    );
+  });
+
+  it("sets the OAuth state cookie Secure flag in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const authService = {
+      createGitHubOAuthNonce: vi.fn().mockReturnValue("nonce-value"),
+      createGitHubAuthorizationUrl: vi.fn().mockResolvedValue("https://github.com/login/oauth")
+    };
+    const response = {
+      cookie: vi.fn()
+    };
+    const controller = new AuthController(authService as never);
+
+    await controller.loginWithGitHub(response as never);
+
+    expect(response.cookie).toHaveBeenCalledWith(
+      "ctxaro_github_oauth_state",
+      "nonce-value",
+      expect.objectContaining({
+        secure: true
       })
     );
   });
