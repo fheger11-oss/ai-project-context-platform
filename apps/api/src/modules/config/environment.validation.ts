@@ -34,6 +34,14 @@ const environmentSchema = z
   .superRefine((config, context) => {
     const isProduction = config.NODE_ENV === "production" || config.APP_ENV === "production";
 
+    if (config.JWT_ACCESS_SECRET === config.JWT_REFRESH_SECRET) {
+      context.addIssue({
+        code: "custom",
+        path: ["JWT_REFRESH_SECRET"],
+        message: "JWT refresh secret must be different from JWT access secret"
+      });
+    }
+
     if (!isProduction) {
       return;
     }

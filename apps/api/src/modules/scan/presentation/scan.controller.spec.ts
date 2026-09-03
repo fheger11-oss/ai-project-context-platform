@@ -191,6 +191,19 @@ describe("ScanController", () => {
     });
   });
 
+  it("does not force repositories without an explicit scan reference onto main", async () => {
+    const { controller, service } = createController();
+
+    await controller.startScan(user, {
+      repositoryId: "repository_1"
+    });
+
+    expect(service.startScan).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      userId: "user_1"
+    });
+  });
+
   it("maps totalSize to a string in the HTTP response", async () => {
     const snapshot = createSnapshot({ totalSize: 1500n, totalBytesConsidered: 1500n });
     const { controller } = createController({

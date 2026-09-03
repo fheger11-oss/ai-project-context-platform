@@ -111,4 +111,13 @@ describe("validateEnvironment", () => {
       })
     ).toThrow(/APP_ENV must be production/);
   });
+
+  it("rejects matching access and refresh token secrets", () => {
+    expect(() =>
+      validateEnvironment({
+        ...productionEnvironment,
+        JWT_REFRESH_SECRET: productionEnvironment.JWT_ACCESS_SECRET
+      })
+    ).toThrow(/JWT refresh secret must be different from JWT access secret/);
+  });
 });

@@ -24,7 +24,7 @@ import { assertValidScanStatusTransition } from "../domain/scan-state-machine.js
 
 export type StartScanInput = {
   repositoryId: string;
-  reference: string;
+  reference?: string;
   userId: string;
 };
 

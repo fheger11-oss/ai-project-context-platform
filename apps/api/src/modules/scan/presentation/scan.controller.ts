@@ -141,7 +141,7 @@ export class ScanController {
     try {
       snapshot = await this.scanService.startScan({
         repositoryId: dto.repositoryId,
-        reference: dto.reference ?? "main",
+        ...(dto.reference ? { reference: dto.reference } : {}),
         userId: user.id
       });
     } catch (error) {
