@@ -28,44 +28,86 @@ Install dependencies from the repository root:
 pnpm install --frozen-lockfile
 ```
 
-## Environment
+## Production Deployment Configuration
 
-Do not commit real production secrets. Use the values below as placeholders only.
-
-Frontend build environment:
-
-```text
-VITE_API_URL=https://api.example.com/api/v1
-```
-
-API runtime environment:
+Do not commit real production secrets. The production domain is not selected yet. Until it is,
+`https://ctxaro.example` means "replace before public launch" and must not be treated as a real
+deployment origin.
 
 ```text
-APP_ENV=production
-NODE_ENV=production
-API_HOST=0.0.0.0
-API_PORT=3000
-API_TRUST_PROXY=true
-API_PREFIX=api
-API_VERSION=1
-CORS_ORIGINS=https://app.example.com
-DATABASE_URL=postgresql://...
-JWT_ACCESS_SECRET=<at-least-32-random-characters>
-JWT_REFRESH_SECRET=<different-at-least-32-random-characters>
-JWT_ACCESS_TOKEN_TTL_SECONDS=7200
-JWT_REFRESH_TOKEN_TTL_SECONDS=2592000
-GITHUB_CLIENT_ID=<github-oauth-client-id>
-GITHUB_CLIENT_SECRET=<github-oauth-client-secret>
-GITHUB_CALLBACK_URL=https://api.example.com/api/v1/auth/github/callback
-WEB_AUTH_CALLBACK_URL=https://app.example.com/auth/callback
-PROVIDER_TOKEN_ENCRYPTION_KEY=<at-least-32-random-characters>
-RATE_LIMIT_GLOBAL_TTL_SECONDS=60
-RATE_LIMIT_GLOBAL_MAX=300
-RATE_LIMIT_AUTH_TTL_SECONDS=60
-RATE_LIMIT_AUTH_MAX=10
+Vercel
+  -> builds apps/web
+  -> publishes apps/web/dist
+  -> sets VITE_API_URL to the Railway HTTPS API origin
+
+Railway
+  -> builds the monorepo API
+  -> runs apps/api/dist/main.js
+  -> allows the Vercel frontend origin through CORS
+
+Supabase
+  -> provides DATABASE_URL for Prisma/PostgreSQL
+  -> receives forward Prisma migrations before API rollout
 ```
 
-Set `API_TRUST_PROXY=true` only when the API runs behind a trusted reverse proxy or platform load balancer. Production CORS must use explicit HTTPS origins; do not use `CORS_ORIGINS=*`.
+Production URL dependencies:
+
+```text
+Frontend production origin
+  -> CORS_ORIGINS on Railway
+
+GitHub OAuth callback
+  -> GITHUB_CALLBACK_URL on Railway
+  -> GitHub OAuth app callback URL
+
+Frontend callback URL
+  -> WEB_AUTH_CALLBACK_URL on Railway
+  -> Vercel /auth/callback route
+
+Frontend API base URL
+  -> VITE_API_URL on Vercel
+  -> Railway /api/v1 origin
+```
+
+### Environment Variables
+
+| Variable                        | Service                   | Required | Purpose                                                                                    | Safe placeholder                                         |
+| ------------------------------- | ------------------------- | -------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| `VITE_API_URL`                  | Vercel/Web                | Yes      | HTTPS API base URL used by the Vite bundle. Must include `/api/v1`.                        | `https://api.ctxaro.example/api/v1`                      |
+| `APP_ENV`                       | Railway/API               | Yes      | Production environment mode. Must match `NODE_ENV=production` in production.               | `production`                                             |
+| `NODE_ENV`                      | Railway/API               | Yes      | Node production mode. Disables Swagger when production.                                    | `production`                                             |
+| `API_HOST`                      | Railway/API               | Yes      | Bind host for NestJS.                                                                      | `0.0.0.0`                                                |
+| `API_PORT`                      | Railway/API               | Yes      | API port. Railway may inject `PORT`; map it to `API_PORT` if needed.                       | `3000`                                                   |
+| `API_TRUST_PROXY`               | Railway/API               | Yes      | Enables trusted proxy IP handling behind Railway.                                          | `true`                                                   |
+| `API_PREFIX`                    | Railway/API               | No       | API route prefix.                                                                          | `api`                                                    |
+| `API_VERSION`                   | Railway/API               | No       | URI version segment.                                                                       | `1`                                                      |
+| `SWAGGER_PATH`                  | Railway/API               | No       | Swagger path outside production. Ignored in production because Swagger is disabled.        | `docs`                                                   |
+| `CORS_ORIGINS`                  | Railway/API               | Yes      | Comma-separated allowed frontend HTTPS origins. Must include the Vercel production origin. | `https://ctxaro.example`                                 |
+| `DATABASE_URL`                  | Railway/API, Prisma       | Yes      | Supabase PostgreSQL connection string read by Prisma.                                      | `<supabase-postgresql-url>`                              |
+| `JWT_ACCESS_SECRET`             | Railway/API               | Yes      | Access-token signing secret. Must differ from refresh secret.                              | `<generate-access-secret>`                               |
+| `JWT_REFRESH_SECRET`            | Railway/API               | Yes      | Refresh-token signing secret. Must differ from access secret.                              | `<generate-refresh-secret>`                              |
+| `JWT_ACCESS_TOKEN_TTL_SECONDS`  | Railway/API               | No       | Access-token lifetime.                                                                     | `7200`                                                   |
+| `JWT_REFRESH_TOKEN_TTL_SECONDS` | Railway/API               | No       | Refresh-token lifetime.                                                                    | `2592000`                                                |
+| `GITHUB_CLIENT_ID`              | Railway/API               | Yes      | Production GitHub OAuth app client ID.                                                     | `<github-oauth-client-id>`                               |
+| `GITHUB_CLIENT_SECRET`          | Railway/API               | Yes      | Production GitHub OAuth app client secret.                                                 | `<github-oauth-client-secret>`                           |
+| `GITHUB_CALLBACK_URL`           | Railway/API, GitHub OAuth | Yes      | API callback URL registered with GitHub.                                                   | `https://api.ctxaro.example/api/v1/auth/github/callback` |
+| `WEB_AUTH_CALLBACK_URL`         | Railway/API, Vercel/Web   | Yes      | Frontend callback route receiving API-issued tokens.                                       | `https://ctxaro.example/auth/callback`                   |
+| `PROVIDER_TOKEN_ENCRYPTION_KEY` | Railway/API               | Yes      | Server-side encryption key for GitHub provider tokens.                                     | `<generate-encryption-key>`                              |
+| `RATE_LIMIT_GLOBAL_TTL_SECONDS` | Railway/API               | No       | Global in-memory throttle window.                                                          | `60`                                                     |
+| `RATE_LIMIT_GLOBAL_MAX`         | Railway/API               | No       | Global in-memory throttle max requests/window.                                             | `300`                                                    |
+| `RATE_LIMIT_AUTH_TTL_SECONDS`   | Railway/API               | No       | Auth endpoint throttle window.                                                             | `60`                                                     |
+| `RATE_LIMIT_AUTH_MAX`           | Railway/API               | No       | Auth endpoint throttle max requests/window.                                                | `10`                                                     |
+
+Values that must align:
+
+- Vercel `VITE_API_URL` must point to the Railway API HTTPS origin plus `/api/v1`.
+- Railway `CORS_ORIGINS` must include the final Vercel frontend HTTPS origin.
+- Railway `GITHUB_CALLBACK_URL` must exactly match the GitHub OAuth app callback URL.
+- Railway `WEB_AUTH_CALLBACK_URL` must point to the Vercel frontend `/auth/callback` route.
+- Railway `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `PROVIDER_TOKEN_ENCRYPTION_KEY` must be generated secrets and must never be exposed to Vercel.
+
+Set `API_TRUST_PROXY=true` only when the API runs behind Railway's trusted proxy/load balancer.
+Production CORS must use explicit HTTPS origins; do not use `CORS_ORIGINS=*`.
 
 ## Build
 
@@ -130,18 +172,28 @@ The API uses:
 Health URL with default prefix/version settings:
 
 ```text
-https://api.example.com/api/health
+https://api.ctxaro.example/api/health
 ```
 
 Application API URL:
 
 ```text
-https://api.example.com/api/v1
+https://api.ctxaro.example/api/v1
 ```
 
 ## Frontend SPA Hosting
 
-Deploy `apps/web/dist` to static hosting.
+Deploy `apps/web/dist` to Vercel static hosting.
+
+Vercel project settings:
+
+```text
+Root directory: apps/web
+Build command: pnpm --filter @ai-context/web build
+Output directory: dist
+Install command: pnpm install --frozen-lockfile
+Environment: VITE_API_URL=https://api.ctxaro.example/api/v1
+```
 
 The host must rewrite application routes to `/index.html`:
 
@@ -154,6 +206,33 @@ The host must rewrite application routes to `/index.html`:
 ```
 
 Do not add a frontend server for the MVP.
+
+`apps/web/vercel.json` currently provides the SPA fallback, HSTS, `X-Content-Type-Options`,
+`Referrer-Policy`, `frame-ancestors 'none'`, and `X-Robots-Tag: noindex, nofollow` for protected
+or transient SPA routes. Do not add a broad CSP until the production asset/API domains are final.
+
+## Railway API Hosting
+
+No `railway.json`, `railway.toml`, `nixpacks.toml`, `Dockerfile`, or `Procfile` is required for the
+current NestJS/pnpm setup.
+
+Railway service settings:
+
+```text
+Root directory: repository root
+Build command: pnpm install --frozen-lockfile && pnpm --filter @ai-context/api build
+Start command: pnpm --filter @ai-context/api start
+Healthcheck path: /api/health
+```
+
+Run database migrations from the repository root before promoting the API deployment:
+
+```bash
+pnpm db:migrate:deploy
+```
+
+The production API must use the Railway environment variables listed above. Do not set Vercel-only
+variables such as `VITE_API_URL` on Railway unless they are needed for a one-off build diagnostic.
 
 ## SEO and Crawl Controls
 
@@ -169,7 +248,7 @@ Before public launch, replace the SEO origin placeholder `https://ctxaro.example
 Use the exact HTTPS production frontend origin. Keep `/landing` available as a public alias, but
 do not include it in the sitemap because `/` is the canonical public URL.
 
-Configure the production static host to return this header for private or transient app routes:
+The checked-in Vercel config returns this header for private or transient app routes:
 
 ```text
 X-Robots-Tag: noindex, nofollow
@@ -187,16 +266,14 @@ Required path coverage:
 ```
 
 Keep the matching `robots.txt` disallow rules as a crawler hint, but do not rely on
-`robots.txt` alone for authenticated application routes. The production hosting provider is not
-defined in this repository, so add the path-based header configuration in the selected host's
-deployment settings or host-specific config.
+`robots.txt` alone for authenticated application routes.
 
 ## GitHub OAuth
 
 Configure the production GitHub OAuth app callback URL to exactly match:
 
 ```text
-GITHUB_CALLBACK_URL=https://api.example.com/api/v1/auth/github/callback
+GITHUB_CALLBACK_URL=https://api.ctxaro.example/api/v1/auth/github/callback
 ```
 
 OAuth flow:
@@ -212,7 +289,7 @@ GitHub OAuth App
 `WEB_AUTH_CALLBACK_URL` must point to the frontend route:
 
 ```text
-https://app.example.com/auth/callback
+https://ctxaro.example/auth/callback
 ```
 
 ## Deployment Order

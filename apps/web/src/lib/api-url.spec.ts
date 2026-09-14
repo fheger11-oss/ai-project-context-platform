@@ -26,7 +26,7 @@ describe("resolveApiUrl", () => {
   it("rejects localhost production API URLs", () => {
     expect(() =>
       resolveApiUrl({ PROD: true, VITE_API_URL: "https://localhost:3000/api/v1" })
-    ).toThrow(/localhost/);
+    ).toThrow(/loopback host/);
   });
 
   it("accepts a production HTTPS API URL", () => {
