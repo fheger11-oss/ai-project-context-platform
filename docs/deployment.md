@@ -77,7 +77,8 @@ Frontend API base URL
 | `APP_ENV`                       | Railway/API               | Yes      | Production environment mode. Must match `NODE_ENV=production` in production.               | `production`                                             |
 | `NODE_ENV`                      | Railway/API               | Yes      | Node production mode. Disables Swagger when production.                                    | `production`                                             |
 | `API_HOST`                      | Railway/API               | Yes      | Bind host for NestJS.                                                                      | `0.0.0.0`                                                |
-| `API_PORT`                      | Railway/API               | Yes      | API port. Railway may inject `PORT`; map it to `API_PORT` if needed.                       | `3000`                                                   |
+| `PORT`                          | Railway/API               | Yes      | Platform-provided bind port on Railway. The API maps this to `API_PORT` when unset.        | Railway-provided                                         |
+| `API_PORT`                      | Railway/API               | No       | Explicit API port override for non-Railway or diagnostic runs.                             | `3000`                                                   |
 | `API_TRUST_PROXY`               | Railway/API               | Yes      | Enables trusted proxy IP handling behind Railway.                                          | `true`                                                   |
 | `API_PREFIX`                    | Railway/API               | No       | API route prefix.                                                                          | `api`                                                    |
 | `API_VERSION`                   | Railway/API               | No       | URI version segment.                                                                       | `1`                                                      |
@@ -211,6 +212,13 @@ Do not add a frontend server for the MVP.
 `Referrer-Policy`, `frame-ancestors 'none'`, and `X-Robots-Tag: noindex, nofollow` for protected
 or transient SPA routes. Do not add a broad CSP until the production asset/API domains are final.
 
+Current deployment status:
+
+- Vercel deployment has not been executed from this repository workspace because Vercel CLI/account
+  access is not available here.
+- No temporary Vercel deployment URL has been verified yet.
+- Frontend to API verification is pending an actual Railway API deployment URL.
+
 ## Railway API Hosting
 
 No `railway.json`, `railway.toml`, `nixpacks.toml`, `Dockerfile`, or `Procfile` is required for the
@@ -225,6 +233,13 @@ Start command: pnpm --filter @ai-context/api start
 Healthcheck path: /api/health
 ```
 
+Port handling:
+
+- Railway provides `PORT`.
+- The API uses `PORT` when `API_PORT` is not explicitly configured.
+- Do not hardcode a fixed Railway port.
+- Keep `API_HOST=0.0.0.0`.
+
 Run database migrations from the repository root before promoting the API deployment:
 
 ```bash
@@ -233,6 +248,15 @@ pnpm db:migrate:deploy
 
 The production API must use the Railway environment variables listed above. Do not set Vercel-only
 variables such as `VITE_API_URL` on Railway unless they are needed for a one-off build diagnostic.
+
+Current deployment status:
+
+- Railway deployment has not been executed from this repository workspace because Railway CLI/account
+  access is not available here.
+- No temporary Railway public URL has been verified yet.
+- After the service exists and environment variables are set, verify `GET /api/health`, `GET /docs`,
+  one protected endpoint without auth, CORS, rate limiting, and Helmet headers against the Railway
+  public URL.
 
 ## SEO and Crawl Controls
 

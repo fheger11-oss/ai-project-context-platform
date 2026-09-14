@@ -54,6 +54,31 @@ describe("validateEnvironment", () => {
     });
   });
 
+  it("uses the platform PORT when API_PORT is not explicitly configured", () => {
+    const { API_PORT: _apiPort, ...environmentWithoutApiPort } = productionEnvironment;
+
+    expect(
+      validateEnvironment({
+        ...environmentWithoutApiPort,
+        PORT: "4321"
+      })
+    ).toMatchObject({
+      API_PORT: 4321
+    });
+  });
+
+  it("keeps API_PORT as the explicit port override when both ports are configured", () => {
+    expect(
+      validateEnvironment({
+        ...productionEnvironment,
+        API_PORT: "3001",
+        PORT: "4321"
+      })
+    ).toMatchObject({
+      API_PORT: 3001
+    });
+  });
+
   it("applies rate-limit defaults outside production", () => {
     expect(
       validateEnvironment({

@@ -82,7 +82,7 @@ const environmentSchema = z
 export type Environment = z.infer<typeof environmentSchema>;
 
 export function validateEnvironment(config: Record<string, unknown>) {
-  const parsed = environmentSchema.safeParse(config);
+  const parsed = environmentSchema.safeParse(normalizePlatformPort(config));
 
   if (!parsed.success) {
     const details = parsed.error.issues
@@ -93,6 +93,17 @@ export function validateEnvironment(config: Record<string, unknown>) {
   }
 
   return parsed.data;
+}
+
+function normalizePlatformPort(config: Record<string, unknown>) {
+  if (Object.hasOwn(config, "API_PORT") || !Object.hasOwn(config, "PORT")) {
+    return config;
+  }
+
+  return {
+    ...config,
+    API_PORT: config.PORT
+  };
 }
 
 function assertProductionUrl(
