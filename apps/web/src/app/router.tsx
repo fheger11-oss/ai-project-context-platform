@@ -24,13 +24,13 @@ export const router = createBrowserRouter([
     element: <PrivacyView />
   },
   {
+    path: "/auth/callback",
+    element: <AuthCallbackView />
+  },
+  {
     path: "/",
     element: <AppShell />,
     children: [
-      {
-        path: "auth/callback",
-        element: <AuthCallbackView />
-      },
       {
         path: "repositories",
         element: <RepositoryListView />

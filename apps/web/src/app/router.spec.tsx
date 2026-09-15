@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "@/layouts/app-shell";
+import { AuthCallbackView } from "@/routes/auth-callback-view";
 import { LandingView } from "@/routes/landing-view";
 import { PrivacyView } from "@/routes/privacy-view";
 import { RootEntryView } from "@/routes/root-entry-view";
@@ -88,5 +89,23 @@ describe("router", () => {
 
     expect(privacyRoute?.element.type).toBe(PrivacyView);
     expect(appRoute?.children?.some((route) => route.path === "privacy")).toBe(false);
+  });
+
+  it("adds the OAuth callback outside the authenticated application shell", async () => {
+    const { router } = await import("@/app/router");
+    const routes = (
+      router as {
+        routes: {
+          path?: string;
+          element: ReactElement;
+          children?: { path?: string }[];
+        }[];
+      }
+    ).routes;
+    const callbackRoute = routes.find((route) => route.path === "/auth/callback");
+    const appRoute = routes.find((route) => route.path === "/" && route.element.type === AppShell);
+
+    expect(callbackRoute?.element.type).toBe(AuthCallbackView);
+    expect(appRoute?.children?.some((route) => route.path === "auth/callback")).toBe(false);
   });
 });

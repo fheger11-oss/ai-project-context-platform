@@ -5,12 +5,17 @@ export type AuthCallbackSession = {
 };
 
 export function readAuthCallbackSession(hash: string): AuthCallbackSession | null {
+  if (!hash.startsWith("#")) {
+    return null;
+  }
+
   const params = new URLSearchParams(hash.replace(/^#/, ""));
   const accessToken = params.get("access_token");
   const refreshToken = params.get("refresh_token");
-  const expiresIn = Number(params.get("expires_in"));
+  const expiresInValue = params.get("expires_in");
+  const expiresIn = Number(expiresInValue);
 
-  if (!accessToken || !refreshToken || !Number.isFinite(expiresIn)) {
+  if (!accessToken || !refreshToken || !expiresInValue || !Number.isFinite(expiresIn)) {
     return null;
   }
 

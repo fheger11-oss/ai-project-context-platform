@@ -1,26 +1,25 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { CtxaroWordmark } from "@/features/brand/components/ctxaro-brand";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
-import { readAuthCallbackSession } from "@/routes/auth-callback-session";
+import { completeAuthCallback } from "@/routes/auth-callback-flow";
 
 export function AuthCallbackView() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const setSession = useAuthSessionStore((state) => state.setSession);
 
   useEffect(() => {
-    const session = readAuthCallbackSession(window.location.hash);
-
-    if (!session) {
-      navigate("/", { replace: true });
-      return;
-    }
-
-    setSession(session);
-    window.history.replaceState(null, "", "/auth/callback");
-    navigate("/", { replace: true });
-  }, [navigate, setSession]);
+    completeAuthCallback({
+      hash: window.location.hash,
+      navigate,
+      queryClient,
+      replaceCallbackUrl: () => window.history.replaceState(null, "", "/auth/callback"),
+      setSession
+    });
+  }, [navigate, queryClient, setSession]);
 
   return (
     <section
