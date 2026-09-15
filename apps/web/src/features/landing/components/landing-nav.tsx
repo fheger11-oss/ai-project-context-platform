@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CtxaroWordmark } from "@/features/brand/components/ctxaro-brand";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
+import { analytics } from "@/lib/analytics";
 
 const navLinks = [
   { label: "How it works", href: "#how-it-works" },
@@ -47,13 +48,19 @@ export function LandingNav() {
             variant="ghost"
             className="hidden text-subtle-foreground hover:text-white sm:inline-flex"
           >
-            <a href={githubLoginUrl}>
+            <a
+              href={githubLoginUrl}
+              onClick={() => analytics.track("github_login_started", { method: "github" })}
+            >
               <LogIn />
               Sign in
             </a>
           </Button>
           <Button asChild className="hidden h-9 px-3 text-xs sm:inline-flex sm:text-sm">
-            <a href={githubLoginUrl}>
+            <a
+              href={githubLoginUrl}
+              onClick={() => analytics.track("github_login_started", { method: "github" })}
+            >
               Start for free
               <GitBranch />
             </a>

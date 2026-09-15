@@ -1,5 +1,5 @@
 import { CalendarClock, FileText, History, RefreshCw, RotateCw, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { StatePanel } from "@/components/shared/state-panel";
@@ -15,6 +15,7 @@ import {
   regenerateDocument
 } from "@/features/documents/api/document-api";
 import type { GeneratedDocumentResponse } from "@/features/documents/api/document-api";
+import { analytics } from "@/lib/analytics";
 import type { GenerateDocumentRequest } from "@ai-context/contracts";
 import { MarkdownDocumentContent } from "./markdown-document-content";
 
@@ -110,6 +111,7 @@ export function DocumentGenerationPanel({
   initialDocumentType = "PROJECT_OVERVIEW"
 }: DocumentGenerationPanelProps) {
   const queryClient = useQueryClient();
+  const openedDocumentIds = useRef(new Set<string>());
   const [selectedDocumentType, setSelectedDocumentType] =
     useState<GenerateDocumentRequest["documentType"]>(initialDocumentType);
   const [selectedDocument, setSelectedDocument] = useState<{
@@ -141,6 +143,9 @@ export function DocumentGenerationPanel({
     onSuccess: async (document) => {
       setSelectedDocument({ contextId, documentId: document.id });
       queryClient.setQueryData(["document", document.id], document);
+      analytics.track("document_generated", {
+        document_type: document.documentType
+      });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
         queryClient.invalidateQueries({ queryKey: historyQueryKey })
@@ -152,6 +157,9 @@ export function DocumentGenerationPanel({
     onSuccess: async (document) => {
       setSelectedDocument({ contextId, documentId: document.id });
       queryClient.setQueryData(["document", document.id], document);
+      analytics.track("document_generated", {
+        document_type: document.documentType
+      });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
         queryClient.invalidateQueries({ queryKey: historyQueryKey })
@@ -163,6 +171,17 @@ export function DocumentGenerationPanel({
   const selectedDocumentTypeLabel = labelForDocumentType(selectedDocumentType);
   const canGenerate = Boolean(accessToken && contextId && !isGenerating);
   const canRegenerate = Boolean(activeDocument && !isRegenerating);
+
+  useEffect(() => {
+    if (!activeDocument || openedDocumentIds.current.has(activeDocument.id)) {
+      return;
+    }
+
+    openedDocumentIds.current.add(activeDocument.id);
+    analytics.track("document_opened", {
+      document_type: activeDocument.documentType
+    });
+  }, [activeDocument]);
 
   function handleGenerate() {
     if (!canGenerate) {

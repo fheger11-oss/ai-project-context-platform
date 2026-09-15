@@ -58,6 +58,14 @@ vi.mock("@/features/analysis/api/analysis-api", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/analytics", () => ({
+  analytics: {
+    track: vi.fn()
+  }
+}));
+
+import { analytics } from "@/lib/analytics";
+
 function findButtonElement(node: ReactNode): ReactElement<ButtonElementProps> | null {
   if (!node || typeof node !== "object" || !("type" in node) || !("props" in node)) {
     return null;
@@ -91,6 +99,7 @@ describe("StartAnalysisButton", () => {
     navigate.mockReset();
     invalidateQueries.mockReset();
     vi.mocked(startAnalysis).mockReset();
+    vi.mocked(analytics.track).mockReset();
   });
 
   it("starts analysis for the supplied scan ID", async () => {
@@ -121,6 +130,7 @@ describe("StartAnalysisButton", () => {
 
     mutationOptions?.onSuccess?.({ analysisId: "analysis/with space" });
 
+    expect(analytics.track).toHaveBeenCalledWith("analysis_completed");
     expect(navigate).toHaveBeenCalledWith("/analyses/analysis%2Fwith%20space");
   });
 

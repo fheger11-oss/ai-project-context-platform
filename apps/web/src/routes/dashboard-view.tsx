@@ -1,4 +1,5 @@
 import { GitBranch, Plus, RefreshCw } from "lucide-react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
@@ -10,6 +11,7 @@ import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
 import { ProjectSummaryCard } from "@/features/dashboard/components/project-summary-card";
 import { getScanLimits } from "@/features/scans/api/scan-api";
+import { analytics } from "@/lib/analytics";
 
 export function DashboardView() {
   const apiAccessToken = useAuthSessionStore((state) => state.accessToken);
@@ -24,6 +26,10 @@ export function DashboardView() {
     enabled: Boolean(apiAccessToken)
   });
   const projects = dashboardProjectsQuery.data?.projects ?? [];
+
+  useEffect(() => {
+    analytics.track("dashboard_viewed");
+  }, []);
 
   return (
     <>
@@ -41,7 +47,12 @@ export function DashboardView() {
             </Button>
           ) : (
             <Button asChild>
-              <a href={getGitHubLoginUrl()}>Continue with GitHub</a>
+              <a
+                href={getGitHubLoginUrl()}
+                onClick={() => analytics.track("github_login_started", { method: "github" })}
+              >
+                Continue with GitHub
+              </a>
             </Button>
           )
         }
@@ -51,7 +62,12 @@ export function DashboardView() {
         <StatePanel
           action={
             <Button asChild>
-              <a href={getGitHubLoginUrl()}>Continue with GitHub</a>
+              <a
+                href={getGitHubLoginUrl()}
+                onClick={() => analytics.track("github_login_started", { method: "github" })}
+              >
+                Continue with GitHub
+              </a>
             </Button>
           }
           className="min-h-[260px]"

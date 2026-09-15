@@ -13,9 +13,12 @@ describe("PrivacyView", () => {
     );
 
     expect(markup).toContain("Privacy Policy");
-    expect(markup).toContain("Last updated: September 3, 2026");
+    expect(markup).toContain("Last updated: September 15, 2026");
     expect(markup).toContain("repo");
     expect(markup).toContain("Source-Code Processing And Storage");
+    expect(markup).toContain("uses PostHog for product analytics");
+    expect(markup).toContain("internal stable user identifier");
+    expect(markup).toContain("does not enable session recordings or autocapture by default");
     expect(markup).toContain("Scan limit values are loaded from the scan API.");
     expect(markup).toContain(
       "Full secret scanning and content-level redaction are not currently implemented"

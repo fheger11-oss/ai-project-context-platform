@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 import { ContextRail } from "@/features/landing/components/context-rail";
 import { FaqSection } from "@/features/landing/components/faq-section";
 import { FinalCtaSection } from "@/features/landing/components/final-cta-section";
@@ -8,8 +10,13 @@ import { LandingNav } from "@/features/landing/components/landing-nav";
 import { MotionBackground } from "@/features/landing/components/motion-background";
 import { ProductProofSection } from "@/features/landing/components/product-proof-section";
 import { WhyCtxaroSection } from "@/features/landing/components/why-ctxaro-section";
+import { analytics } from "@/lib/analytics";
 
 export function LandingView() {
+  useEffect(() => {
+    analytics.track("landing_viewed");
+  }, []);
+
   return (
     <div className="dark min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#050706] text-foreground">
       <MotionBackground />

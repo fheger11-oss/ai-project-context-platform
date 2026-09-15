@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { CapabilityCard } from "@/features/landing/components/capability-card";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { PipelineStep } from "@/features/landing/components/pipeline/pipeline-step";
+import { analytics } from "@/lib/analytics";
 
 const pipelineSteps = [
   {
@@ -136,7 +137,10 @@ export function HowItWorksSection() {
             AI coding tools can reuse.
           </p>
           <Button asChild className="h-10">
-            <a href={githubLoginUrl}>
+            <a
+              href={githubLoginUrl}
+              onClick={() => analytics.track("github_login_started", { method: "github" })}
+            >
               Start with your repository
               <ArrowRight />
             </a>

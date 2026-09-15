@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { HeroVisualization } from "@/features/landing/components/hero-visualization";
+import { analytics } from "@/lib/analytics";
 
 export function HeroSection() {
   const githubLoginUrl = getGitHubLoginUrl();
@@ -26,7 +27,10 @@ export function HeroSection() {
 
         <div className="landing-mobile-measure mt-8 flex flex-col gap-3 sm:flex-row">
           <Button asChild size="lg" className="h-11 px-5 sm:w-auto">
-            <a href={githubLoginUrl}>
+            <a
+              href={githubLoginUrl}
+              onClick={() => analytics.track("github_login_started", { method: "github" })}
+            >
               <GitBranch />
               Start for free
             </a>
@@ -51,6 +55,11 @@ export function HeroSection() {
           </span>
           <a
             href={dashboardHref}
+            onClick={() => {
+              if (!accessToken) {
+                analytics.track("github_login_started", { method: "github" });
+              }
+            }}
             className="inline-flex items-center gap-2 rounded-md px-1 py-2 text-subtle-foreground outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-primary/75 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050706]"
           >
             Open dashboard

@@ -13,6 +13,7 @@ import {
   RepositoryState
 } from "@/features/repositories/components/repository-state";
 import { listRepositories } from "@/features/repositories/api/repositories-api";
+import { analytics } from "@/lib/analytics";
 
 export function RepositoryListView() {
   const apiAccessToken = useAuthSessionStore((state) => state.accessToken);
@@ -45,7 +46,12 @@ export function RepositoryListView() {
           description="Sign in with GitHub to load connected repositories."
           action={
             <Button asChild>
-              <a href={getGitHubLoginUrl()}>Sign in with GitHub</a>
+              <a
+                href={getGitHubLoginUrl()}
+                onClick={() => analytics.track("github_login_started", { method: "github" })}
+              >
+                Sign in with GitHub
+              </a>
             </Button>
           }
         />

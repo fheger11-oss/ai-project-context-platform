@@ -1,4 +1,5 @@
 import { GitBranch, Loader2, Plus, Unlink } from "lucide-react";
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeading } from "@/components/typography/page-heading";
@@ -13,6 +14,7 @@ import {
   listAvailableGitHubRepositories
 } from "@/features/repositories/api/repositories-api";
 import type { AvailableGitHubRepository } from "@/features/repositories/api/repositories-api";
+import { analytics } from "@/lib/analytics";
 
 export function ConnectRepositoryView() {
   const queryClient = useQueryClient();
@@ -27,6 +29,7 @@ export function ConnectRepositoryView() {
     mutationFn: (repository: AvailableGitHubRepository) =>
       connectRepository(apiAccessToken, repository.githubId),
     onSuccess: async () => {
+      analytics.track("repository_connected", { provider: "github" });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
         queryClient.invalidateQueries({ queryKey: ["repositories"] }),
@@ -52,6 +55,10 @@ export function ConnectRepositoryView() {
   });
   const repositories = availableQuery.data?.repositories ?? [];
   const isRepositoryMutationPending = connectMutation.isPending || disconnectMutation.isPending;
+
+  useEffect(() => {
+    analytics.track("repository_connect_started", { provider: "github" });
+  }, []);
 
   return (
     <>
@@ -81,7 +88,12 @@ export function ConnectRepositoryView() {
           description="Sign in with GitHub to retrieve repositories."
           action={
             <Button asChild>
-              <a href={getGitHubLoginUrl()}>Sign in with GitHub</a>
+              <a
+                href={getGitHubLoginUrl()}
+                onClick={() => analytics.track("github_login_started", { method: "github" })}
+              >
+                Sign in with GitHub
+              </a>
             </Button>
           }
         />

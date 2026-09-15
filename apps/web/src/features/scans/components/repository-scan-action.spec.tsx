@@ -16,6 +16,8 @@ type MutationState = {
 
 type MutationOptions = {
   mutationFn: () => Promise<unknown>;
+  onError?: (error: unknown) => void;
+  onSuccess?: (scan: ScanSnapshot) => void;
   onSettled?: () => Promise<void>;
 };
 
@@ -79,6 +81,14 @@ vi.mock("@/features/scans/api/scan-api", async (importOriginal) => {
     startScan: vi.fn()
   };
 });
+
+vi.mock("@/lib/analytics", () => ({
+  analytics: {
+    track: vi.fn()
+  }
+}));
+
+import { analytics } from "@/lib/analytics";
 
 const completedScan: ScanSnapshot = {
   id: "scan_1",
@@ -149,6 +159,7 @@ describe("RepositoryScanAction", () => {
     invalidateQueries.mockReset();
     vi.mocked(getScanLimits).mockReset();
     vi.mocked(startScan).mockReset();
+    vi.mocked(analytics.track).mockReset();
   });
 
   it("renders a scan action for a repository", () => {
@@ -183,6 +194,27 @@ describe("RepositoryScanAction", () => {
     button?.props.onClick?.();
 
     expect(startScan).toHaveBeenCalledWith("access_token", "repository_1");
+    expect(analytics.track).toHaveBeenCalledWith("scan_started");
+  });
+
+  it("tracks completed scans with aggregate file counts only", () => {
+    renderAction();
+
+    mutationOptions[0]?.onSuccess?.(completedScan);
+
+    expect(analytics.track).toHaveBeenCalledWith("scan_completed", {
+      files_processed: 91
+    });
+  });
+
+  it("tracks scan failures with a normalized reason", () => {
+    renderAction();
+
+    mutationOptions[0]?.onError?.(new Error("Provider detail"));
+
+    expect(analytics.track).toHaveBeenCalledWith("scan_failed", {
+      reason: "UNKNOWN"
+    });
   });
 
   it("does not start a second client request while the repository scan is pending", () => {

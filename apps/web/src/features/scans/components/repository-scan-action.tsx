@@ -11,6 +11,7 @@ import {
   ScanUsagePanel
 } from "@/features/scans/components/scan-usage";
 import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
+import { analytics } from "@/lib/analytics";
 
 type RepositoryScanActionProps = {
   accessToken: string;
@@ -46,6 +47,28 @@ export function RepositoryScanAction({ accessToken, repositoryId }: RepositorySc
   });
   const scanMutation = useMutation({
     mutationFn: () => startScan(accessToken, repositoryId),
+    onSuccess: (scan) => {
+      if (scan.status === "COMPLETED") {
+        analytics.track("scan_completed", {
+          files_processed: scan.usage.filesProcessed
+        });
+        return;
+      }
+
+      if (scan.status === "FAILED" || scan.status === "CANCELLED") {
+        analytics.track("scan_failed", {
+          reason: scan.limit.reached ? scan.limit.reason : "UNKNOWN"
+        });
+      }
+    },
+    onError: (error) => {
+      analytics.track("scan_failed", {
+        reason:
+          error instanceof ScanApiRequestError && error.details?.code === "SCAN_LIMIT_REACHED"
+            ? "SCAN_LIMIT_REACHED"
+            : "UNKNOWN"
+      });
+    },
     onSettled: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
@@ -64,6 +87,7 @@ export function RepositoryScanAction({ accessToken, repositoryId }: RepositorySc
       return;
     }
 
+    analytics.track("scan_started");
     scanMutation.mutate();
   }
 

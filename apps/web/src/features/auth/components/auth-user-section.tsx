@@ -7,6 +7,7 @@ import { StatusDot } from "@/components/shared/status-dot";
 import { Button } from "@/components/ui/button";
 import { getCurrentUser, getGitHubLoginUrl, logout } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
+import { analytics } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 type AuthUserSectionProps = {
@@ -30,14 +31,23 @@ export function AuthUserSection({ collapsed = false }: AuthUserSectionProps) {
     mutationFn: () => (refreshToken ? logout(refreshToken) : Promise.resolve()),
     onSettled: async () => {
       clearSession();
+      analytics.track("logout_completed");
+      analytics.reset();
       queryClient.clear();
       navigate("/", { replace: true });
     }
   });
 
   useEffect(() => {
+    if (currentUserQuery.data?.id) {
+      analytics.identify(currentUserQuery.data.id);
+    }
+  }, [currentUserQuery.data?.id]);
+
+  useEffect(() => {
     if (currentUserQuery.isError) {
       clearSession();
+      analytics.reset();
       queryClient.clear();
       navigate("/", { replace: true });
     }
@@ -50,7 +60,10 @@ export function AuthUserSection({ collapsed = false }: AuthUserSectionProps) {
         className={cn("w-full", collapsed ? "px-0 md:size-9" : "justify-start")}
         aria-label="Continue with GitHub"
       >
-        <a href={getGitHubLoginUrl()}>
+        <a
+          href={getGitHubLoginUrl()}
+          onClick={() => analytics.track("github_login_started", { method: "github" })}
+        >
           <LogIn />
           <span className={cn(collapsed && "md:hidden")}>Continue with GitHub</span>
         </a>

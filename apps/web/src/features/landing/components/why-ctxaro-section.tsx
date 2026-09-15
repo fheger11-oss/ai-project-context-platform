@@ -6,6 +6,7 @@ import { AudienceCard } from "@/features/landing/components/audience-card";
 import { ContextTransformation } from "@/features/landing/components/context-transformation";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { WorkflowComparison } from "@/features/landing/components/workflow-comparison";
+import { analytics } from "@/lib/analytics";
 
 const audiences = [
   {
@@ -111,7 +112,10 @@ export function WhyCtxaroSection() {
           Move from repository structure to Project Context, then into Documents and AI Export.
         </p>
         <Button asChild className="h-10">
-          <a href={githubLoginUrl}>
+          <a
+            href={githubLoginUrl}
+            onClick={() => analytics.track("github_login_started", { method: "github" })}
+          >
             Explore your repository
             <ArrowRight />
           </a>

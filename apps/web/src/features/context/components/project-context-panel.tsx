@@ -1,5 +1,5 @@
 import { CalendarClock, Eye, FileText, RefreshCw, RotateCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { StatePanel } from "@/components/shared/state-panel";
@@ -16,6 +16,7 @@ import {
 import type { ProjectContextHistoryItem } from "@/features/context/api/context-api";
 import { AiExportPanel } from "@/features/ai-export/components/ai-export-panel";
 import { DocumentGenerationPanel } from "@/features/documents/components/document-generation-panel";
+import { analytics } from "@/lib/analytics";
 import { ProjectContextDetails } from "./project-context-details";
 
 type ProjectContextPanelProps = {
@@ -74,6 +75,7 @@ function GenerateContextButton({
 
 export function ProjectContextPanel({ accessToken, analysisId }: ProjectContextPanelProps) {
   const queryClient = useQueryClient();
+  const viewedContextIds = useRef(new Set<string>());
   const [selectedContextId, setSelectedContextId] = useState<string | null>(null);
   const latestQuery = useQuery({
     queryKey: ["context", "latest", analysisId],
@@ -94,6 +96,10 @@ export function ProjectContextPanel({ accessToken, analysisId }: ProjectContextP
     mutationFn: () => generateProjectContext(accessToken, analysisId),
     onSuccess: async (context) => {
       setSelectedContextId(null);
+      if (!viewedContextIds.current.has(context.id)) {
+        viewedContextIds.current.add(context.id);
+        analytics.track("context_viewed");
+      }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
         queryClient.invalidateQueries({ queryKey: ["context", "latest", analysisId] }),
@@ -110,6 +116,15 @@ export function ProjectContextPanel({ accessToken, analysisId }: ProjectContextP
     activeError instanceof ContextApiRequestError &&
     activeError.status === 404 &&
     !selectedContextId;
+
+  useEffect(() => {
+    if (!activeContext || viewedContextIds.current.has(activeContext.id)) {
+      return;
+    }
+
+    viewedContextIds.current.add(activeContext.id);
+    analytics.track("context_viewed");
+  }, [activeContext]);
 
   return (
     <section

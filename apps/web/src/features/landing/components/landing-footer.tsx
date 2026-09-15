@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CtxaroWordmark } from "@/features/brand/components/ctxaro-brand";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
+import { analytics } from "@/lib/analytics";
 
 export function LandingFooter() {
   const githubLoginUrl = getGitHubLoginUrl();
@@ -59,13 +60,17 @@ export function LandingFooter() {
           </p>
           <div className="mt-4 grid gap-3">
             <Button asChild size="sm" className="w-fit">
-              <a href={githubLoginUrl}>
+              <a
+                href={githubLoginUrl}
+                onClick={() => analytics.track("github_login_started", { method: "github" })}
+              >
                 Get started
                 <ArrowRight />
               </a>
             </Button>
             <a
               href={githubLoginUrl}
+              onClick={() => analytics.track("github_login_started", { method: "github" })}
               className="w-fit rounded-md text-sm text-muted-foreground outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-primary/75 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050706]"
             >
               Sign in

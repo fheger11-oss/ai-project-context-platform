@@ -7,7 +7,7 @@ import {
   PackageCheck,
   RotateCw
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import type { AiExportFormat, AiExportResponse } from "@ai-context/contracts";
 
@@ -21,6 +21,7 @@ import {
   getAiExport
 } from "@/features/ai-export/api/ai-export-api";
 import { triggerDownload } from "@/features/ai-export/utils/download-ai-export";
+import { analytics } from "@/lib/analytics";
 
 const FORMAT_OPTIONS: readonly { format: AiExportFormat; label: string }[] = [
   { format: "AI_CONTEXT", label: "AI Context" },
@@ -86,6 +87,9 @@ export function AiExportPanel({ accessToken, contextId }: AiExportPanelProps) {
     },
     onSuccess: (exported) => {
       setPreview(exported);
+      analytics.track("ai_export_copied", {
+        format: exported.format
+      });
       setStatus({ kind: "success", message: `Copied ${labelForFormat(exported.format)} export.` });
     },
     onError: (error) => {
@@ -106,6 +110,9 @@ export function AiExportPanel({ accessToken, contextId }: AiExportPanelProps) {
       return exported;
     },
     onSuccess: () => {
+      analytics.track("ai_export_downloaded", {
+        format
+      });
       setStatus({ kind: "success", message: "Download started." });
     },
     onError: (error) => {
@@ -113,6 +120,12 @@ export function AiExportPanel({ accessToken, contextId }: AiExportPanelProps) {
     }
   });
   const isBusy = previewMutation.isPending || copyMutation.isPending || downloadMutation.isPending;
+
+  useEffect(() => {
+    analytics.track("ai_export_opened", {
+      format
+    });
+  }, [format]);
 
   return (
     <section

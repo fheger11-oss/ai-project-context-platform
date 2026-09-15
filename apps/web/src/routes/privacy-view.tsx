@@ -7,7 +7,7 @@ import { CtxaroWordmark } from "@/features/brand/components/ctxaro-brand";
 import { getScanLimits, type ScanLimits } from "@/features/scans/api/scan-api";
 import { formatBytes } from "@/features/scans/utils/scan-usage";
 
-const LAST_UPDATED = "September 3, 2026";
+const LAST_UPDATED = "September 15, 2026";
 
 const skippedFiles = [
   ".env",
@@ -228,7 +228,25 @@ export function PrivacyView() {
           </p>
         </PolicySection>
 
-        <PolicySection title="11. Retention">
+        <PolicySection title="11. Product Analytics">
+          <p>
+            Ctxaro uses PostHog for product analytics to understand how the application is used,
+            measure product journeys, and identify where users may encounter friction.
+          </p>
+          <p>
+            For authenticated users, Ctxaro may associate analytics events with an internal stable
+            user identifier. The analytics implementation does not send repository source code,
+            repository contents, authentication tokens, secrets, URL hashes, URL query strings, or
+            arbitrary API response bodies to PostHog.
+          </p>
+          <p>
+            Ctxaro's current analytics configuration does not enable session recordings or
+            autocapture by default. Analytics is disabled when the PostHog environment key is not
+            configured.
+          </p>
+        </PolicySection>
+
+        <PolicySection title="12. Retention">
           <p>
             Account data has no automatic application-level expiration. GitHub account and provider
             token data remains while the GitHub connection remains. Repository metadata, scan files,
@@ -242,7 +260,7 @@ export function PrivacyView() {
           </p>
         </PolicySection>
 
-        <PolicySection title="12. Repository Disconnect">
+        <PolicySection title="13. Repository Disconnect">
           <p>
             Disconnecting a repository removes the repository record and repository-derived database
             records through cascade deletion, including scans, scan files, analyses, Project
@@ -251,14 +269,14 @@ export function PrivacyView() {
           </p>
         </PolicySection>
 
-        <PolicySection title="13. Account Deletion">
+        <PolicySection title="14. Account Deletion">
           <p>
             Self-service account deletion is not currently implemented in the MVP. Account deletion
             and related privacy requests require a manual process until a self-service flow exists.
           </p>
         </PolicySection>
 
-        <PolicySection title="14. Security Measures">
+        <PolicySection title="15. Security Measures">
           <p>
             Ctxaro enforces repository ownership on the server, encrypts GitHub provider tokens at
             rest, stores refresh tokens as server-side hashes, rotates refresh tokens, redacts query
@@ -271,7 +289,7 @@ export function PrivacyView() {
           </p>
         </PolicySection>
 
-        <PolicySection title="15. Privacy Requests">
+        <PolicySection title="16. Privacy Requests">
           <p>
             You may request access, correction, deletion, or other handling of your data where
             applicable. A real production privacy contact mechanism is not configured in this
@@ -280,14 +298,14 @@ export function PrivacyView() {
           </p>
         </PolicySection>
 
-        <PolicySection title="16. Contact">
+        <PolicySection title="17. Contact">
           <p>
             Launch configuration required: publish a real privacy/contact channel before making this
             policy public. Do not use a placeholder email address for production.
           </p>
         </PolicySection>
 
-        <PolicySection title="17. Changes To This Policy">
+        <PolicySection title="18. Changes To This Policy">
           <p>
             Ctxaro may update this policy as the product changes. The "Last updated" date will be
             changed when the policy changes. Material legal language requires legal review.

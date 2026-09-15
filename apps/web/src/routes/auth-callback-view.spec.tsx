@@ -1,13 +1,27 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { completeAuthCallback } from "@/routes/auth-callback-flow";
 import { readAuthCallbackSession } from "@/routes/auth-callback-session";
 import { AuthCallbackView } from "@/routes/auth-callback-view";
 
+vi.mock("@/lib/analytics", () => ({
+  analytics: {
+    identify: vi.fn(),
+    reset: vi.fn(),
+    track: vi.fn()
+  }
+}));
+
+import { analytics } from "@/lib/analytics";
+
 describe("AuthCallbackView", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("renders ctxaro branding while finishing GitHub connection", () => {
     const queryClient = new QueryClient();
     const markup = renderToStaticMarkup(
@@ -84,6 +98,7 @@ describe("AuthCallbackView", () => {
     expect(queryClient.removeQueries).toHaveBeenCalledWith({ queryKey: ["auth", "me"] });
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["auth", "me"] });
     expect(navigate).toHaveBeenCalledWith("/", { replace: true });
+    expect(analytics.track).toHaveBeenCalledWith("github_login_completed", { method: "github" });
 
     const consoleOutput = consoleMethods
       .flatMap((spy) => spy.mock.calls)
@@ -114,6 +129,9 @@ describe("AuthCallbackView", () => {
 
     expect(completed).toBe(false);
     expect(setSession).not.toHaveBeenCalled();
+    expect(analytics.track).not.toHaveBeenCalledWith("github_login_completed", {
+      method: "github"
+    });
     expect(replaceCallbackUrl).not.toHaveBeenCalled();
     expect(queryClient.removeQueries).not.toHaveBeenCalled();
     expect(queryClient.invalidateQueries).not.toHaveBeenCalled();

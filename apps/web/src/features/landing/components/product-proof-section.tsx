@@ -7,6 +7,7 @@ import { AiExportPreview } from "@/features/landing/components/ai-export-preview
 import { DocumentPreview } from "@/features/landing/components/document-preview";
 import { ProductContextPreview } from "@/features/landing/components/product-context-preview";
 import { ProductFlowConnector } from "@/features/landing/components/product-flow-connector";
+import { analytics } from "@/lib/analytics";
 
 export function ProductProofSection() {
   const githubLoginUrl = getGitHubLoginUrl();
@@ -82,7 +83,10 @@ export function ProductProofSection() {
           and AI-ready exports.
         </p>
         <Button asChild className="h-10">
-          <a href={githubLoginUrl}>
+          <a
+            href={githubLoginUrl}
+            onClick={() => analytics.track("github_login_started", { method: "github" })}
+          >
             See what Ctxaro finds
             <ArrowRight />
           </a>

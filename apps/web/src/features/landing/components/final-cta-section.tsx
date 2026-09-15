@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { FinalPipeline } from "@/features/landing/components/final-pipeline";
+import { analytics } from "@/lib/analytics";
 
 export function FinalCtaSection() {
   const githubLoginUrl = getGitHubLoginUrl();
@@ -58,7 +59,10 @@ export function FinalCtaSection() {
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg" className="landing-final-button h-11 px-5">
-              <a href={githubLoginUrl}>
+              <a
+                href={githubLoginUrl}
+                onClick={() => analytics.track("github_login_started", { method: "github" })}
+              >
                 Explore your repository
                 <ArrowRight />
               </a>

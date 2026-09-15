@@ -8,7 +8,7 @@ import { AiExportPanel } from "./ai-export-panel";
 
 type MutationOptions = {
   mutationFn: () => Promise<unknown>;
-  onSuccess?: (result: unknown) => void;
+  onSuccess?: (result?: unknown) => void;
   onError?: (error: unknown) => void;
 };
 
@@ -56,6 +56,14 @@ vi.mock("@/features/ai-export/api/ai-export-api", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/analytics", () => ({
+  analytics: {
+    track: vi.fn()
+  }
+}));
+
+import { analytics } from "@/lib/analytics";
+
 describe("AiExportPanel", () => {
   beforeEach(() => {
     mutationOptions = [];
@@ -64,6 +72,7 @@ describe("AiExportPanel", () => {
     append.mockReset();
     vi.mocked(getAiExport).mockReset();
     vi.mocked(downloadAiExport).mockReset();
+    vi.mocked(analytics.track).mockReset();
     vi.restoreAllMocks();
     vi.stubGlobal("navigator", {
       clipboard: {
@@ -117,12 +126,16 @@ describe("AiExportPanel", () => {
     );
 
     await expect(mutationOptions[1]?.mutationFn()).resolves.toBe(exported);
+    mutationOptions[1]?.onSuccess?.(exported);
 
     expect(getAiExport).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
       format: "AI_CONTEXT"
     });
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('{\n  "exact": true\n}\n');
+    expect(analytics.track).toHaveBeenCalledWith("ai_export_copied", {
+      format: "AI_CONTEXT"
+    });
   });
 
   it("downloads backend-generated content and uses backend filename/content type", async () => {
@@ -160,6 +173,7 @@ describe("AiExportPanel", () => {
     });
 
     await expect(mutationOptions[2]?.mutationFn()).resolves.toBe(file);
+    mutationOptions[2]?.onSuccess?.();
 
     expect(downloadAiExport).toHaveBeenCalledWith("access_token", {
       contextId: "project_context_1",
@@ -169,6 +183,9 @@ describe("AiExportPanel", () => {
     expect(click).toHaveBeenCalled();
     expect(remove).toHaveBeenCalled();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:ai-export");
+    expect(analytics.track).toHaveBeenCalledWith("ai_export_downloaded", {
+      format: "AI_CONTEXT"
+    });
   });
 
   it("disables duplicate actions while an export request is pending", () => {

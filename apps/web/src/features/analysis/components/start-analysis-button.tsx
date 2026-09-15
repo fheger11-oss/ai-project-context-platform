@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { AnalysisApiRequestError, startAnalysis } from "@/features/analysis/api/analysis-api";
+import { analytics } from "@/lib/analytics";
 
 type StartAnalysisButtonProps = {
   accessToken: string;
@@ -47,6 +48,7 @@ export function StartAnalysisButton({
   const analysisMutation = useMutation({
     mutationFn: () => startAnalysis(accessToken, scanId),
     onSuccess: (result) => {
+      analytics.track("analysis_completed");
       void queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] });
       void navigate(`/analyses/${encodeURIComponent(result.analysisId)}`);
     }

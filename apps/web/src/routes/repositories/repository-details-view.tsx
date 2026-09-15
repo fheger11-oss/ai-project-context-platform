@@ -33,6 +33,7 @@ import { RepositoryScanAction } from "@/features/scans/components/repository-sca
 import { ScanHistory } from "@/features/scans/components/scan-history";
 import { limitReasonLabel } from "@/features/scans/utils/scan-usage";
 import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
+import { analytics } from "@/lib/analytics";
 import { productPipelineStages, type ProductPipelineStageKey } from "@/lib/product-pipeline";
 import type { DashboardProjectSummary } from "@ai-context/contracts";
 
@@ -68,11 +69,15 @@ export function RepositoryDetailsView() {
   const syncMutation = useMutation({
     mutationFn: () => syncRepository(apiAccessToken, id ?? ""),
     onSuccess: async () => {
+      analytics.track("repository_sync_completed");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
         queryClient.invalidateQueries({ queryKey: ["repositories"] }),
         queryClient.invalidateQueries({ queryKey: ["repositories", id] })
       ]);
+    },
+    onError: () => {
+      analytics.track("repository_sync_failed", { reason: "UNKNOWN" });
     }
   });
   const repository = repositoryQuery.data;
@@ -80,12 +85,26 @@ export function RepositoryDetailsView() {
   const projectSummary =
     dashboardProjectsQuery.data?.projects.find((project) => project.repository.id === id) ?? null;
 
+  function handleSyncRepository() {
+    if (syncMutation.isPending) {
+      return;
+    }
+
+    analytics.track("repository_sync_started");
+    syncMutation.mutate();
+  }
+
   if (!apiAccessToken) {
     return (
       <StatePanel
         action={
           <Button asChild>
-            <a href={getGitHubLoginUrl()}>Sign in with GitHub</a>
+            <a
+              href={getGitHubLoginUrl()}
+              onClick={() => analytics.track("github_login_started", { method: "github" })}
+            >
+              Sign in with GitHub
+            </a>
           </Button>
         }
         className="min-h-[320px]"
@@ -184,7 +203,7 @@ export function RepositoryDetailsView() {
                 variant="outline"
                 disabled={syncMutation.isPending}
                 aria-busy={syncMutation.isPending}
-                onClick={() => syncMutation.mutate()}
+                onClick={handleSyncRepository}
               >
                 <RefreshCw className={syncMutation.isPending ? "animate-spin" : undefined} />
                 {syncMutation.isPending ? "Syncing" : "Sync metadata"}

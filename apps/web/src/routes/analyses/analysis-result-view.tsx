@@ -9,6 +9,7 @@ import {
   Radar,
   RefreshCw
 } from "lucide-react";
+import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -34,6 +35,7 @@ import {
 import { ProjectContextPanel } from "@/features/context/components/project-context-panel";
 import { getDocumentHistory } from "@/features/documents/api/document-api";
 import { getRepository } from "@/features/repositories/api/repositories-api";
+import { analytics } from "@/lib/analytics";
 import type { AnalysisResultResponse, RepositorySummary } from "@ai-context/contracts";
 
 function analysisErrorMessage(error: unknown): string {
@@ -96,6 +98,7 @@ export function AnalysisResultView() {
   const generateContextMutation = useMutation({
     mutationFn: () => generateProjectContext(apiAccessToken, analysisQuery.data?.analysisId ?? ""),
     onSuccess: async (context) => {
+      analytics.track("context_viewed");
       queryClient.setQueryData(["context", context.id], context);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
@@ -105,12 +108,23 @@ export function AnalysisResultView() {
     }
   });
 
+  useEffect(() => {
+    if (analysisQuery.data) {
+      analytics.track("analysis_opened");
+    }
+  }, [analysisQuery.data]);
+
   if (!apiAccessToken) {
     return (
       <StatePanel
         action={
           <Button asChild>
-            <a href={getGitHubLoginUrl()}>Sign in with GitHub</a>
+            <a
+              href={getGitHubLoginUrl()}
+              onClick={() => analytics.track("github_login_started", { method: "github" })}
+            >
+              Sign in with GitHub
+            </a>
           </Button>
         }
         className="min-h-[320px]"
