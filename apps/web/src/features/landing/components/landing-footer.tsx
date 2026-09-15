@@ -48,8 +48,8 @@ export function LandingFooter() {
             >
               Privacy
             </Link>
-            <span>Documentation — Coming soon</span>
-            <span>Pricing — Coming soon</span>
+            <span>Documentation coming soon</span>
+            <span>Pricing coming soon</span>
           </div>
         </div>
 

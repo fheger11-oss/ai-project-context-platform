@@ -1,4 +1,4 @@
-# AI Project Context Platform
+# Ctxaro
 
 Project documentation:
 

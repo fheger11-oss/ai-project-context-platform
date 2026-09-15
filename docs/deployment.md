@@ -211,12 +211,11 @@ Do not add a frontend server for the MVP.
 `Referrer-Policy`, `frame-ancestors 'none'`, and `X-Robots-Tag: noindex, nofollow` for protected
 or transient SPA routes. Do not add a broad CSP until the production asset/API domains are final.
 
-Current deployment status:
+Production status:
 
-- Vercel deployment has not been executed from this repository workspace because Vercel CLI/account
-  access is not available here.
-- No temporary Vercel deployment URL has been verified yet.
-- Frontend to API verification is pending an actual Railway API deployment URL.
+- Vercel serves the frontend at `https://ctxaro.com`.
+- `https://www.ctxaro.com` redirects to `https://ctxaro.com`.
+- The frontend uses `https://api.ctxaro.com/api/v1` as its production API base URL.
 
 ## Railway API Hosting
 
@@ -248,14 +247,12 @@ pnpm db:migrate:deploy
 The production API must use the Railway environment variables listed above. Do not set Vercel-only
 variables such as `VITE_API_URL` on Railway unless they are needed for a one-off build diagnostic.
 
-Current deployment status:
+Production status:
 
-- Railway deployment has not been executed from this repository workspace because Railway CLI/account
-  access is not available here.
-- No temporary Railway public URL has been verified yet.
-- After the service exists and environment variables are set, verify `GET /api/health`, `GET /docs`,
-  one protected endpoint without auth, CORS, rate limiting, and Helmet headers against the Railway
-  public URL.
+- Railway serves the API at `https://api.ctxaro.com`.
+- `GET https://api.ctxaro.com/api/health` is the production healthcheck.
+- Production verification covers `GET /api/health`, `GET /docs`, one protected endpoint without
+  auth, CORS, rate limiting, and Helmet headers against `https://api.ctxaro.com`.
 
 ## SEO and Crawl Controls
 
