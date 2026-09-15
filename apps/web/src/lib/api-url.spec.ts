@@ -30,8 +30,8 @@ describe("resolveApiUrl", () => {
   });
 
   it("accepts a production HTTPS API URL", () => {
-    expect(resolveApiUrl({ PROD: true, VITE_API_URL: "https://api.example.com/api/v1" })).toBe(
-      "https://api.example.com/api/v1"
+    expect(resolveApiUrl({ PROD: true, VITE_API_URL: "https://api.ctxaro.com/api/v1" })).toBe(
+      "https://api.ctxaro.com/api/v1"
     );
   });
 });

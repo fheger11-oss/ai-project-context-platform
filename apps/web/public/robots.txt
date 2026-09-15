@@ -9,4 +9,4 @@ Disallow: /analyses/*
 Disallow: /auth/callback
 Disallow: /auth/callback/*
 
-Sitemap: https://ctxaro.example/sitemap.xml
+Sitemap: https://ctxaro.com/sitemap.xml

@@ -11,7 +11,7 @@ const productionEnvironment = {
   API_PREFIX: "api",
   API_VERSION: "1",
   SWAGGER_PATH: "docs",
-  CORS_ORIGINS: "https://app.example.com",
+  CORS_ORIGINS: "https://ctxaro.com",
   RATE_LIMIT_GLOBAL_TTL_SECONDS: "60",
   RATE_LIMIT_GLOBAL_MAX: "300",
   RATE_LIMIT_AUTH_TTL_SECONDS: "60",
@@ -23,8 +23,8 @@ const productionEnvironment = {
   JWT_REFRESH_TOKEN_TTL_SECONDS: "2592000",
   GITHUB_CLIENT_ID: "github-client-id",
   GITHUB_CLIENT_SECRET: "github-client-secret",
-  GITHUB_CALLBACK_URL: "https://api.example.com/api/v1/auth/github/callback",
-  WEB_AUTH_CALLBACK_URL: "https://app.example.com/auth/callback",
+  GITHUB_CALLBACK_URL: "https://api.ctxaro.com/api/v1/auth/github/callback",
+  WEB_AUTH_CALLBACK_URL: "https://ctxaro.com/auth/callback",
   PROVIDER_TOKEN_ENCRYPTION_KEY: "provider-token-key-at-least-32-characters"
 };
 
@@ -33,13 +33,14 @@ describe("validateEnvironment", () => {
     expect(validateEnvironment(productionEnvironment)).toMatchObject({
       APP_ENV: "production",
       API_TRUST_PROXY: false,
-      CORS_ORIGINS: "https://app.example.com",
+      CORS_ORIGINS: "https://ctxaro.com",
       NODE_ENV: "production",
       RATE_LIMIT_AUTH_MAX: 10,
       RATE_LIMIT_AUTH_TTL_SECONDS: 60,
       RATE_LIMIT_GLOBAL_MAX: 300,
       RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
-      WEB_AUTH_CALLBACK_URL: "https://app.example.com/auth/callback"
+      GITHUB_CALLBACK_URL: "https://api.ctxaro.com/api/v1/auth/github/callback",
+      WEB_AUTH_CALLBACK_URL: "https://ctxaro.com/auth/callback"
     });
   });
 
