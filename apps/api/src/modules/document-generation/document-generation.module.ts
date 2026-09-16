@@ -3,6 +3,9 @@ import { Module } from "@nestjs/common";
 import { PROJECT_CONTEXT_READER } from "../context/domain/contracts/project-context-reader.contract.js";
 import { ContextModule } from "../context/context.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
+import { OperationLockService } from "../usage/operation-lock.service.js";
+import { UsageService } from "../usage/usage.service.js";
+import { UsageModule } from "../usage/usage.module.js";
 import { ArchitectureDocumentationGenerator } from "./application/architecture-documentation.generator.js";
 import { GenerateDocumentUseCase } from "./application/generate-document.use-case.js";
 import { GetDocumentUseCase } from "./application/get-document.use-case.js";
@@ -31,7 +34,7 @@ import { PrismaDocumentRepository } from "./infrastructure/prisma-document.repos
 import { DocumentController } from "./presentation/document.controller.js";
 
 @Module({
-  imports: [ContextModule, PrismaModule],
+  imports: [ContextModule, PrismaModule, UsageModule],
   controllers: [DocumentController],
   providers: [
     {
@@ -59,10 +62,24 @@ import { DocumentController } from "./presentation/document.controller.js";
       useFactory: (
         projectContextReader: ConstructorParameters<typeof GenerateDocumentUseCase>[0],
         documentGenerator: DocumentGenerator,
-        documentRepository: DocumentRepository
+        documentRepository: DocumentRepository,
+        usageService: UsageService,
+        operationLockService: OperationLockService
       ) =>
-        createGenerateDocumentUseCase(projectContextReader, documentGenerator, documentRepository),
-      inject: [PROJECT_CONTEXT_READER, DOCUMENT_GENERATOR, DOCUMENT_REPOSITORY]
+        createGenerateDocumentUseCase(
+          projectContextReader,
+          documentGenerator,
+          documentRepository,
+          usageService,
+          operationLockService
+        ),
+      inject: [
+        PROJECT_CONTEXT_READER,
+        DOCUMENT_GENERATOR,
+        DOCUMENT_REPOSITORY,
+        UsageService,
+        OperationLockService
+      ]
     },
     {
       provide: GetDocumentUseCase,
@@ -85,10 +102,24 @@ import { DocumentController } from "./presentation/document.controller.js";
       useFactory: (
         projectContextReader: ConstructorParameters<typeof RegenerateDocumentUseCase>[0],
         documentGenerator: DocumentGenerator,
-        documentRepository: DocumentRepository
+        documentRepository: DocumentRepository,
+        usageService: UsageService,
+        operationLockService: OperationLockService
       ) =>
-        new RegenerateDocumentUseCase(projectContextReader, documentGenerator, documentRepository),
-      inject: [PROJECT_CONTEXT_READER, DOCUMENT_GENERATOR, DOCUMENT_REPOSITORY]
+        new RegenerateDocumentUseCase(
+          projectContextReader,
+          documentGenerator,
+          documentRepository,
+          usageService,
+          operationLockService
+        ),
+      inject: [
+        PROJECT_CONTEXT_READER,
+        DOCUMENT_GENERATOR,
+        DOCUMENT_REPOSITORY,
+        UsageService,
+        OperationLockService
+      ]
     }
   ],
   exports: [
@@ -106,7 +137,15 @@ export class DocumentGenerationModule {}
 function createGenerateDocumentUseCase(
   projectContextReader: ConstructorParameters<typeof GenerateDocumentUseCase>[0],
   documentGenerator: DocumentGenerator,
-  documentRepository: DocumentRepository
+  documentRepository: DocumentRepository,
+  usageService: UsageService,
+  operationLockService: OperationLockService
 ): GenerateDocumentUseCase {
-  return new GenerateDocumentUseCase(projectContextReader, documentGenerator, documentRepository);
+  return new GenerateDocumentUseCase(
+    projectContextReader,
+    documentGenerator,
+    documentRepository,
+    usageService,
+    operationLockService
+  );
 }

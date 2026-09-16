@@ -233,4 +233,48 @@ describe("PrismaScanRepository", () => {
 
     expect(history.items.map((scan) => scan.status)).toEqual(["COMPLETED", "FAILED", "CANCELLED"]);
   });
+
+  it("deletes scan files for failed scan cleanup", async () => {
+    const prisma = {
+      scanFile: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 3 })
+      }
+    } as unknown as PrismaService;
+    const repository = new PrismaScanRepository(prisma);
+
+    await expect(repository.deleteScanFiles("scan_1")).resolves.toBeUndefined();
+    expect(prisma.scanFile.deleteMany).toHaveBeenCalledWith({
+      where: { scanId: "scan_1" }
+    });
+  });
+
+  it("prunes completed scans older than the retained latest completed scans", async () => {
+    const findMany = vi.fn().mockResolvedValue([{ id: "scan_new" }, { id: "scan_previous" }]);
+    const deleteMany = vi.fn().mockResolvedValue({ count: 4 });
+    const prisma = {
+      scan: {
+        findMany,
+        deleteMany
+      }
+    } as unknown as PrismaService;
+    const repository = new PrismaScanRepository(prisma);
+
+    await expect(repository.pruneCompletedScans("repository_1", 2)).resolves.toBe(4);
+    expect(findMany).toHaveBeenCalledWith({
+      where: {
+        repositoryId: "repository_1",
+        status: "COMPLETED"
+      },
+      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+      take: 2,
+      select: { id: true }
+    });
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        repositoryId: "repository_1",
+        status: "COMPLETED",
+        id: { notIn: ["scan_new", "scan_previous"] }
+      }
+    });
+  });
 });

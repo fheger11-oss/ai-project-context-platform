@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { ContextGenerator } from "../domain/contracts/context-generator.contract.js";
 import type { PersistedProjectContext } from "../domain/contracts/project-context-repository.contract.js";
 import { ProjectContext } from "../domain/project-context.js";
 import { GenerateAndPersistProjectContextService } from "./generate-and-persist-project-context.service.js";
-import type { GenerateProjectContextService } from "./generate-project-context.service.js";
 import type { PersistProjectContextService } from "./persist-project-context.service.js";
+import type { ReadContextInputService } from "./read-context-input.service.js";
+import type { OperationLockService } from "../../usage/operation-lock.service.js";
+import type { UsageService } from "../../usage/usage.service.js";
 
 const context = ProjectContext.create({
   contextId: "context_1",
@@ -31,23 +34,40 @@ const persisted = {
 
 describe("GenerateAndPersistProjectContextService", () => {
   it("generates through the existing Context path, then persists the canonical ProjectContext", async () => {
-    const generateProjectContextService = {
-      generate: vi.fn(async () => context)
-    } as unknown as GenerateProjectContextService;
     const persistProjectContextService = {
       save: vi.fn(async () => persisted)
     } as unknown as PersistProjectContextService;
+    const readContextInputService = {
+      read: vi.fn(async () => ({ analysis: {} }))
+    } as unknown as ReadContextInputService;
+    const contextGenerator = {
+      generate: vi.fn(async () => context)
+    } as unknown as ContextGenerator;
+    const usageService = {
+      assertMonthlyQuota: vi.fn(async () => undefined)
+    } as unknown as UsageService;
+    const operationLockService = {
+      withRenewingLocks: vi.fn(async (_locks, operation: () => Promise<unknown>) => operation())
+    } as unknown as OperationLockService;
     const service = new GenerateAndPersistProjectContextService(
-      generateProjectContextService,
-      persistProjectContextService
+      persistProjectContextService,
+      readContextInputService,
+      contextGenerator,
+      usageService,
+      operationLockService
     );
 
     await expect(service.generate({ userId: "user_1", analysisId: "analysis_1" })).resolves.toBe(
       persisted
     );
-    expect(generateProjectContextService.generate).toHaveBeenCalledWith({
+    expect(readContextInputService.read).toHaveBeenCalledWith({
       userId: "user_1",
       analysisId: "analysis_1"
+    });
+    expect(usageService.assertMonthlyQuota).toHaveBeenCalledWith({
+      userId: "user_1",
+      resource: "contexts",
+      limit: 3
     });
     expect(persistProjectContextService.save).toHaveBeenCalledWith(context);
   });

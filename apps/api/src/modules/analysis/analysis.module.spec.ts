@@ -28,6 +28,7 @@ import { TypeScriptSourceParser } from "./infrastructure/typescript-source.parse
 import { AuthModule } from "../auth/auth.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { ScanModule } from "../scan/scan.module.js";
+import { UsageModule } from "../usage/usage.module.js";
 
 const MODULE_IMPORTS_METADATA = "imports";
 const MODULE_CONTROLLERS_METADATA = "controllers";
@@ -42,7 +43,8 @@ describe("AnalysisModule", () => {
     expect(Reflect.getMetadata(MODULE_IMPORTS_METADATA, AnalysisModule) ?? []).toEqual([
       AuthModule,
       PrismaModule,
-      ScanModule
+      ScanModule,
+      UsageModule
     ]);
     expect(Reflect.getMetadata(MODULE_PROVIDERS_METADATA, AnalysisModule) ?? []).toEqual([
       AnalysisInputService,

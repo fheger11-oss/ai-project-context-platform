@@ -2,6 +2,8 @@ import { ForbiddenException, NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PrismaService } from "../prisma/prisma.service.js";
+import type { OperationLockService } from "../usage/operation-lock.service.js";
+import type { UsageService } from "../usage/usage.service.js";
 import type { GitHubAccountService } from "../auth/providers/github-account.service.js";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user.js";
 import type { GitHubRepositoryProvider } from "./providers/github-repository.provider.js";
@@ -13,6 +15,20 @@ const user: AuthenticatedUser = {
   role: "USER",
   tenantId: null
 };
+
+function serviceFor(prisma: PrismaService) {
+  return new RepositoriesService(
+    prisma,
+    {} as GitHubAccountService,
+    {} as GitHubRepositoryProvider,
+    {
+      assertRepositoryQuota: vi.fn(async () => undefined)
+    } as unknown as UsageService,
+    {
+      withLocks: vi.fn(async (_locks, operation: () => Promise<unknown>) => operation())
+    } as unknown as OperationLockService
+  );
+}
 
 function createService(repository: {
   delete?: ReturnType<typeof vi.fn>;
@@ -27,11 +43,7 @@ function createService(repository: {
 
   return {
     prisma,
-    service: new RepositoriesService(
-      prisma,
-      {} as GitHubAccountService,
-      {} as GitHubRepositoryProvider
-    )
+    service: serviceFor(prisma)
   };
 }
 
@@ -50,11 +62,7 @@ describe("RepositoriesService", () => {
           findFirst
         }
       } as unknown as PrismaService;
-      const service = new RepositoriesService(
-        prisma,
-        {} as GitHubAccountService,
-        {} as GitHubRepositoryProvider
-      );
+      const service = serviceFor(prisma);
 
       await expect(service.getScanAccessMetadataForUser("user_1", "repository_1")).resolves.toEqual(
         {
@@ -86,11 +94,7 @@ describe("RepositoriesService", () => {
           findFirst: vi.fn().mockResolvedValue(null)
         }
       } as unknown as PrismaService;
-      const service = new RepositoriesService(
-        prisma,
-        {} as GitHubAccountService,
-        {} as GitHubRepositoryProvider
-      );
+      const service = serviceFor(prisma);
 
       await expect(
         service.getScanAccessMetadataForUser("user_1", "missing_repository")
@@ -104,11 +108,7 @@ describe("RepositoriesService", () => {
           findFirst
         }
       } as unknown as PrismaService;
-      const service = new RepositoriesService(
-        prisma,
-        {} as GitHubAccountService,
-        {} as GitHubRepositoryProvider
-      );
+      const service = serviceFor(prisma);
 
       await expect(
         service.getScanAccessMetadataForUser("user_1", "repository_2")

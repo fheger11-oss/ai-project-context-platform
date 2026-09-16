@@ -1,4 +1,8 @@
 import type { ProjectContextReader } from "../../context/domain/contracts/project-context-reader.contract.js";
+import type { OperationLockService } from "../../usage/operation-lock.service.js";
+import { userHeavyOperationLock } from "../../usage/operation-locks.js";
+import type { UsageService } from "../../usage/usage.service.js";
+import { V1_USAGE_LIMITS } from "../../usage/v1-usage-limits.js";
 import type { DocumentGenerator } from "../domain/contracts/document-generator.contract.js";
 import type {
   DocumentRepository,
@@ -20,7 +24,9 @@ export class GenerateDocumentUseCase {
   constructor(
     private readonly projectContextReader: ProjectContextReader,
     private readonly documentGenerator: DocumentGenerator,
-    private readonly documentRepository: DocumentRepository
+    private readonly documentRepository: DocumentRepository,
+    private readonly usageService: UsageService,
+    private readonly operationLockService: OperationLockService
   ) {}
 
   async execute(command: GenerateDocumentCommand): Promise<PersistedGeneratedDocument> {
@@ -33,16 +39,27 @@ export class GenerateDocumentUseCase {
       throw new ProjectContextNotFoundForDocumentGenerationError(command.contextId);
     }
 
-    const document = await this.documentGenerator.generate({
-      projectContext: context.projectContext,
-      documentType: command.documentType,
-      format: command.format,
-      generatorVersion: DOCUMENT_GENERATOR_VERSION
+    await this.usageService.assertMonthlyQuota({
+      userId: command.userId,
+      resource: "documents",
+      limit: V1_USAGE_LIMITS.documentsPerMonth
     });
 
-    return this.documentRepository.save({
-      projectContextId: context.projectContextId,
-      document
-    });
+    return this.operationLockService.withRenewingLocks(
+      [userHeavyOperationLock(command.userId, V1_USAGE_LIMITS.lockLeaseMs.document)],
+      async () => {
+        const document = await this.documentGenerator.generate({
+          projectContext: context.projectContext,
+          documentType: command.documentType,
+          format: command.format,
+          generatorVersion: DOCUMENT_GENERATOR_VERSION
+        });
+
+        return this.documentRepository.save({
+          projectContextId: context.projectContextId,
+          document
+        });
+      }
+    );
   }
 }

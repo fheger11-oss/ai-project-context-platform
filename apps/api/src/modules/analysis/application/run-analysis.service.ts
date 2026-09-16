@@ -8,6 +8,10 @@ import { AnalysisInputService } from "./analysis-input.service.js";
 import { AnalysisPipelineService } from "./analysis-pipeline.service.js";
 import { PersistAnalysisResultService } from "./persist-analysis-result.service.js";
 import {
+  ANALYSIS_REPOSITORY,
+  type AnalysisRepository
+} from "../domain/contracts/analysis-repository.contract.js";
+import {
   REPOSITORY_OWNERSHIP_VERIFIER,
   type RepositoryOwnershipVerifier
 } from "../../scan/domain/contracts/repository-ownership-verifier.contract.js";
@@ -15,6 +19,14 @@ import {
   SCAN_REPOSITORY,
   type ScanRepository
 } from "../../scan/domain/contracts/scan-repository.contract.js";
+import { OperationLockService } from "../../usage/operation-lock.service.js";
+import {
+  globalAnalysisLock,
+  scanAnalysisLock,
+  userHeavyOperationLock
+} from "../../usage/operation-locks.js";
+import { UsageService } from "../../usage/usage.service.js";
+import { V1_USAGE_LIMITS } from "../../usage/v1-usage-limits.js";
 
 export type RunAnalysisCommand = {
   userId: string;
@@ -33,7 +45,13 @@ export class RunAnalysisService {
     @Inject(AnalysisPipelineService)
     private readonly analysisPipelineService: AnalysisPipelineService,
     @Inject(PersistAnalysisResultService)
-    private readonly persistAnalysisResultService: PersistAnalysisResultService
+    private readonly persistAnalysisResultService: PersistAnalysisResultService,
+    @Inject(ANALYSIS_REPOSITORY)
+    private readonly analysisRepository: AnalysisRepository,
+    @Inject(UsageService)
+    private readonly usageService: UsageService,
+    @Inject(OperationLockService)
+    private readonly operationLockService: OperationLockService
   ) {}
 
   async run(command: RunAnalysisCommand): Promise<AnalysisResult> {
@@ -52,20 +70,44 @@ export class RunAnalysisService {
       throw new BadRequestException("Scan is not ready for analysis");
     }
 
-    const analysisInput = await this.analysisInputService.prepareAnalysisInput({
-      scanId: command.scanId
-    });
-    const analysis = Analysis.create({
-      id: randomUUID(),
-      scanId: scan.id,
-      analyzerVersion: ANALYSIS_ENGINE_VERSION
-    });
-    const result = await this.analysisPipelineService.analyze({
-      analysis,
-      input: analysisInput,
-      generatedAt: new Date()
+    await this.usageService.assertMonthlyQuota({
+      userId: command.userId,
+      resource: "analyses",
+      limit: V1_USAGE_LIMITS.analysesPerMonth
     });
 
-    return this.persistAnalysisResultService.save(result);
+    return this.operationLockService.withRenewingLocks(
+      [
+        globalAnalysisLock(),
+        userHeavyOperationLock(command.userId, V1_USAGE_LIMITS.lockLeaseMs.analysis),
+        scanAnalysisLock(scan.id)
+      ],
+      async () => {
+        const analysisInput = await this.analysisInputService.prepareAnalysisInput({
+          scanId: command.scanId
+        });
+        const analysis = Analysis.create({
+          id: randomUUID(),
+          scanId: scan.id,
+          analyzerVersion: ANALYSIS_ENGINE_VERSION
+        }).transitionTo("RUNNING");
+        const acceptedAnalysis = await this.analysisRepository.save(analysis);
+
+        try {
+          const result = await this.analysisPipelineService.analyze({
+            analysis: acceptedAnalysis,
+            input: analysisInput,
+            generatedAt: new Date()
+          });
+
+          return await this.persistAnalysisResultService.save(result);
+        } catch (error) {
+          await this.analysisRepository
+            .save(acceptedAnalysis.transitionTo("FAILED"))
+            .catch(() => undefined);
+          throw error;
+        }
+      }
+    );
   }
 }

@@ -7,6 +7,9 @@ import { ContextModule } from "../context/context.module.js";
 import type { ProjectContextReader } from "../context/domain/contracts/project-context-reader.contract.js";
 import { PROJECT_CONTEXT_READER } from "../context/domain/contracts/project-context-reader.contract.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
+import { OperationLockService } from "../usage/operation-lock.service.js";
+import { UsageService } from "../usage/usage.service.js";
+import { UsageModule } from "../usage/usage.module.js";
 import { GenerateDocumentUseCase } from "./application/generate-document.use-case.js";
 import { GetDocumentUseCase } from "./application/get-document.use-case.js";
 import { ListDocumentHistoryUseCase } from "./application/list-document-history.use-case.js";
@@ -35,7 +38,8 @@ describe("DocumentGenerationModule", () => {
   it("registers the Document Generation API, generator, renderer, and persistence boundaries", () => {
     expect(Reflect.getMetadata(MODULE_IMPORTS_METADATA, DocumentGenerationModule) ?? []).toEqual([
       ContextModule,
-      PrismaModule
+      PrismaModule,
+      UsageModule
     ]);
     expect(
       Reflect.getMetadata(MODULE_CONTROLLERS_METADATA, DocumentGenerationModule) ?? []
@@ -57,7 +61,13 @@ describe("DocumentGenerationModule", () => {
       {
         provide: GenerateDocumentUseCase,
         useFactory: expect.any(Function),
-        inject: [PROJECT_CONTEXT_READER, DOCUMENT_GENERATOR, DOCUMENT_REPOSITORY]
+        inject: [
+          PROJECT_CONTEXT_READER,
+          DOCUMENT_GENERATOR,
+          DOCUMENT_REPOSITORY,
+          UsageService,
+          OperationLockService
+        ]
       },
       {
         provide: GetDocumentUseCase,
@@ -72,7 +82,13 @@ describe("DocumentGenerationModule", () => {
       {
         provide: RegenerateDocumentUseCase,
         useFactory: expect.any(Function),
-        inject: [PROJECT_CONTEXT_READER, DOCUMENT_GENERATOR, DOCUMENT_REPOSITORY]
+        inject: [
+          PROJECT_CONTEXT_READER,
+          DOCUMENT_GENERATOR,
+          DOCUMENT_REPOSITORY,
+          UsageService,
+          OperationLockService
+        ]
       }
     ]);
     expect(Reflect.getMetadata(MODULE_EXPORTS_METADATA, DocumentGenerationModule) ?? []).toEqual([

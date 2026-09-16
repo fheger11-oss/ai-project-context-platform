@@ -63,6 +63,7 @@ model User {
   refreshTokens RefreshToken[]
   githubAccount GitHubAccount?
   repositories  Repository[]
+  usageEvents   UsageEvent[]
 
   @@index([tenantId])
   @@map("users")
@@ -239,6 +240,32 @@ model Document {
   @@index([documentType, format])
   @@index([generatorVersion])
   @@map("documents")
+}
+
+model OperationLock {
+  key           String   @id
+  operationType String   @map("operation_type")
+  ownerId       String   @map("owner_id")
+  acquiredAt    DateTime @default(now()) @map("acquired_at")
+  expiresAt     DateTime @map("expires_at")
+
+  @@index([operationType])
+  @@index([ownerId])
+  @@index([expiresAt])
+  @@map("operation_locks")
+}
+
+model UsageEvent {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  resource  String
+  createdAt DateTime @default(now()) @map("created_at")
+  metadata  Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, resource, createdAt])
+  @@map("usage_events")
 }
 
 model ScanFile {

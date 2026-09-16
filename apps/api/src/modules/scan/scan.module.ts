@@ -14,9 +14,10 @@ import { ScanController } from "./presentation/scan.controller.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { RepositoriesModule } from "../repositories/repositories.module.js";
+import { UsageModule } from "../usage/usage.module.js";
 
 @Module({
-  imports: [AuthModule, PrismaModule, RepositoriesModule],
+  imports: [AuthModule, PrismaModule, RepositoriesModule, UsageModule],
   controllers: [ScanController],
   providers: [
     ScanService,

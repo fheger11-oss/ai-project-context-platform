@@ -1,7 +1,7 @@
 export const SCAN_LIMITS = {
-  maxFiles: 5_000,
-  maxIndividualFileSizeBytes: 1_048_576,
-  maxTotalSizeBytes: 26_214_400
+  maxFiles: 1_000,
+  maxIndividualFileSizeBytes: 524_288,
+  maxTotalSizeBytes: 5_242_880
 } as const;
 
 export type ScanLimits = typeof SCAN_LIMITS;

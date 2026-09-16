@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AnalysisInput } from "../domain/contracts/analysis-input.contract.js";
+import type { AnalysisRepository } from "../domain/contracts/analysis-repository.contract.js";
 import type { AnalysisResult } from "../domain/contracts/analysis-result.contract.js";
 import { ANALYSIS_ENGINE_VERSION } from "./analysis-engine-version.js";
 import type { AnalysisInputService } from "./analysis-input.service.js";
@@ -13,6 +14,8 @@ import type {
   ScanRepository,
   ScanSnapshot
 } from "../../scan/domain/contracts/scan-repository.contract.js";
+import type { OperationLockService } from "../../usage/operation-lock.service.js";
+import type { UsageService } from "../../usage/usage.service.js";
 
 const now = new Date("2026-08-14T12:00:00.000Z");
 const analysisInput: AnalysisInput = {
@@ -97,6 +100,15 @@ function createService(
   const persistAnalysisResultService = {
     save: vi.fn(async (analysisResult: AnalysisResult) => analysisResult)
   } as unknown as PersistAnalysisResultService;
+  const analysisRepository = {
+    save: vi.fn(async (analysis) => analysis)
+  } as unknown as AnalysisRepository;
+  const usageService = {
+    assertMonthlyQuota: vi.fn(async () => undefined)
+  } as unknown as UsageService;
+  const operationLockService = {
+    withRenewingLocks: vi.fn(async (_locks, operation: () => Promise<unknown>) => operation())
+  } as unknown as OperationLockService;
 
   return {
     service: new RunAnalysisService(
@@ -104,13 +116,19 @@ function createService(
       ownershipVerifier,
       analysisInputService,
       analysisPipelineService,
-      persistAnalysisResultService
+      persistAnalysisResultService,
+      analysisRepository,
+      usageService,
+      operationLockService
     ),
     scanRepository,
     ownershipVerifier,
     analysisInputService,
     analysisPipelineService,
-    persistAnalysisResultService
+    persistAnalysisResultService,
+    analysisRepository,
+    usageService,
+    operationLockService
   };
 }
 

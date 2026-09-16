@@ -21,6 +21,14 @@ import {
 import { InvalidScanStateTransitionError } from "../domain/errors/invalid-scan-state-transition.error.js";
 import { ScanLimitExceededError } from "../domain/errors/scan-limit-exceeded.error.js";
 import { assertValidScanStatusTransition } from "../domain/scan-state-machine.js";
+import { OperationLockService } from "../../usage/operation-lock.service.js";
+import {
+  globalScanLock,
+  repositoryScanLock,
+  userHeavyOperationLock
+} from "../../usage/operation-locks.js";
+import { UsageService } from "../../usage/usage.service.js";
+import { V1_USAGE_LIMITS } from "../../usage/v1-usage-limits.js";
 
 export type StartScanInput = {
   repositoryId: string;
@@ -65,7 +73,11 @@ export class ScanService {
     @Inject(REPOSITORY_ACCESS_RESOLVER)
     private readonly repositoryAccessResolver: RepositoryAccessResolver,
     @Inject(REPOSITORY_OWNERSHIP_VERIFIER)
-    private readonly repositoryOwnershipVerifier: RepositoryOwnershipVerifier
+    private readonly repositoryOwnershipVerifier: RepositoryOwnershipVerifier,
+    @Inject(UsageService)
+    private readonly usageService: UsageService,
+    @Inject(OperationLockService)
+    private readonly operationLockService: OperationLockService
   ) {}
 
   /**
@@ -87,9 +99,50 @@ export class ScanService {
       return existingCompletedScan;
     }
 
+    return this.operationLockService.withRenewingLocks(
+      [
+        globalScanLock(),
+        userHeavyOperationLock(input.userId, V1_USAGE_LIMITS.lockLeaseMs.scan),
+        repositoryScanLock(input.repositoryId)
+      ],
+      async () =>
+        this.runAcceptedScan(
+          input.repositoryId,
+          input.userId,
+          access,
+          commit.commitSha,
+          startedAtMs,
+          startedAt
+        )
+    );
+  }
+
+  private async runAcceptedScan(
+    repositoryId: string,
+    userId: string,
+    access: Awaited<ReturnType<RepositoryAccessResolver["resolveRepositoryAccess"]>>,
+    commitSha: string,
+    startedAtMs: number,
+    startedAt: Date
+  ): Promise<ScanSnapshot> {
+    const existingCompletedScan = await this.scanRepository.findCompletedScanByRepositoryAndCommit(
+      repositoryId,
+      commitSha
+    );
+
+    if (existingCompletedScan) {
+      return existingCompletedScan;
+    }
+
+    await this.usageService.assertMonthlyQuota({
+      userId,
+      resource: "scans",
+      limit: V1_USAGE_LIMITS.scansPerMonth
+    });
+
     const scan = await this.scanRepository.createScan({
-      repositoryId: input.repositoryId,
-      commitSha: commit.commitSha,
+      repositoryId,
+      commitSha,
       startedAt
     });
 
@@ -103,7 +156,7 @@ export class ScanService {
     let stats: SnapshotPersistenceStats;
 
     try {
-      stats = await this.persistSnapshotFiles(scan.id, access, commit.commitSha, (stage) => {
+      stats = await this.persistSnapshotFiles(scan.id, access, commitSha, (stage) => {
         failureStage = stage;
       });
     } catch (error) {
@@ -112,7 +165,10 @@ export class ScanService {
     }
 
     try {
-      return await this.completeScan(runningScan, stats, startedAtMs);
+      const completedScan = await this.completeScan(runningScan, stats, startedAtMs);
+      await this.pruneCompletedScanHistory(completedScan);
+
+      return completedScan;
     } catch (error) {
       if (!(error instanceof InvalidScanStateTransitionError)) {
         await this.handleRunningScanFailure(runningScan, "COMPLETION_PERSISTENCE", error);
@@ -240,6 +296,36 @@ export class ScanService {
           }
         : {})
     });
+    await this.deletePartialScanFiles(scan);
+  }
+
+  private async pruneCompletedScanHistory(scan: ScanSnapshot): Promise<void> {
+    try {
+      const deletedCount = await this.scanRepository.pruneCompletedScans(
+        scan.repositoryId,
+        V1_USAGE_LIMITS.retainedCompletedScansPerRepository
+      );
+
+      if (deletedCount > 0) {
+        this.logger.log(
+          `Completed scan retention pruned repositoryId=${scan.repositoryId} deletedCount=${deletedCount}`
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Completed scan retention failed repositoryId=${scan.repositoryId} scanId=${scan.id} errorName=${this.errorName(error)}`
+      );
+    }
+  }
+
+  private async deletePartialScanFiles(scan: ScanSnapshot): Promise<void> {
+    try {
+      await this.scanRepository.deleteScanFiles(scan.id);
+    } catch (error) {
+      this.logger.warn(
+        `Partial scan file cleanup failed scanId=${scan.id} repositoryId=${scan.repositoryId} errorName=${this.errorName(error)}`
+      );
+    }
   }
 
   private async handleRunningScanFailure(

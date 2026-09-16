@@ -20,6 +20,8 @@ import { RepositoryAccessResolutionError } from "../domain/errors/repository-acc
 import { ScanLimitExceededError } from "../domain/errors/scan-limit-exceeded.error.js";
 import { SCAN_LIMITS } from "../domain/scan-limits.js";
 import { ScanService } from "./scan.service.js";
+import { OperationLockService } from "../../usage/operation-lock.service.js";
+import { UsageService } from "../../usage/usage.service.js";
 
 const createdAt = new Date("2026-08-07T10:00:00.000Z");
 const updatedAt = new Date("2026-08-07T10:00:01.000Z");
@@ -101,6 +103,8 @@ function createService(overrides?: {
   repositoryOwnershipVerifier?: Partial<RepositoryOwnershipVerifier>;
   repositoryContentProvider?: Partial<RepositoryContentProvider>;
   scanRepository?: Partial<ScanRepository>;
+  usageService?: Partial<UsageService>;
+  operationLockService?: Partial<OperationLockService>;
 }) {
   const repositoryAccessResolver = {
     resolveRepositoryAccess: vi.fn().mockResolvedValue(access),
@@ -146,6 +150,8 @@ function createService(overrides?: {
     createScan: vi.fn().mockResolvedValue(pendingScan),
     updateScanStatus,
     storeScanFiles: vi.fn(),
+    deleteScanFiles: vi.fn(),
+    pruneCompletedScans: vi.fn().mockResolvedValue(0),
     findCompletedScanByRepositoryAndCommit: vi.fn().mockResolvedValue(null),
     listScanHistory: vi.fn().mockResolvedValue({ items: [], totalItems: 0 }),
     getScan: vi.fn(),
@@ -162,7 +168,15 @@ function createService(overrides?: {
       scanRepository,
       repositoryContentProvider,
       repositoryAccessResolver,
-      repositoryOwnershipVerifier
+      repositoryOwnershipVerifier,
+      {
+        assertMonthlyQuota: vi.fn(async () => undefined),
+        ...overrides?.usageService
+      } as unknown as UsageService,
+      {
+        withRenewingLocks: vi.fn(async (_locks, operation: () => Promise<unknown>) => operation()),
+        ...overrides?.operationLockService
+      } as unknown as OperationLockService
     )
   };
 }
@@ -176,11 +190,17 @@ describe("ScanService", () => {
     const dependencyTokens = Reflect.getMetadata("self:paramtypes", ScanService) as
       Array<{ index: number; param: unknown }> | undefined;
 
-    expect(dependencyTokens?.map((dependency) => dependency.param)).toEqual([
+    expect(
+      [...(dependencyTokens ?? [])]
+        .sort((left, right) => left.index - right.index)
+        .map((dependency) => dependency.param)
+    ).toEqual([
       expect.any(Symbol),
       expect.any(Symbol),
       expect.any(Symbol),
-      expect.any(Symbol)
+      expect.any(Symbol),
+      UsageService,
+      OperationLockService
     ]);
   });
 
@@ -322,6 +342,159 @@ describe("ScanService", () => {
       totalBytesConsidered: 0n,
       scanLimitReason: null
     });
+    expect(scanRepository.pruneCompletedScans).toHaveBeenCalledWith("repository_1", 2);
+  });
+
+  it("does not consume scan quota or acquire locks for an existing completed commit scan", async () => {
+    const assertMonthlyQuota = vi.fn();
+    const withRenewingLocks = vi.fn();
+    const { repositoryContentProvider, scanRepository, service } = createService({
+      scanRepository: {
+        findCompletedScanByRepositoryAndCommit: vi.fn().mockResolvedValue(completedScan)
+      },
+      usageService: { assertMonthlyQuota },
+      operationLockService: {
+        withRenewingLocks: withRenewingLocks as OperationLockService["withRenewingLocks"]
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).resolves.toBe(completedScan);
+
+    expect(assertMonthlyQuota).not.toHaveBeenCalled();
+    expect(withRenewingLocks).not.toHaveBeenCalled();
+    expect(scanRepository.createScan).not.toHaveBeenCalled();
+    expect(repositoryContentProvider.listSnapshotFiles).not.toHaveBeenCalled();
+  });
+
+  it("rejects scan quota before GitHub tree or blob scanning starts", async () => {
+    const quotaError = new Error("scan quota exceeded");
+    const { repositoryContentProvider, scanRepository, service } = createService({
+      usageService: {
+        assertMonthlyQuota: vi.fn(async () => {
+          throw quotaError;
+        })
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(quotaError);
+
+    expect(repositoryContentProvider.resolveCommit).toHaveBeenCalled();
+    expect(repositoryContentProvider.listSnapshotFiles).not.toHaveBeenCalled();
+    expect(scanRepository.createScan).not.toHaveBeenCalled();
+  });
+
+  it("rechecks duplicate completed scans inside the scan locks before consuming quota", async () => {
+    const assertMonthlyQuota = vi.fn(
+      async (_input: Parameters<UsageService["assertMonthlyQuota"]>[0]) => ({
+        startsAt: new Date("2026-08-01T00:00:00.000Z"),
+        resetAt: new Date("2026-09-01T00:00:00.000Z")
+      })
+    );
+    const findCompletedScanByRepositoryAndCommit = vi
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(completedScan);
+    const withRenewingLocks = vi.fn(
+      async <T>(
+        _locks: Parameters<OperationLockService["withRenewingLocks"]>[0],
+        operation: () => Promise<T>
+      ) => operation()
+    );
+    const { repositoryContentProvider, scanRepository, service } = createService({
+      scanRepository: {
+        findCompletedScanByRepositoryAndCommit
+      },
+      usageService: { assertMonthlyQuota },
+      operationLockService: {
+        withRenewingLocks: withRenewingLocks as OperationLockService["withRenewingLocks"]
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).resolves.toBe(completedScan);
+
+    expect(findCompletedScanByRepositoryAndCommit).toHaveBeenCalledTimes(2);
+    expect(withRenewingLocks).toHaveBeenCalledTimes(1);
+    expect(assertMonthlyQuota).not.toHaveBeenCalled();
+    expect(scanRepository.createScan).not.toHaveBeenCalled();
+    expect(repositoryContentProvider.listSnapshotFiles).not.toHaveBeenCalled();
+  });
+
+  it("checks scan quota inside acquired scan locks before creating a scan", async () => {
+    const quotaError = new Error("scan quota exceeded");
+    const assertMonthlyQuota = vi.fn(async () => {
+      throw quotaError;
+    });
+    const withRenewingLocks = vi.fn(
+      async <T>(
+        _locks: Parameters<OperationLockService["withRenewingLocks"]>[0],
+        operation: () => Promise<T>
+      ) => {
+        expect(assertMonthlyQuota).not.toHaveBeenCalled();
+
+        return operation();
+      }
+    );
+    const { repositoryContentProvider, scanRepository, service } = createService({
+      usageService: { assertMonthlyQuota },
+      operationLockService: {
+        withRenewingLocks: withRenewingLocks as OperationLockService["withRenewingLocks"]
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(quotaError);
+
+    expect(withRenewingLocks).toHaveBeenCalledTimes(1);
+    expect(assertMonthlyQuota).toHaveBeenCalledWith({
+      userId: "user_1",
+      resource: "scans",
+      limit: 3
+    });
+    expect(repositoryContentProvider.resolveCommit).toHaveBeenCalled();
+    expect(repositoryContentProvider.listSnapshotFiles).not.toHaveBeenCalled();
+    expect(scanRepository.createScan).not.toHaveBeenCalled();
+  });
+
+  it("removes partially persisted scan files when an accepted scan fails", async () => {
+    const scanError = new Error("stream failed");
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        listSnapshotFiles: vi.fn().mockReturnValue(snapshotFilesThatThrowAfter([], scanError))
+      }
+    });
+
+    await expect(
+      service.startScan({
+        repositoryId: "repository_1",
+        reference: "main",
+        userId: "user_1"
+      })
+    ).rejects.toBe(scanError);
+
+    expect(scanRepository.deleteScanFiles).toHaveBeenCalledWith("scan_1");
   });
 
   it("uses the state machine for PENDING to RUNNING to COMPLETED", async () => {

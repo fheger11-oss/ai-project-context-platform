@@ -24,9 +24,10 @@ import { TypeScriptSourceParser } from "./infrastructure/typescript-source.parse
 import { AuthModule } from "../auth/auth.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { ScanModule } from "../scan/scan.module.js";
+import { UsageModule } from "../usage/usage.module.js";
 
 @Module({
-  imports: [AuthModule, PrismaModule, ScanModule],
+  imports: [AuthModule, PrismaModule, ScanModule, UsageModule],
   controllers: [AnalysisController, ScanAnalysisHistoryController],
   providers: [
     AnalysisInputService,

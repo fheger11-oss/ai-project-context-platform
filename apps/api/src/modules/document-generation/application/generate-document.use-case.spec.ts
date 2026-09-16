@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ProjectContextReader } from "../../context/domain/contracts/project-context-reader.contract.js";
 import { ProjectContext } from "../../context/domain/project-context.js";
+import type { OperationLockService } from "../../usage/operation-lock.service.js";
+import type { UsageService } from "../../usage/usage.service.js";
 import type { DocumentGenerator } from "../domain/contracts/document-generator.contract.js";
 import type { DocumentGenerationInput } from "../domain/contracts/document-generation-input.contract.js";
 import type {
@@ -57,15 +59,25 @@ function createUseCase(
     findById: vi.fn(),
     listByProjectContextId: vi.fn()
   };
+  const usageService = {
+    assertMonthlyQuota: vi.fn(async () => undefined)
+  } as unknown as UsageService;
+  const operationLockService = {
+    withRenewingLocks: vi.fn(async (_locks, operation: () => Promise<unknown>) => operation())
+  } as unknown as OperationLockService;
 
   return {
     projectContextReader,
     documentGenerator,
     documentRepository,
+    usageService,
+    operationLockService,
     useCase: new GenerateDocumentUseCase(
       projectContextReader,
       documentGenerator,
-      documentRepository
+      documentRepository,
+      usageService,
+      operationLockService
     )
   };
 }

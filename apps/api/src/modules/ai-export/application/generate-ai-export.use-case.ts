@@ -1,4 +1,8 @@
 import type { ProjectContextReader } from "../../context/domain/contracts/project-context-reader.contract.js";
+import type { OperationLockService } from "../../usage/operation-lock.service.js";
+import { aiExportQuotaLock } from "../../usage/operation-locks.js";
+import type { UsageService } from "../../usage/usage.service.js";
+import { V1_USAGE_LIMITS } from "../../usage/v1-usage-limits.js";
 import type { AiExportFormat } from "../domain/ai-export-format.js";
 import type { AiExportResult } from "../domain/ai-export-result.js";
 import type { CanonicalAiExport } from "../domain/canonical-ai-export.js";
@@ -24,23 +28,39 @@ export class GenerateAiExportUseCase {
   constructor(
     private readonly projectContextReader: ProjectContextReader,
     private readonly aiExportProjector: AiExportProjector,
-    private readonly serializerRouter: AiExportSerializerRouter
+    private readonly serializerRouter: AiExportSerializerRouter,
+    private readonly usageService: UsageService,
+    private readonly operationLockService: OperationLockService
   ) {}
 
   async execute(command: GenerateAiExportCommand): Promise<GeneratedAiExport> {
-    const context = await this.projectContextReader.readProjectContext({
-      userId: command.userId,
-      contextId: command.contextId
+    return this.operationLockService.withLocks([aiExportQuotaLock(command.userId)], async () => {
+      const context = await this.projectContextReader.readProjectContext({
+        userId: command.userId,
+        contextId: command.contextId
+      });
+
+      if (!context) {
+        throw new ProjectContextNotFoundForAiExportError(command.contextId);
+      }
+
+      await this.usageService.assertMonthlyQuota({
+        userId: command.userId,
+        resource: "aiExports",
+        limit: V1_USAGE_LIMITS.aiExportsPerMonth
+      });
+
+      const canonical = this.aiExportProjector.project(context.projectContext);
+      const result = this.serializerRouter.serialize(canonical, command.format);
+
+      await this.usageService.recordAiExportUsage({
+        userId: command.userId,
+        contextId: command.contextId,
+        format: command.format
+      });
+
+      return toGeneratedAiExport(context.projectContextId, canonical, result);
     });
-
-    if (!context) {
-      throw new ProjectContextNotFoundForAiExportError(command.contextId);
-    }
-
-    const canonical = this.aiExportProjector.project(context.projectContext);
-    const result = this.serializerRouter.serialize(canonical, command.format);
-
-    return toGeneratedAiExport(context.projectContextId, canonical, result);
   }
 }
 

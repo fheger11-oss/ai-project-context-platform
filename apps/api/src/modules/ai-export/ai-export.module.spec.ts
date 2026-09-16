@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { ContextModule } from "../context/context.module.js";
 import { PROJECT_CONTEXT_READER } from "../context/domain/contracts/project-context-reader.contract.js";
+import { OperationLockService } from "../usage/operation-lock.service.js";
+import { UsageService } from "../usage/usage.service.js";
+import { UsageModule } from "../usage/usage.module.js";
 import { GenerateAiExportUseCase } from "./application/generate-ai-export.use-case.js";
 import { ProjectContextAiExportProjector } from "./application/project-context-ai-export.projector.js";
 import { AI_EXPORT_PROJECTOR } from "./domain/contracts/ai-export-projector.contract.js";
@@ -51,6 +54,7 @@ describe("AiExportModule", () => {
 
   it("imports ContextModule for the ProjectContext reader boundary", () => {
     expect(metadata).toContain(ContextModule);
+    expect(metadata).toContain(UsageModule);
   });
 
   it("registers the projector, serializer router, use case, and controller", () => {
@@ -66,7 +70,13 @@ describe("AiExportModule", () => {
         }),
         expect.objectContaining({
           provide: GenerateAiExportUseCase,
-          inject: [PROJECT_CONTEXT_READER, AI_EXPORT_PROJECTOR, AiExportSerializerRouter]
+          inject: [
+            PROJECT_CONTEXT_READER,
+            AI_EXPORT_PROJECTOR,
+            AiExportSerializerRouter,
+            UsageService,
+            OperationLockService
+          ]
         })
       ])
     );

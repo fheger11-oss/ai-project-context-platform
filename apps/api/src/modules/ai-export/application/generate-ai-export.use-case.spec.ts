@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ProjectContextReader } from "../../context/domain/contracts/project-context-reader.contract.js";
 import { ProjectContext } from "../../context/domain/project-context.js";
+import type { OperationLockService } from "../../usage/operation-lock.service.js";
+import type { UsageService } from "../../usage/usage.service.js";
 import type { AiExportProjector } from "../domain/contracts/ai-export-projector.contract.js";
 import type { CanonicalAiExport } from "../domain/canonical-ai-export.js";
 import type { AiExportSerializerRouter } from "../infrastructure/serializers/ai-export-serializer.router.js";
@@ -82,12 +84,27 @@ function createUseCase(
       };
     })
   } as unknown as AiExportSerializerRouter;
+  const usageService = {
+    assertMonthlyQuota: vi.fn(async () => undefined),
+    recordAiExportUsage: vi.fn(async () => undefined)
+  } as unknown as UsageService;
+  const operationLockService = {
+    withLocks: vi.fn(async (_locks, operation: () => Promise<unknown>) => operation())
+  } as unknown as OperationLockService;
 
   return {
     projectContextReader,
     aiExportProjector,
     serializerRouter,
-    useCase: new GenerateAiExportUseCase(projectContextReader, aiExportProjector, serializerRouter)
+    usageService,
+    operationLockService,
+    useCase: new GenerateAiExportUseCase(
+      projectContextReader,
+      aiExportProjector,
+      serializerRouter,
+      usageService,
+      operationLockService
+    )
   };
 }
 

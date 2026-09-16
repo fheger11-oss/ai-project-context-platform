@@ -2,6 +2,9 @@ import { ForbiddenException, Inject, Injectable, NotFoundException } from "@nest
 
 import type { RepositoryModel } from "../../generated/prisma/models.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { OperationLockService } from "../usage/operation-lock.service.js";
+import { repositoryConnectLock } from "../usage/operation-locks.js";
+import { UsageService } from "../usage/usage.service.js";
 import { GitHubAccountService } from "../auth/providers/github-account.service.js";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user.js";
 import type { RepositoryResponseDto } from "./dto/repository-response.dto.js";
@@ -23,7 +26,11 @@ export class RepositoriesService {
     @Inject(GitHubAccountService)
     private readonly githubAccountService: GitHubAccountService,
     @Inject(GitHubRepositoryProvider)
-    private readonly githubRepositoryProvider: GitHubRepositoryProvider
+    private readonly githubRepositoryProvider: GitHubRepositoryProvider,
+    @Inject(UsageService)
+    private readonly usageService: UsageService,
+    @Inject(OperationLockService)
+    private readonly operationLockService: OperationLockService
   ) {}
 
   async listAvailableGitHubRepositories(user: AuthenticatedUser) {
@@ -54,7 +61,14 @@ export class RepositoriesService {
       throw new NotFoundException("GitHub repository was not found for this account");
     }
 
-    return this.upsertRepository(user.id, repository);
+    return this.operationLockService.withLocks([repositoryConnectLock(user.id)], async () => {
+      await this.usageService.assertRepositoryQuota({
+        userId: user.id,
+        githubId: repository.githubId
+      });
+
+      return this.upsertRepository(user.id, repository);
+    });
   }
 
   async list(user: AuthenticatedUser): Promise<RepositoryResponseDto[]> {

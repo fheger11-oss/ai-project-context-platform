@@ -2,6 +2,9 @@ import { Module } from "@nestjs/common";
 
 import { ContextModule } from "../context/context.module.js";
 import { PROJECT_CONTEXT_READER } from "../context/domain/contracts/project-context-reader.contract.js";
+import { OperationLockService } from "../usage/operation-lock.service.js";
+import { UsageService } from "../usage/usage.service.js";
+import { UsageModule } from "../usage/usage.module.js";
 import { GenerateAiExportUseCase } from "./application/generate-ai-export.use-case.js";
 import { ProjectContextAiExportProjector } from "./application/project-context-ai-export.projector.js";
 import {
@@ -15,7 +18,7 @@ import { PlainTextAiExportSerializer } from "./infrastructure/serializers/plain-
 import { AiExportController } from "./presentation/ai-export.controller.js";
 
 @Module({
-  imports: [ContextModule],
+  imports: [ContextModule, UsageModule],
   controllers: [AiExportController],
   providers: [
     {
@@ -36,9 +39,24 @@ import { AiExportController } from "./presentation/ai-export.controller.js";
       useFactory: (
         projectContextReader: ConstructorParameters<typeof GenerateAiExportUseCase>[0],
         aiExportProjector: AiExportProjector,
-        serializerRouter: AiExportSerializerRouter
-      ) => new GenerateAiExportUseCase(projectContextReader, aiExportProjector, serializerRouter),
-      inject: [PROJECT_CONTEXT_READER, AI_EXPORT_PROJECTOR, AiExportSerializerRouter]
+        serializerRouter: AiExportSerializerRouter,
+        usageService: UsageService,
+        operationLockService: OperationLockService
+      ) =>
+        new GenerateAiExportUseCase(
+          projectContextReader,
+          aiExportProjector,
+          serializerRouter,
+          usageService,
+          operationLockService
+        ),
+      inject: [
+        PROJECT_CONTEXT_READER,
+        AI_EXPORT_PROJECTOR,
+        AiExportSerializerRouter,
+        UsageService,
+        OperationLockService
+      ]
     }
   ],
   exports: [GenerateAiExportUseCase, AI_EXPORT_PROJECTOR, AiExportSerializerRouter]

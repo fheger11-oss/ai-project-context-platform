@@ -22,6 +22,7 @@ import { AnalysisContextController } from "./presentation/analysis-context.contr
 import { ProjectContextController } from "./presentation/project-context.controller.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { ScanModule } from "../scan/scan.module.js";
+import { UsageModule } from "../usage/usage.module.js";
 
 const MODULE_IMPORTS_METADATA = "imports";
 const MODULE_CONTROLLERS_METADATA = "controllers";
@@ -33,7 +34,8 @@ describe("ContextModule", () => {
     expect(Reflect.getMetadata(MODULE_IMPORTS_METADATA, ContextModule) ?? []).toEqual([
       AnalysisModule,
       PrismaModule,
-      ScanModule
+      ScanModule,
+      UsageModule
     ]);
     expect(Reflect.getMetadata(MODULE_CONTROLLERS_METADATA, ContextModule) ?? []).toEqual([
       AnalysisContextController,

@@ -68,6 +68,34 @@ export class PrismaScanRepository implements ScanRepository {
     });
   }
 
+  async deleteScanFiles(scanId: string): Promise<void> {
+    await this.prisma.scanFile.deleteMany({
+      where: { scanId }
+    });
+  }
+
+  async pruneCompletedScans(repositoryId: string, retainCount: number): Promise<number> {
+    const retainedScans = await this.prisma.scan.findMany({
+      where: {
+        repositoryId,
+        status: "COMPLETED"
+      },
+      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+      take: retainCount,
+      select: { id: true }
+    });
+    const retainedIds = retainedScans.map((scan) => scan.id);
+    const deleted = await this.prisma.scan.deleteMany({
+      where: {
+        repositoryId,
+        status: "COMPLETED",
+        ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {})
+      }
+    });
+
+    return deleted.count;
+  }
+
   async findCompletedScanByRepositoryAndCommit(
     repositoryId: string,
     commitSha: string
