@@ -69,7 +69,7 @@ export function initializeAnalytics(environment: AnalyticsEnvironment): void {
   try {
     const config = {
       autocapture: false,
-      capture_pageview: false,
+      capture_pageview: "history_change" as const,
       disable_session_recording: true,
       person_profiles: "identified_only" as const
     };

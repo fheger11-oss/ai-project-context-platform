@@ -49,7 +49,7 @@ describe("analytics", () => {
       expect.objectContaining({
         api_host: "https://us.i.posthog.com",
         autocapture: false,
-        capture_pageview: false,
+        capture_pageview: "history_change",
         disable_session_recording: true,
         person_profiles: "identified_only"
       })
@@ -71,6 +71,17 @@ describe("analytics", () => {
     });
     expect(posthogMock.identify).toHaveBeenCalledWith("user_1");
     expect(posthogMock.reset).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps custom page view tracking available", () => {
+    vi.stubGlobal("window", {});
+    initializeAnalytics({ MODE: "production", VITE_POSTHOG_KEY: "phc_test" });
+
+    analytics.track("page_view", { page: "/landing" });
+
+    expect(posthogMock.capture).toHaveBeenCalledWith("page_view", {
+      page: "/landing"
+    });
   });
 
   it("filters sensitive analytics properties before sending events", () => {
