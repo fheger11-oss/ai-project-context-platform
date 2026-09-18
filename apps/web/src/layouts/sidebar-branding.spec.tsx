@@ -9,6 +9,10 @@ vi.mock("@/features/auth/components/auth-user-section", () => ({
   AuthUserSection: () => <div>account</div>
 }));
 
+vi.mock("@/features/feedback/components/feedback-nav-item", () => ({
+  FeedbackNavItem: () => <button type="button">Feedback</button>
+}));
+
 const shellContext: ShellContext = {
   analysisId: null,
   breadcrumbs: [{ label: "Dashboard" }],

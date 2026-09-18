@@ -12,6 +12,7 @@ import { AppConfigService } from "../config/app-config.service.js";
 import { ContextModule } from "../context/context.module.js";
 import { DashboardModule } from "../dashboard/dashboard.module.js";
 import { DocumentGenerationModule } from "../document-generation/document-generation.module.js";
+import { FeedbackModule } from "../feedback/feedback.module.js";
 import { HealthModule } from "../health/health.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { RepositoriesModule } from "../repositories/repositories.module.js";
@@ -41,6 +42,7 @@ import { UsersModule } from "../users/users.module.js";
     DashboardModule,
     DocumentGenerationModule,
     AiExportModule,
+    FeedbackModule,
     HealthModule
   ],
   providers: [

@@ -52,6 +52,7 @@ async function bootstrap() {
       .addTag("analyses")
       .addTag("ai-export")
       .addTag("documents")
+      .addTag("feedback")
       .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
 

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { AuthUserSection } from "@/features/auth/components/auth-user-section";
 import { CtxaroMark } from "@/features/brand/components/ctxaro-brand";
+import { FeedbackNavItem } from "@/features/feedback/components/feedback-nav-item";
 import { primaryNavigation } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 import type { ShellContext } from "@/layouts/shell-context";
@@ -170,6 +171,10 @@ export function Sidebar({ shellContext }: SidebarProps) {
                 </span>
               </NavLink>
             ) : null}
+          </NavigationGroup>
+
+          <NavigationGroup collapsed={collapsed} title="Support">
+            <FeedbackNavItem collapsed={collapsed} />
           </NavigationGroup>
         </nav>
 
