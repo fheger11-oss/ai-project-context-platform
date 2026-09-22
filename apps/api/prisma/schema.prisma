@@ -66,6 +66,19 @@ enum RepositoryFreshnessStatus {
   UPDATE_FAILED
 }
 
+enum RepositoryUpdateStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum RepositoryUpdateTriggerType {
+  MANUAL
+  WEBHOOK
+  SYSTEM
+}
+
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
@@ -145,11 +158,12 @@ model Repository {
   createdAt       DateTime             @default(now()) @map("created_at")
   updatedAt       DateTime             @updatedAt @map("updated_at")
 
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   scans           Scan[]
   analyses        Analysis[]
   projectContexts ProjectContext[]
   state           RepositoryState?
+  updates         RepositoryUpdate[]
 
   @@unique([userId, githubId])
   @@index([userId])
@@ -181,6 +195,36 @@ model RepositoryState {
   @@map("repository_states")
 }
 
+model RepositoryUpdate {
+  id               String                      @id @default(cuid())
+  repositoryId     String                      @map("repository_id")
+  triggerType      RepositoryUpdateTriggerType @map("trigger_type")
+  baseCommitSha    String?                     @map("base_commit_sha")
+  targetCommitSha  String                      @map("target_commit_sha")
+  status           RepositoryUpdateStatus      @default(PENDING)
+  startedAt        DateTime?                   @map("started_at")
+  completedAt      DateTime?                   @map("completed_at")
+  failedAt         DateTime?                   @map("failed_at")
+  failureReason    String?                     @map("failure_reason")
+  scanId           String?                     @map("scan_id")
+  analysisId       String?                     @map("analysis_id")
+  projectContextId String?                     @map("project_context_id")
+  changeSet        Json?                       @map("change_set")
+  createdAt        DateTime                    @default(now()) @map("created_at")
+  updatedAt        DateTime                    @updatedAt @map("updated_at")
+
+  repository     Repository      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  scan           Scan?           @relation("RepositoryUpdateScan", fields: [scanId], references: [id], onDelete: SetNull)
+  analysis       Analysis?       @relation("RepositoryUpdateAnalysis", fields: [analysisId], references: [id], onDelete: SetNull)
+  projectContext ProjectContext? @relation("RepositoryUpdateProjectContext", fields: [projectContextId], references: [id], onDelete: SetNull)
+
+  @@index([repositoryId])
+  @@index([repositoryId, status])
+  @@index([repositoryId, targetCommitSha])
+  @@index([createdAt])
+  @@map("repository_updates")
+}
+
 model Scan {
   id                   String                  @id @default(cuid())
   repositoryId         String                  @map("repository_id")
@@ -197,10 +241,11 @@ model Scan {
   createdAt            DateTime                @default(now()) @map("created_at")
   updatedAt            DateTime                @updatedAt @map("updated_at")
 
-  repository      Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  files           ScanFile[]
-  analyses        Analysis[]
-  projectContexts ProjectContext[]
+  repository        Repository         @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  files             ScanFile[]
+  analyses          Analysis[]
+  projectContexts   ProjectContext[]
+  repositoryUpdates RepositoryUpdate[] @relation("RepositoryUpdateScan")
 
   @@index([repositoryId])
   @@index([repositoryId, createdAt, id])
@@ -228,9 +273,10 @@ model Analysis {
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
 
-  scan            Scan             @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  repository      Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  projectContexts ProjectContext[]
+  scan              Scan               @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  repository        Repository         @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  projectContexts   ProjectContext[]
+  repositoryUpdates RepositoryUpdate[] @relation("RepositoryUpdateAnalysis")
 
   @@index([scanId])
   @@index([repositoryId])
@@ -250,11 +296,12 @@ model ProjectContext {
   snapshot       Json
   createdAt      DateTime @default(now()) @map("created_at")
 
-  analysis                   Analysis          @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  scan                       Scan              @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  repository                 Repository        @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  analysis                   Analysis           @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  scan                       Scan               @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  repository                 Repository         @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   documents                  Document[]
-  currentForRepositoryStates RepositoryState[] @relation("RepositoryStateCurrentProjectContext")
+  currentForRepositoryStates RepositoryState[]  @relation("RepositoryStateCurrentProjectContext")
+  repositoryUpdates          RepositoryUpdate[] @relation("RepositoryUpdateProjectContext")
 
   @@index([contextId])
   @@index([analysisId, generatedAt, createdAt, id])
