@@ -346,6 +346,38 @@ describe("DashboardView", () => {
     expect(markup).not.toContain("Up to date");
   });
 
+  it.each([
+    ["FRESH", "Fresh"],
+    ["STALE", "Stale"],
+    ["UNKNOWN", "Unknown"]
+  ] as const)("displays %s dashboard freshness from RepositoryState", (freshnessStatus, label) => {
+    queryState = {
+      data: {
+        projects: [
+          project({
+            state: {
+              repositoryId: "repository_1",
+              freshnessStatus,
+              remoteHeadCommitSha: "abcdef1234567890",
+              remoteHeadCheckedAt: "2026-09-22T12:30:00.000Z",
+              lastScannedCommitSha: "abcdef1234567890",
+              lastAnalyzedCommitSha: "abcdef1234567890",
+              currentProjectContextId: "project_context_1",
+              currentContextCommitSha: "abcdef1234567890",
+              lastUpdateStatus: null
+            }
+          })
+        ]
+      },
+      isSuccess: true
+    };
+
+    const markup = renderToStaticMarkup(<DashboardView />);
+
+    expect(markup).toContain("Freshness");
+    expect(markup).toContain(label);
+  });
+
   it("displays analysis availability from the summary response", () => {
     queryState = {
       data: { projects: [project({ latestAnalysis, latestScan })] },

@@ -64,6 +64,13 @@ export function getRepositoryState(accessToken: string, id: string) {
   return request<RepositoryStateSummary>(`/repositories/${id}/state`, { accessToken });
 }
 
+export function refreshRepositoryState(accessToken: string, id: string) {
+  return request<RepositoryStateSummary>(`/repositories/${id}/state/refresh`, {
+    accessToken,
+    method: "POST"
+  });
+}
+
 export function getCurrentProjectContext(accessToken: string, id: string) {
   return request<ProjectContextResponse>(`/repositories/${id}/current-context`, { accessToken });
 }

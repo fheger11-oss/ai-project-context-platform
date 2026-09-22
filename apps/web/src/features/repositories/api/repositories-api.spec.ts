@@ -4,7 +4,8 @@ import type { ProjectContextResponse, RepositoryStateSummary } from "@ai-context
 import {
   ApiRequestError,
   getCurrentProjectContext,
-  getRepositoryState
+  getRepositoryState,
+  refreshRepositoryState
 } from "@/features/repositories/api/repositories-api";
 
 const state: RepositoryStateSummary = {
@@ -85,6 +86,29 @@ describe("repositories-api RepositoryState endpoints", () => {
       }
     );
     expect(result).toEqual(context);
+  });
+
+  it("refreshes repository state through the explicit refresh endpoint", async () => {
+    const fetchMock = mockFetch({
+      ...state,
+      freshnessStatus: "FRESH",
+      remoteHeadCommitSha: "commit-context",
+      remoteHeadCheckedAt: "2026-09-22T12:30:00.000Z"
+    } satisfies RepositoryStateSummary);
+
+    const result = await refreshRepositoryState("access_token", "repository_1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/v1/repositories/repository_1/state/refresh",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer access_token",
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    expect(result.freshnessStatus).toBe("FRESH");
   });
 
   it("propagates repository state API errors", async () => {

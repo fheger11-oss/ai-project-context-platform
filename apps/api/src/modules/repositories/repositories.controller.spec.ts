@@ -61,6 +61,39 @@ describe("RepositoriesController RepositoryState endpoints", () => {
     );
   });
 
+  it("refreshes RepositoryState remote HEAD through the explicit action endpoint", async () => {
+    const refreshRemoteHead = vi.fn(async () => ({
+      id: "state_1",
+      repositoryId: "repository_1",
+      remoteHeadCommitSha: "remote_commit_sha",
+      remoteHeadCheckedAt: new Date("2026-09-22T12:30:00.000Z"),
+      lastScannedCommitSha: "commit-scan",
+      lastAnalyzedCommitSha: "commit-analysis",
+      currentProjectContextId: "context_1",
+      currentContextCommitSha: "remote_commit_sha",
+      freshnessStatus: RepositoryFreshnessStatus.FRESH,
+      lastUpdateStatus: null,
+      createdAt: new Date("2026-09-22T12:00:00.000Z"),
+      updatedAt: new Date("2026-09-22T12:30:00.000Z")
+    }));
+    const controller = createController({ refreshRemoteHead });
+
+    const response = await controller.refreshState(user, { id: "repository_1" });
+
+    expect(refreshRemoteHead).toHaveBeenCalledWith("repository_1", "user_1");
+    expect(response).toEqual({
+      repositoryId: "repository_1",
+      freshnessStatus: "FRESH",
+      remoteHeadCommitSha: "remote_commit_sha",
+      remoteHeadCheckedAt: "2026-09-22T12:30:00.000Z",
+      lastScannedCommitSha: "commit-scan",
+      lastAnalyzedCommitSha: "commit-analysis",
+      currentProjectContextId: "context_1",
+      currentContextCommitSha: "remote_commit_sha",
+      lastUpdateStatus: null
+    });
+  });
+
   it("returns the current ProjectContext through RepositoryState", async () => {
     const getCurrentProjectContext = vi.fn(async () => createPersistedContext());
     const controller = createController({ getCurrentProjectContext });

@@ -25,7 +25,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
-import { getRepository, syncRepository } from "@/features/repositories/api/repositories-api";
+import {
+  getRepository,
+  refreshRepositoryState,
+  syncRepository
+} from "@/features/repositories/api/repositories-api";
 import type { RepositorySummary } from "@/features/repositories/api/repositories-api";
 import { getScanHistory, type ScanSnapshot } from "@/features/scans/api/scan-api";
 import { StartAnalysisButton } from "@/features/analysis/components/start-analysis-button";
@@ -94,6 +98,19 @@ export function RepositoryDetailsView() {
     },
     onError: () => {
       analytics.track("repository_sync_failed", { reason: "UNKNOWN" });
+    }
+  });
+  const refreshStateMutation = useMutation({
+    mutationFn: () => refreshRepositoryState(apiAccessToken, id ?? ""),
+    onSuccess: async () => {
+      analytics.track("repository_state_refresh_completed");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["repositories", id, "state"] })
+      ]);
+    },
+    onError: () => {
+      analytics.track("repository_state_refresh_failed", { reason: "UNKNOWN" });
     }
   });
   const repository = repositoryQuery.data;
@@ -246,6 +263,10 @@ export function RepositoryDetailsView() {
             repository={repository}
             latestScan={latestScan}
             projectSummary={projectSummary}
+            isRefreshing={refreshStateMutation.isPending}
+            refreshError={refreshStateMutation.isError}
+            refreshSucceeded={refreshStateMutation.isSuccess}
+            onRefresh={() => refreshStateMutation.mutate()}
           />
         </aside>
       </div>
@@ -600,12 +621,20 @@ function WorkflowRow({
 }
 
 function CurrentState({
+  isRefreshing,
   latestScan,
+  onRefresh,
   projectSummary,
+  refreshError,
+  refreshSucceeded,
   repository
 }: {
+  isRefreshing: boolean;
   latestScan: ScanSnapshot | null;
+  onRefresh: () => void;
   projectSummary: DashboardProjectSummary | null;
+  refreshError: boolean;
+  refreshSucceeded: boolean;
   repository: RepositorySummary;
 }) {
   const repositoryState = projectSummary?.state ?? null;
@@ -642,6 +671,15 @@ function CurrentState({
         </div>
         <StateRow label="Freshness" value={freshnessLabel(repositoryState)} />
         <StateRow
+          label="Remote HEAD"
+          title={repositoryState?.remoteHeadCommitSha ?? undefined}
+          value={
+            repositoryState?.remoteHeadCommitSha
+              ? shortCommit(repositoryState.remoteHeadCommitSha)
+              : "Not available"
+          }
+        />
+        <StateRow
           label="Current context"
           title={repositoryState?.currentContextCommitSha ?? undefined}
           value={
@@ -668,6 +706,28 @@ function CurrentState({
               : "Not available"
           }
         />
+        <div className="grid gap-2 border-t border-border/70 pt-3">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isRefreshing}
+            aria-busy={isRefreshing}
+            onClick={onRefresh}
+          >
+            <RefreshCw className={isRefreshing ? "animate-spin" : undefined} />
+            {isRefreshing ? "Refreshing" : "Refresh freshness"}
+          </Button>
+          <div aria-live="polite">
+            {refreshSucceeded ? (
+              <p className="text-xs text-primary">Repository freshness refreshed.</p>
+            ) : null}
+            {refreshError ? (
+              <p className="text-xs text-destructive" role="alert">
+                Freshness refresh failed.
+              </p>
+            ) : null}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

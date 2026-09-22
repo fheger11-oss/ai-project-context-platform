@@ -2,9 +2,14 @@ import { NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import { RepositoryFreshnessStatus } from "../../generated/prisma/enums.js";
+import type { GitHubAccountService } from "../auth/providers/github-account.service.js";
 import type { PrismaService } from "../prisma/prisma.service.js";
+import type { GitHubRepositoryHeadProvider } from "./providers/github-repository-head.provider.js";
 import type { RepositoriesService } from "./repositories.service.js";
-import { RepositoryStateService } from "./repository-state.service.js";
+import {
+  deriveRepositoryFreshnessStatus,
+  RepositoryStateService
+} from "./repository-state.service.js";
 
 const now = new Date("2026-09-22T12:00:00.000Z");
 
@@ -73,6 +78,8 @@ function createHarness(
     currentContext?: ProjectContextRecord | null;
     repositoryIdsWithoutState?: string[];
     ownershipError?: Error;
+    remoteHeadCommitSha?: string;
+    remoteHeadError?: Error;
   } = {}
 ) {
   const create = vi.fn(
@@ -93,6 +100,12 @@ function createHarness(
         ...(options.createdState ?? {})
       })
   );
+  const update = vi.fn(async (args: { data: Partial<RepositoryStateRecord> }) =>
+    createState({
+      ...(options.existingState ?? {}),
+      ...args.data
+    })
+  );
   const findUnique = vi.fn(async () => options.existingState ?? null);
   const repositoryFindMany = vi.fn(async () =>
     (options.repositoryIdsWithoutState ?? []).map((id) => ({ id }))
@@ -108,7 +121,8 @@ function createHarness(
     },
     repositoryState: {
       create,
-      findUnique
+      findUnique,
+      update
     },
     scan: {
       findFirst: scanFindFirst
@@ -137,22 +151,72 @@ function createHarness(
   const repositoriesService = {
     getScanAccessMetadataForUser
   } as unknown as RepositoriesService;
+  const getAccessTokenForUser = vi.fn(async () => "provider-token");
+  const githubAccountService = {
+    getAccessTokenForUser
+  } as unknown as GitHubAccountService;
+  const resolveHead = vi.fn(async () => {
+    if (options.remoteHeadError) {
+      throw options.remoteHeadError;
+    }
+
+    return { commitSha: options.remoteHeadCommitSha ?? "remote_commit_sha" };
+  });
+  const repositoryHeadProvider = {
+    resolveHead
+  } as unknown as GitHubRepositoryHeadProvider;
 
   return {
-    service: new RepositoryStateService(prisma, repositoriesService),
+    service: new RepositoryStateService(
+      prisma,
+      repositoriesService,
+      githubAccountService,
+      repositoryHeadProvider
+    ),
     prisma,
     create,
     findUnique,
+    update,
     repositoryFindMany,
     scanFindFirst,
     analysisFindFirst,
     projectContextFindFirst,
     projectContextFindUnique,
-    getScanAccessMetadataForUser
+    getScanAccessMetadataForUser,
+    getAccessTokenForUser,
+    resolveHead
   };
 }
 
 describe("RepositoryStateService", () => {
+  it.each([
+    [
+      "matching remote and context commits",
+      "commit-a",
+      "commit-a",
+      RepositoryFreshnessStatus.FRESH
+    ],
+    [
+      "different remote and context commits",
+      "commit-b",
+      "commit-a",
+      RepositoryFreshnessStatus.STALE
+    ],
+    ["remote HEAD without current context", "commit-b", null, RepositoryFreshnessStatus.UNKNOWN],
+    ["missing remote HEAD", null, "commit-a", RepositoryFreshnessStatus.UNKNOWN],
+    ["both missing", null, null, RepositoryFreshnessStatus.UNKNOWN]
+  ])(
+    "derives freshness for %s",
+    (_case, remoteHeadCommitSha, currentContextCommitSha, expected) => {
+      expect(
+        deriveRepositoryFreshnessStatus({
+          remoteHeadCommitSha,
+          currentContextCommitSha
+        })
+      ).toBe(expected);
+    }
+  );
+
   it("initializes an owned repository with UNKNOWN freshness and nullable remote state", async () => {
     const { service, create, getScanAccessMetadataForUser } = createHarness();
 
@@ -194,6 +258,138 @@ describe("RepositoryStateService", () => {
       NotFoundException
     );
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("refreshes remote HEAD using repository ownership metadata and GitHub token access", async () => {
+    const { service, getAccessTokenForUser, resolveHead, update } = createHarness({
+      existingState: createState({
+        currentContextCommitSha: "remote_commit_sha",
+        freshnessStatus: RepositoryFreshnessStatus.UNKNOWN
+      })
+    });
+
+    const state = await service.refreshRemoteHead("repository_1", "user_1");
+
+    expect(getAccessTokenForUser).toHaveBeenCalledWith("user_1");
+    expect(resolveHead).toHaveBeenCalledWith({
+      accessToken: "provider-token",
+      owner: "owner",
+      name: "repository",
+      reference: "main"
+    });
+    expect(update).toHaveBeenCalledWith({
+      where: { repositoryId: "repository_1" },
+      data: {
+        remoteHeadCommitSha: "remote_commit_sha",
+        remoteHeadCheckedAt: expect.any(Date),
+        freshnessStatus: RepositoryFreshnessStatus.FRESH
+      }
+    });
+    expect(state).toMatchObject({
+      remoteHeadCommitSha: "remote_commit_sha",
+      freshnessStatus: RepositoryFreshnessStatus.FRESH
+    });
+    expect(state.remoteHeadCheckedAt).toBeInstanceOf(Date);
+  });
+
+  it("marks state STALE when remote HEAD differs from current context commit", async () => {
+    const { service } = createHarness({
+      existingState: createState({ currentContextCommitSha: "context_commit_sha" }),
+      remoteHeadCommitSha: "remote_commit_sha"
+    });
+
+    await expect(service.refreshRemoteHead("repository_1", "user_1")).resolves.toMatchObject({
+      remoteHeadCommitSha: "remote_commit_sha",
+      currentContextCommitSha: "context_commit_sha",
+      freshnessStatus: RepositoryFreshnessStatus.STALE
+    });
+  });
+
+  it("keeps freshness UNKNOWN when remote HEAD exists but current context is missing", async () => {
+    const { service } = createHarness({
+      existingState: createState({ currentContextCommitSha: null }),
+      remoteHeadCommitSha: "remote_commit_sha"
+    });
+
+    await expect(service.refreshRemoteHead("repository_1", "user_1")).resolves.toMatchObject({
+      remoteHeadCommitSha: "remote_commit_sha",
+      currentContextCommitSha: null,
+      freshnessStatus: RepositoryFreshnessStatus.UNKNOWN
+    });
+  });
+
+  it("does not fabricate UPDATE_FAILED during remote HEAD refresh", async () => {
+    const { service } = createHarness({
+      existingState: createState({ currentContextCommitSha: "other_commit_sha" }),
+      remoteHeadCommitSha: "remote_commit_sha"
+    });
+
+    const state = await service.refreshRemoteHead("repository_1", "user_1");
+
+    expect(state.freshnessStatus).toBe(RepositoryFreshnessStatus.STALE);
+    expect(state.freshnessStatus).not.toBe(RepositoryFreshnessStatus.UPDATE_FAILED);
+  });
+
+  it("does not allow another user to refresh RepositoryState", async () => {
+    const { service, getAccessTokenForUser, resolveHead, update } = createHarness({
+      ownershipError: new NotFoundException("Repository was not found")
+    });
+
+    await expect(service.refreshRemoteHead("repository_1", "user_2")).rejects.toBeInstanceOf(
+      NotFoundException
+    );
+    expect(getAccessTokenForUser).not.toHaveBeenCalled();
+    expect(resolveHead).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("preserves the previous known remote HEAD and timestamp when GitHub HEAD lookup fails", async () => {
+    const previousCheckedAt = new Date("2026-09-22T10:00:00.000Z");
+    const { service, update } = createHarness({
+      existingState: createState({
+        remoteHeadCommitSha: "previous_remote_sha",
+        remoteHeadCheckedAt: previousCheckedAt,
+        freshnessStatus: RepositoryFreshnessStatus.FRESH
+      }),
+      remoteHeadError: new Error("GitHub unavailable")
+    });
+
+    await expect(service.refreshRemoteHead("repository_1", "user_1")).rejects.toThrow(
+      "GitHub unavailable"
+    );
+    expect(update).toHaveBeenCalledWith({
+      where: { repositoryId: "repository_1" },
+      data: {
+        freshnessStatus: RepositoryFreshnessStatus.UNKNOWN
+      }
+    });
+    expect(update).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          remoteHeadCommitSha: null,
+          remoteHeadCheckedAt: expect.any(Date)
+        })
+      })
+    );
+  });
+
+  it("observes remote HEAD without reading or creating scan, analysis, context, document, or quota rows", async () => {
+    const {
+      service,
+      scanFindFirst,
+      analysisFindFirst,
+      projectContextFindFirst,
+      projectContextFindUnique
+    } = createHarness({
+      existingState: createState({ currentContextCommitSha: "remote_commit_sha" })
+    });
+
+    await service.refreshRemoteHead("repository_1", "user_1");
+
+    expect(scanFindFirst).not.toHaveBeenCalled();
+    expect(analysisFindFirst).not.toHaveBeenCalled();
+    expect(projectContextFindFirst).not.toHaveBeenCalled();
+    expect(projectContextFindUnique).not.toHaveBeenCalled();
   });
 
   it("uses the latest completed scan and ignores non-completed scans by query", async () => {

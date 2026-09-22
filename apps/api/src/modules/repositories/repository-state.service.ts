@@ -2,10 +2,12 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import { RepositoryFreshnessStatus } from "../../generated/prisma/enums.js";
 import type { ProjectContextModel, RepositoryStateModel } from "../../generated/prisma/models.js";
+import { GitHubAccountService } from "../auth/providers/github-account.service.js";
 import type { PersistedProjectContext } from "../context/domain/contracts/project-context-repository.contract.js";
 import { InvalidPersistedProjectContextError } from "../context/domain/errors/invalid-persisted-project-context.error.js";
 import { ProjectContext, type ProjectContextSnapshot } from "../context/domain/project-context.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { GitHubRepositoryHeadProvider } from "./providers/github-repository-head.provider.js";
 import { RepositoriesService } from "./repositories.service.js";
 
 export type RepositoryStateSnapshot = {
@@ -32,7 +34,11 @@ export type RepositoryStateBackfillResult = {
 export class RepositoryStateService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(RepositoriesService) private readonly repositoriesService: RepositoriesService
+    @Inject(RepositoriesService) private readonly repositoriesService: RepositoriesService,
+    @Inject(GitHubAccountService)
+    private readonly githubAccountService: GitHubAccountService,
+    @Inject(GitHubRepositoryHeadProvider)
+    private readonly repositoryHeadProvider: GitHubRepositoryHeadProvider
   ) {}
 
   async getOrInitialize(repositoryId: string, userId: string): Promise<RepositoryStateSnapshot> {
@@ -60,6 +66,46 @@ export class RepositoryStateService {
     }
 
     return toPersistedProjectContext(context);
+  }
+
+  async refreshRemoteHead(repositoryId: string, userId: string): Promise<RepositoryStateSnapshot> {
+    const repository = await this.repositoriesService.getScanAccessMetadataForUser(
+      userId,
+      repositoryId
+    );
+    const state = await this.getOrCreateRepositoryState(repositoryId);
+    const accessToken = await this.githubAccountService.getAccessTokenForUser(userId);
+
+    try {
+      const remoteHead = await this.repositoryHeadProvider.resolveHead({
+        accessToken,
+        owner: repository.owner,
+        name: repository.name,
+        reference: repository.defaultBranch
+      });
+      const updated = await this.prisma.repositoryState.update({
+        where: { repositoryId },
+        data: {
+          remoteHeadCommitSha: remoteHead.commitSha,
+          remoteHeadCheckedAt: new Date(),
+          freshnessStatus: deriveRepositoryFreshnessStatus({
+            remoteHeadCommitSha: remoteHead.commitSha,
+            currentContextCommitSha: state.currentContextCommitSha
+          })
+        }
+      });
+
+      return toRepositoryStateSnapshot(updated);
+    } catch (error) {
+      await this.prisma.repositoryState.update({
+        where: { repositoryId },
+        data: {
+          freshnessStatus: RepositoryFreshnessStatus.UNKNOWN
+        }
+      });
+
+      throw error;
+    }
   }
 
   async backfillMissingRepositoryStates(): Promise<RepositoryStateBackfillResult> {
@@ -189,6 +235,19 @@ export class RepositoryStateService {
       currentContextCommitSha: latestContext?.commitSha ?? null
     };
   }
+}
+
+export function deriveRepositoryFreshnessStatus(input: {
+  currentContextCommitSha: string | null;
+  remoteHeadCommitSha: string | null;
+}): RepositoryFreshnessStatus {
+  if (!input.remoteHeadCommitSha || !input.currentContextCommitSha) {
+    return RepositoryFreshnessStatus.UNKNOWN;
+  }
+
+  return input.remoteHeadCommitSha === input.currentContextCommitSha
+    ? RepositoryFreshnessStatus.FRESH
+    : RepositoryFreshnessStatus.STALE;
 }
 
 function toRepositoryStateSnapshot(state: RepositoryStateModel): RepositoryStateSnapshot {

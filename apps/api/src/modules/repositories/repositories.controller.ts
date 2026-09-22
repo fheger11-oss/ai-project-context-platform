@@ -83,6 +83,18 @@ export class RepositoriesController {
     return toRepositoryStateSummary(state);
   }
 
+  @Post(":id/state/refresh")
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: RepositoryStateResponseDto })
+  async refreshState(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: RepositoryParamsDto
+  ): Promise<RepositoryStateSummary> {
+    const state = await this.repositoryStateService.refreshRemoteHead(params.id, user.id);
+
+    return toRepositoryStateSummary(state);
+  }
+
   @Get(":id/current-context")
   @ApiOkResponse({ type: ProjectContextResponseDto })
   async getCurrentContext(

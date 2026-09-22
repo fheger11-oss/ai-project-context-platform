@@ -9,7 +9,10 @@ import type {
 } from "@ai-context/contracts";
 
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
-import { getRepository } from "@/features/repositories/api/repositories-api";
+import {
+  getRepository,
+  refreshRepositoryState
+} from "@/features/repositories/api/repositories-api";
 import { getScanHistory } from "@/features/scans/api/scan-api";
 import { RepositoryDetailsView } from "./repository-details-view";
 
@@ -38,7 +41,7 @@ let accessToken = "access_token";
 let repositoryQuery: QueryResult = {};
 let latestScanQuery: QueryResult = {};
 let dashboardQuery: QueryResult = {};
-let mutationOptions: MutationOptions | null = null;
+const mutationOptions: MutationOptions[] = [];
 const invalidateQueries = vi.fn();
 
 const repository: RepositorySummary = {
@@ -148,7 +151,7 @@ function dashboardResponse(projects: DashboardProjectSummary[]): DashboardProjec
 
 vi.mock("@tanstack/react-query", () => ({
   useMutation: (options: MutationOptions) => {
-    mutationOptions = options;
+    mutationOptions.push(options);
 
     return {
       isError: false,
@@ -215,6 +218,7 @@ vi.mock("@/features/repositories/api/repositories-api", async (importOriginal) =
   return {
     ...actual,
     getRepository: vi.fn(),
+    refreshRepositoryState: vi.fn(),
     syncRepository: vi.fn()
   };
 });
@@ -282,9 +286,10 @@ describe("RepositoryDetailsView", () => {
       } satisfies ScanHistoryResponse
     };
     dashboardQuery = { data: dashboardResponse([projectSummary]) };
-    mutationOptions = null;
+    mutationOptions.length = 0;
     invalidateQueries.mockClear();
     vi.mocked(getRepository).mockReset();
+    vi.mocked(refreshRepositoryState).mockReset();
     vi.mocked(getScanHistory).mockReset();
     vi.mocked(listDashboardProjects).mockReset();
   });
@@ -314,11 +319,39 @@ describe("RepositoryDetailsView", () => {
 
     expect(markup).toContain("Freshness");
     expect(markup).toContain("Unknown");
+    expect(markup).toContain("Remote HEAD");
+    expect(markup).toContain("Not available");
     expect(markup).toContain("Current context");
     expect(markup).toContain("Last scanned commit");
     expect(markup).toContain("Last analyzed commit");
     expect(markup).toContain("abcdef123456");
     expect(markup).not.toContain("Up to date");
+  });
+
+  it.each([
+    ["FRESH", "Fresh"],
+    ["STALE", "Stale"],
+    ["UNKNOWN", "Unknown"]
+  ] as const)("renders %s freshness from RepositoryState", (freshnessStatus, label) => {
+    dashboardQuery = {
+      data: dashboardResponse([
+        {
+          ...projectSummary,
+          state: {
+            ...projectSummary.state!,
+            freshnessStatus,
+            remoteHeadCommitSha: "remoteabcdef123456",
+            currentContextCommitSha:
+              freshnessStatus === "FRESH" ? "remoteabcdef123456" : "contextabcdef123456"
+          }
+        }
+      ])
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain(label);
+    expect(markup).toContain("remoteabcdef");
   });
 
   it("shows analysis access when analysis exists", () => {
@@ -421,7 +454,7 @@ describe("RepositoryDetailsView", () => {
   it("refreshes repository and dashboard state after metadata sync succeeds", async () => {
     renderToStaticMarkup(<RepositoryDetailsView />);
 
-    await mutationOptions?.onSuccess?.();
+    await mutationOptions[0]?.onSuccess?.();
 
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["dashboard", "projects"]
@@ -431,6 +464,28 @@ describe("RepositoryDetailsView", () => {
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["repositories", "repository_1"]
+    });
+  });
+
+  it("refreshes repository freshness without triggering scan APIs", async () => {
+    vi.mocked(refreshRepositoryState).mockResolvedValue({
+      ...projectSummary.state!,
+      freshnessStatus: "FRESH",
+      remoteHeadCommitSha: "abcdef1234567890",
+      remoteHeadCheckedAt: "2026-09-22T12:30:00.000Z"
+    });
+    renderToStaticMarkup(<RepositoryDetailsView />);
+
+    await mutationOptions[1]?.mutationFn();
+    await mutationOptions[1]?.onSuccess?.();
+
+    expect(refreshRepositoryState).toHaveBeenCalledWith("access_token", "repository_1");
+    expect(getScanHistory).not.toHaveBeenCalled();
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1", "state"]
     });
   });
 });
