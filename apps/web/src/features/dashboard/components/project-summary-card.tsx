@@ -34,6 +34,18 @@ function shortCommit(value: string): string {
   return value.length > 12 ? value.slice(0, 12) : value;
 }
 
+function freshnessLabel(value: DashboardProjectSummary["state"]): string {
+  if (!value) {
+    return "Unknown";
+  }
+
+  if (value.freshnessStatus === "UPDATE_FAILED") {
+    return "Update failed";
+  }
+
+  return value.freshnessStatus.toLowerCase().replace(/^\w/, (char) => char.toUpperCase());
+}
+
 function primaryAction(project: DashboardProjectSummary): { href: string; label: string } {
   const repositoryHref = `/repositories/${encodeURIComponent(project.repository.id)}`;
 
@@ -188,6 +200,22 @@ export function ProjectSummaryCard({ limits, project }: ProjectSummaryCardProps)
         </section>
 
         <dl className="grid gap-2 text-sm">
+          <CapabilityRow
+            available={project.state?.freshnessStatus === "FRESH"}
+            icon={GitBranch}
+            label="Freshness"
+            value={freshnessLabel(project.state)}
+          />
+          <CapabilityRow
+            available={Boolean(project.state?.currentContextCommitSha)}
+            icon={Layers3}
+            label="Context commit"
+            value={
+              project.state?.currentContextCommitSha
+                ? shortCommit(project.state.currentContextCommitSha)
+                : "Not available"
+            }
+          />
           <CapabilityRow
             available={Boolean(latestAnalysis)}
             icon={BarChart3}

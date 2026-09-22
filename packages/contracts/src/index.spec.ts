@@ -9,6 +9,7 @@ import type {
   DashboardProjectsResponse,
   GeneratedDocumentResponse,
   GenerateDocumentRequest,
+  RepositoryStateSummary,
   ScanLimitErrorResponse,
   ScanLimits,
   ScanSnapshot,
@@ -51,6 +52,21 @@ describe("contracts package exports", () => {
   it("exports Dashboard API contracts from the public entrypoint", () => {
     expectTypeOf<DashboardProjectsResponse>().toHaveProperty("projects");
     expectTypeOf<DashboardProjectsResponse["projects"]>().toMatchTypeOf<readonly unknown[]>();
+  });
+
+  it("exports RepositoryState API contracts from the public entrypoint", () => {
+    expectTypeOf<RepositoryStateSummary>().toMatchTypeOf<{
+      repositoryId: string;
+      freshnessStatus: "UNKNOWN" | "FRESH" | "STALE" | "UPDATE_FAILED";
+      remoteHeadCommitSha: string | null;
+      remoteHeadCheckedAt: string | null;
+      lastScannedCommitSha: string | null;
+      lastAnalyzedCommitSha: string | null;
+      currentProjectContextId: string | null;
+      currentContextCommitSha: string | null;
+      lastUpdateStatus: string | null;
+    }>();
+    expectTypeOf<RepositoryStateSummary>().not.toHaveProperty("id");
   });
 
   it("exports Scan limit and usage contracts from the public entrypoint", () => {

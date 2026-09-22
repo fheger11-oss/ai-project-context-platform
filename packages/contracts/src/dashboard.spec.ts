@@ -5,6 +5,7 @@ import type { DashboardProjectsResponse, DashboardProjectSummary } from "./dashb
 describe("Dashboard contracts", () => {
   it("models dashboard project summaries without Prisma internals or invented metrics", () => {
     expectTypeOf<DashboardProjectSummary>().toHaveProperty("repository");
+    expectTypeOf<DashboardProjectSummary>().toHaveProperty("state");
     expectTypeOf<DashboardProjectSummary>().toHaveProperty("latestScan");
     expectTypeOf<DashboardProjectSummary>().toHaveProperty("latestAnalysis");
     expectTypeOf<DashboardProjectSummary>().toHaveProperty("latestContext");
@@ -30,6 +31,17 @@ describe("Dashboard contracts", () => {
             language: "TypeScript",
             isArchived: false,
             lastSyncedAt: "2026-08-26T10:00:00.000Z"
+          },
+          state: {
+            repositoryId: "repository_1",
+            freshnessStatus: "UNKNOWN",
+            remoteHeadCommitSha: null,
+            remoteHeadCheckedAt: null,
+            lastScannedCommitSha: null,
+            lastAnalyzedCommitSha: null,
+            currentProjectContextId: null,
+            currentContextCommitSha: null,
+            lastUpdateStatus: null
           },
           latestScan: {
             id: "scan_1",

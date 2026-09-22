@@ -22,7 +22,18 @@ import { ConnectRepositoryDto } from "./dto/connect-repository.dto.js";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { RepositoryParamsDto } from "./dto/repository-params.dto.js";
 import { RepositoryListResponseDto, RepositoryResponseDto } from "./dto/repository-response.dto.js";
+import {
+  RepositoryStateResponseDto,
+  toRepositoryStateSummary,
+  type RepositoryStateSummary
+} from "./dto/repository-state-response.dto.js";
 import { RepositoriesService } from "./repositories.service.js";
+import { RepositoryStateService } from "./repository-state.service.js";
+import {
+  ProjectContextResponseDto,
+  toProjectContextResponse,
+  type ProjectContextResponse
+} from "../context/presentation/dto/project-context-response.dto.js";
 
 @ApiTags("repositories")
 @Auth()
@@ -33,7 +44,9 @@ import { RepositoriesService } from "./repositories.service.js";
 export class RepositoriesController {
   constructor(
     @Inject(RepositoriesService)
-    private readonly repositoriesService: RepositoriesService
+    private readonly repositoriesService: RepositoriesService,
+    @Inject(RepositoryStateService)
+    private readonly repositoryStateService: RepositoryStateService
   ) {}
 
   @Get("github/list")
@@ -57,6 +70,28 @@ export class RepositoriesController {
     const repositories = await this.repositoriesService.list(user);
 
     return { repositories };
+  }
+
+  @Get(":id/state")
+  @ApiOkResponse({ type: RepositoryStateResponseDto })
+  async getState(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: RepositoryParamsDto
+  ): Promise<RepositoryStateSummary> {
+    const state = await this.repositoryStateService.getOrInitialize(params.id, user.id);
+
+    return toRepositoryStateSummary(state);
+  }
+
+  @Get(":id/current-context")
+  @ApiOkResponse({ type: ProjectContextResponseDto })
+  async getCurrentContext(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: RepositoryParamsDto
+  ): Promise<ProjectContextResponse> {
+    const context = await this.repositoryStateService.getCurrentProjectContext(params.id, user.id);
+
+    return toProjectContextResponse(context);
   }
 
   @Get(":id")

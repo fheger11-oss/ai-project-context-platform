@@ -2,6 +2,9 @@ import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import { RepositoryFreshnessStatus } from "../../generated/prisma/enums.js";
 import type { ProjectContextModel, RepositoryStateModel } from "../../generated/prisma/models.js";
+import type { PersistedProjectContext } from "../context/domain/contracts/project-context-repository.contract.js";
+import { InvalidPersistedProjectContextError } from "../context/domain/errors/invalid-persisted-project-context.error.js";
+import { ProjectContext, type ProjectContextSnapshot } from "../context/domain/project-context.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { RepositoriesService } from "./repositories.service.js";
 
@@ -18,18 +21,6 @@ export type RepositoryStateSnapshot = {
   lastUpdateStatus: string | null;
   createdAt: Date;
   updatedAt: Date;
-};
-
-export type RepositoryCurrentProjectContextSnapshot = {
-  id: string;
-  contextId: string;
-  analysisId: string;
-  scanId: string;
-  repositoryId: string;
-  commitSha: string;
-  contextVersion: string;
-  generatedAt: Date;
-  createdAt: Date;
 };
 
 export type RepositoryStateBackfillResult = {
@@ -53,7 +44,7 @@ export class RepositoryStateService {
   async getCurrentProjectContext(
     repositoryId: string,
     userId: string
-  ): Promise<RepositoryCurrentProjectContextSnapshot> {
+  ): Promise<PersistedProjectContext> {
     const state = await this.getOrInitialize(repositoryId, userId);
 
     if (!state.currentProjectContextId) {
@@ -68,7 +59,7 @@ export class RepositoryStateService {
       throw new NotFoundException("Current ProjectContext was not found");
     }
 
-    return toCurrentProjectContextSnapshot(context);
+    return toPersistedProjectContext(context);
   }
 
   async backfillMissingRepositoryStates(): Promise<RepositoryStateBackfillResult> {
@@ -217,9 +208,10 @@ function toRepositoryStateSnapshot(state: RepositoryStateModel): RepositoryState
   };
 }
 
-function toCurrentProjectContextSnapshot(
-  context: ProjectContextModel
-): RepositoryCurrentProjectContextSnapshot {
+function toPersistedProjectContext(context: ProjectContextModel): PersistedProjectContext {
+  const snapshot = deserializeSnapshot(context.id, context.snapshot);
+  assertSnapshotMatchesStoredMetadata(context, snapshot);
+
   return {
     id: context.id,
     contextId: context.contextId,
@@ -229,6 +221,61 @@ function toCurrentProjectContextSnapshot(
     commitSha: context.commitSha,
     contextVersion: context.contextVersion,
     generatedAt: context.generatedAt,
-    createdAt: context.createdAt
+    createdAt: context.createdAt,
+    context: ProjectContext.fromSnapshot(snapshot)
   };
+}
+
+type SerializedProjectContextSnapshot = Omit<ProjectContextSnapshot, "generatedAt"> & {
+  generatedAt: string;
+};
+
+function deserializeSnapshot(recordId: string, value: unknown): ProjectContextSnapshot {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new InvalidPersistedProjectContextError(recordId, "snapshot must be an object.");
+  }
+
+  const snapshot = value as SerializedProjectContextSnapshot;
+
+  if (typeof snapshot.generatedAt !== "string") {
+    throw new InvalidPersistedProjectContextError(
+      recordId,
+      "snapshot.generatedAt must be a string."
+    );
+  }
+
+  const generatedAt = new Date(snapshot.generatedAt);
+
+  if (Number.isNaN(generatedAt.getTime())) {
+    throw new InvalidPersistedProjectContextError(recordId, "snapshot.generatedAt is invalid.");
+  }
+
+  return {
+    ...snapshot,
+    generatedAt
+  };
+}
+
+function assertSnapshotMatchesStoredMetadata(
+  context: ProjectContextModel,
+  snapshot: ProjectContextSnapshot
+): void {
+  const comparisons = [
+    ["contextId", context.contextId, snapshot.contextId],
+    ["analysisId", context.analysisId, snapshot.analysisId],
+    ["scanId", context.scanId, snapshot.scanId],
+    ["repositoryId", context.repositoryId, snapshot.repositoryId],
+    ["commitSha", context.commitSha, snapshot.commitSha],
+    ["contextVersion", context.contextVersion, snapshot.contextVersion],
+    ["generatedAt", context.generatedAt.toISOString(), snapshot.generatedAt.toISOString()]
+  ] as const;
+
+  for (const [field, storedValue, snapshotValue] of comparisons) {
+    if (storedValue !== snapshotValue) {
+      throw new InvalidPersistedProjectContextError(
+        context.id,
+        `${field} does not match persisted metadata.`
+      );
+    }
+  }
 }

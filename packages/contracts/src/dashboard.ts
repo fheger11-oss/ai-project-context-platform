@@ -1,4 +1,10 @@
-import type { RepositoryVisibility, ScanLimitState, ScanStatus, ScanUsage } from "./index.js";
+import type {
+  RepositoryStateSummary,
+  RepositoryVisibility,
+  ScanLimitState,
+  ScanStatus,
+  ScanUsage
+} from "./index.js";
 
 export type DashboardProjectRepositorySummary = {
   id: string;
@@ -53,6 +59,7 @@ export type DashboardProjectAiExportSummary = {
 
 export type DashboardProjectSummary = {
   repository: DashboardProjectRepositorySummary;
+  state: RepositoryStateSummary | null;
   latestScan: DashboardProjectLatestScanSummary | null;
   latestAnalysis: DashboardProjectLatestAnalysisSummary | null;
   latestContext: DashboardProjectLatestContextSummary | null;

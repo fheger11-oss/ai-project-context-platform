@@ -2,6 +2,8 @@ import type {
   AvailableGitHubRepository,
   ListAvailableGitHubRepositoriesResponse,
   ListRepositoriesResponse,
+  ProjectContextResponse,
+  RepositoryStateSummary,
   RepositorySummary
 } from "@ai-context/contracts";
 
@@ -58,6 +60,14 @@ export function getRepository(accessToken: string, id: string) {
   return request<RepositorySummary>(`/repositories/${id}`, { accessToken });
 }
 
+export function getRepositoryState(accessToken: string, id: string) {
+  return request<RepositoryStateSummary>(`/repositories/${id}/state`, { accessToken });
+}
+
+export function getCurrentProjectContext(accessToken: string, id: string) {
+  return request<ProjectContextResponse>(`/repositories/${id}/current-context`, { accessToken });
+}
+
 export function listAvailableGitHubRepositories(accessToken: string) {
   return request<ListAvailableGitHubRepositoriesResponse>("/repositories/github/list", {
     accessToken
@@ -88,4 +98,9 @@ export function syncRepository(accessToken: string, repositoryId: string) {
   });
 }
 
-export type { AvailableGitHubRepository, RepositorySummary };
+export type {
+  AvailableGitHubRepository,
+  ProjectContextResponse,
+  RepositoryStateSummary,
+  RepositorySummary
+};

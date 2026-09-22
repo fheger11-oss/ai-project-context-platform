@@ -49,6 +49,7 @@ function project(
       isArchived: false,
       lastSyncedAt: "2026-08-26T10:00:00.000Z"
     },
+    state: null,
     latestScan: null,
     latestAnalysis: null,
     latestContext: null,
@@ -312,6 +313,37 @@ describe("DashboardView", () => {
 
     expect(markup).toContain("No scan");
     expect(markup).toContain("Start scan");
+  });
+
+  it("displays repository freshness without inventing remote status", () => {
+    queryState = {
+      data: {
+        projects: [
+          project({
+            state: {
+              repositoryId: "repository_1",
+              freshnessStatus: "UNKNOWN",
+              remoteHeadCommitSha: null,
+              remoteHeadCheckedAt: null,
+              lastScannedCommitSha: "abcdef1234567890",
+              lastAnalyzedCommitSha: "abcdef1234567890",
+              currentProjectContextId: "project_context_1",
+              currentContextCommitSha: "abcdef1234567890",
+              lastUpdateStatus: null
+            }
+          })
+        ]
+      },
+      isSuccess: true
+    };
+
+    const markup = renderToStaticMarkup(<DashboardView />);
+
+    expect(markup).toContain("Freshness");
+    expect(markup).toContain("Unknown");
+    expect(markup).toContain("Context commit");
+    expect(markup).toContain("abcdef123456");
+    expect(markup).not.toContain("Up to date");
   });
 
   it("displays analysis availability from the summary response", () => {

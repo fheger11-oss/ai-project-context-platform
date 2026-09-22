@@ -2,6 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import type { DashboardProjectSummary, DashboardProjectsResponse } from "@ai-context/contracts";
 
 import { PrismaService } from "../prisma/prisma.service.js";
+import { toRepositoryStateSummary } from "../repositories/dto/repository-state-response.dto.js";
 
 type DashboardRepositoryRecord = {
   id: string;
@@ -52,6 +53,24 @@ type DashboardRepositoryRecord = {
       };
     }[];
   }[];
+  state: {
+    id: string;
+    repositoryId: string;
+    remoteHeadCommitSha: string | null;
+    remoteHeadCheckedAt: Date | null;
+    lastScannedCommitSha: string | null;
+    lastAnalyzedCommitSha: string | null;
+    currentProjectContextId: string | null;
+    currentContextCommitSha: string | null;
+    freshnessStatus: DashboardProjectSummary["state"] extends infer T
+      ? T extends { freshnessStatus: infer S }
+        ? S
+        : never
+      : never;
+    lastUpdateStatus: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
 };
 
 @Injectable()
@@ -120,6 +139,22 @@ export class DashboardProjectsQueryService {
               }
             }
           }
+        },
+        state: {
+          select: {
+            id: true,
+            repositoryId: true,
+            remoteHeadCommitSha: true,
+            remoteHeadCheckedAt: true,
+            lastScannedCommitSha: true,
+            lastAnalyzedCommitSha: true,
+            currentProjectContextId: true,
+            currentContextCommitSha: true,
+            freshnessStatus: true,
+            lastUpdateStatus: true,
+            createdAt: true,
+            updatedAt: true
+          }
         }
       }
     })) as DashboardRepositoryRecord[];
@@ -149,6 +184,7 @@ function toProjectSummary(repository: DashboardRepositoryRecord): DashboardProje
       isArchived: repository.isArchived,
       lastSyncedAt: repository.lastSyncedAt.toISOString()
     },
+    state: repository.state ? toRepositoryStateSummary(repository.state) : null,
     latestScan: latestScan
       ? {
           id: latestScan.id,

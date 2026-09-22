@@ -96,6 +96,17 @@ const projectSummary: DashboardProjectSummary = {
     isArchived: false,
     lastSyncedAt: "2026-08-26T10:00:00.000Z"
   },
+  state: {
+    repositoryId: "repository_1",
+    freshnessStatus: "UNKNOWN",
+    remoteHeadCommitSha: null,
+    remoteHeadCheckedAt: null,
+    lastScannedCommitSha: "abcdef1234567890",
+    lastAnalyzedCommitSha: "abcdef1234567890",
+    currentProjectContextId: "project_context_1",
+    currentContextCommitSha: "abcdef1234567890",
+    lastUpdateStatus: null
+  },
   latestScan: {
     id: "scan_1",
     status: "COMPLETED",
@@ -296,6 +307,18 @@ describe("RepositoryDetailsView", () => {
     expect(markup).toContain("Sync metadata");
     expect(markup).toContain("Scan action for repository_1");
     expect(markup).toContain("Project activity for repository_1");
+  });
+
+  it("shows neutral RepositoryState freshness and commit information", () => {
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Freshness");
+    expect(markup).toContain("Unknown");
+    expect(markup).toContain("Current context");
+    expect(markup).toContain("Last scanned commit");
+    expect(markup).toContain("Last analyzed commit");
+    expect(markup).toContain("abcdef123456");
+    expect(markup).not.toContain("Up to date");
   });
 
   it("shows analysis access when analysis exists", () => {

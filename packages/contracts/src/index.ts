@@ -81,6 +81,20 @@ export type {
 
 export type RepositoryVisibility = "PUBLIC" | "PRIVATE" | "INTERNAL";
 
+export type RepositoryFreshnessStatus = "UNKNOWN" | "FRESH" | "STALE" | "UPDATE_FAILED";
+
+export type RepositoryStateSummary = {
+  repositoryId: string;
+  freshnessStatus: RepositoryFreshnessStatus;
+  remoteHeadCommitSha: string | null;
+  remoteHeadCheckedAt: string | null;
+  lastScannedCommitSha: string | null;
+  lastAnalyzedCommitSha: string | null;
+  currentProjectContextId: string | null;
+  currentContextCommitSha: string | null;
+  lastUpdateStatus: string | null;
+};
+
 export type RepositorySummary = {
   id: string;
   githubId: string;

@@ -50,18 +50,35 @@ const analysis = {
   projectContexts: [] as (typeof context)[]
 };
 
+const state = {
+  id: "repository_state_1",
+  repositoryId: "repository_1",
+  remoteHeadCommitSha: null,
+  remoteHeadCheckedAt: null,
+  lastScannedCommitSha: "abc123",
+  lastAnalyzedCommitSha: "abc123",
+  currentProjectContextId: "project_context_1",
+  currentContextCommitSha: "abc123",
+  freshnessStatus: "UNKNOWN" as const,
+  lastUpdateStatus: null,
+  createdAt: new Date("2026-08-26T10:05:00.000Z"),
+  updatedAt: new Date("2026-08-26T10:05:00.000Z")
+};
+
 function repository(
   overrides: {
     analyses?: (typeof analysis)[];
     id?: string;
     scans?: (typeof scan)[];
+    state?: typeof state | null;
   } = {}
 ) {
   return {
     ...baseRepository,
     id: overrides.id ?? baseRepository.id,
     scans: overrides.scans ?? [],
-    analyses: overrides.analyses ?? []
+    analyses: overrides.analyses ?? [],
+    state: overrides.state ?? null
   };
 }
 
@@ -128,6 +145,7 @@ describe("DashboardProjectsQueryService", () => {
         isArchived: false,
         lastSyncedAt: "2026-08-26T10:00:00.000Z"
       },
+      state: null,
       latestScan: null,
       latestAnalysis: null,
       latestContext: null,
@@ -213,6 +231,25 @@ describe("DashboardProjectsQueryService", () => {
     expect(response.projects[0]?.aiExport).toEqual({
       available: true
     });
+  });
+
+  it("exposes repository state summaries without internal state row identity", async () => {
+    const { service } = createService([repository({ state })]);
+
+    const response = await service.listProjects("user_1");
+
+    expect(response.projects[0]?.state).toEqual({
+      repositoryId: "repository_1",
+      freshnessStatus: "UNKNOWN",
+      remoteHeadCommitSha: null,
+      remoteHeadCheckedAt: null,
+      lastScannedCommitSha: "abc123",
+      lastAnalyzedCommitSha: "abc123",
+      currentProjectContextId: "project_context_1",
+      currentContextCommitSha: "abc123",
+      lastUpdateStatus: null
+    });
+    expect(response.projects[0]?.state).not.toHaveProperty("id");
   });
 
   it("uses one database projection instead of per-repository reads", async () => {

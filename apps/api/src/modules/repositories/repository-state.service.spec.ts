@@ -27,7 +27,7 @@ function createState(overrides: Partial<RepositoryStateRecord> = {}): Repository
 }
 
 function createContext(overrides: Partial<ProjectContextRecord> = {}): ProjectContextRecord {
-  return {
+  const context = {
     id: "context_1",
     contextId: "ctxaro_context_1",
     analysisId: "analysis_1",
@@ -39,6 +39,27 @@ function createContext(overrides: Partial<ProjectContextRecord> = {}): ProjectCo
     snapshot: {},
     createdAt: now,
     ...overrides
+  };
+
+  return {
+    ...context,
+    snapshot: {
+      contextId: context.contextId,
+      analysisId: context.analysisId,
+      scanId: context.scanId,
+      repositoryId: context.repositoryId,
+      commitSha: context.commitSha,
+      contextVersion: context.contextVersion,
+      generatedAt: context.generatedAt.toISOString(),
+      project: { claims: [] },
+      technology: { claims: [] },
+      structure: { claims: [] },
+      architecture: { claims: [] },
+      entryPoints: { claims: [] },
+      testing: { claims: [] },
+      infrastructure: { claims: [] },
+      ambiguities: []
+    }
   };
 }
 

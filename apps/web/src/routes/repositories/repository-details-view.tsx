@@ -47,6 +47,22 @@ function displayDate(value: string): string {
   return new Date(value).toLocaleString();
 }
 
+function shortCommit(value: string): string {
+  return value.length > 12 ? value.slice(0, 12) : value;
+}
+
+function freshnessLabel(value: DashboardProjectSummary["state"] | null): string {
+  if (!value) {
+    return "Unknown";
+  }
+
+  if (value.freshnessStatus === "UPDATE_FAILED") {
+    return "Update failed";
+  }
+
+  return value.freshnessStatus.toLowerCase().replace(/^\w/, (char) => char.toUpperCase());
+}
+
 export function RepositoryDetailsView() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -226,7 +242,11 @@ export function RepositoryDetailsView() {
               </div>
             </CardContent>
           </Card>
-          <CurrentState repository={repository} latestScan={latestScan} />
+          <CurrentState
+            repository={repository}
+            latestScan={latestScan}
+            projectSummary={projectSummary}
+          />
         </aside>
       </div>
     </section>
@@ -581,16 +601,20 @@ function WorkflowRow({
 
 function CurrentState({
   latestScan,
+  projectSummary,
   repository
 }: {
   latestScan: ScanSnapshot | null;
+  projectSummary: DashboardProjectSummary | null;
   repository: RepositorySummary;
 }) {
+  const repositoryState = projectSummary?.state ?? null;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Current state</CardTitle>
-        <CardDescription>Based on repository metadata and latest scan history.</CardDescription>
+        <CardDescription>Based on stored repository state and scan history.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3 text-sm">
         <div className="flex items-center justify-between gap-3">
@@ -616,8 +640,58 @@ function CurrentState({
             <span className="text-xs text-muted-foreground">No scan yet</span>
           )}
         </div>
+        <StateRow label="Freshness" value={freshnessLabel(repositoryState)} />
+        <StateRow
+          label="Current context"
+          title={repositoryState?.currentContextCommitSha ?? undefined}
+          value={
+            repositoryState?.currentContextCommitSha
+              ? shortCommit(repositoryState.currentContextCommitSha)
+              : "Not available"
+          }
+        />
+        <StateRow
+          label="Last scanned commit"
+          title={repositoryState?.lastScannedCommitSha ?? undefined}
+          value={
+            repositoryState?.lastScannedCommitSha
+              ? shortCommit(repositoryState.lastScannedCommitSha)
+              : "Not available"
+          }
+        />
+        <StateRow
+          label="Last analyzed commit"
+          title={repositoryState?.lastAnalyzedCommitSha ?? undefined}
+          value={
+            repositoryState?.lastAnalyzedCommitSha
+              ? shortCommit(repositoryState.lastAnalyzedCommitSha)
+              : "Not available"
+          }
+        />
       </CardContent>
     </Card>
+  );
+}
+
+function StateRow({
+  label,
+  title,
+  value
+}: {
+  label: string;
+  title?: string | undefined;
+  value: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span
+        className="truncate text-right font-mono text-xs text-subtle-foreground"
+        title={title ?? value}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
 
