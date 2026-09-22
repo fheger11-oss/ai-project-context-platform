@@ -31,7 +31,7 @@ const faqs = [
     id: "who-is-ctxaro-for",
     question: "Who is Ctxaro for?",
     answer:
-      "Ctxaro is for developers, teams, AI-assisted developers, and people working with unfamiliar or complex repositories who need reusable project understanding."
+      "Ctxaro is for developers and teams who want reusable project context for the AI tools they already use."
   }
 ];
 
