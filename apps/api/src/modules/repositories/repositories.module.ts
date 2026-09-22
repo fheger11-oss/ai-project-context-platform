@@ -6,11 +6,12 @@ import { UsageModule } from "../usage/usage.module.js";
 import { GitHubRepositoryProvider } from "./providers/github-repository.provider.js";
 import { RepositoriesController } from "./repositories.controller.js";
 import { RepositoriesService } from "./repositories.service.js";
+import { RepositoryStateService } from "./repository-state.service.js";
 
 @Module({
   imports: [AuthModule, PrismaModule, UsageModule],
   controllers: [RepositoriesController],
-  providers: [GitHubRepositoryProvider, RepositoriesService],
-  exports: [RepositoriesService]
+  providers: [GitHubRepositoryProvider, RepositoriesService, RepositoryStateService],
+  exports: [RepositoriesService, RepositoryStateService]
 })
 export class RepositoriesModule {}
