@@ -20,7 +20,7 @@ const audiences = [
     icon: Users
   },
   {
-    title: "AI-assisted developers",
+    title: "AI workflows",
     description:
       "Give AI structured project context instead of repeatedly explaining the codebase.",
     icon: Bot

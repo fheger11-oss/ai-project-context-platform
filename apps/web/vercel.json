@@ -78,7 +78,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!assets/.*|favicon.svg|ctxaro-social-preview.png|robots.txt|sitemap.xml).*)",
+      "source": "/((?!assets/.*|favicon.svg|favicon-48x48.png|apple-touch-icon.png|ctxaro-oauth-logo.png|ctxaro-social-preview.png|robots.txt|sitemap.xml).*)",
       "destination": "/index.html"
     }
   ]
