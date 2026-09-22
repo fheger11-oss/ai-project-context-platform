@@ -59,6 +59,13 @@ enum FeedbackType {
   GENERAL
 }
 
+enum RepositoryFreshnessStatus {
+  UNKNOWN
+  FRESH
+  STALE
+  UPDATE_FAILED
+}
+
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
@@ -71,7 +78,7 @@ model User {
   githubAccount GitHubAccount?
   repositories  Repository[]
   usageEvents   UsageEvent[]
-  feedback       Feedback[]
+  feedback      Feedback[]
 
   @@index([tenantId])
   @@map("users")
@@ -142,11 +149,36 @@ model Repository {
   scans           Scan[]
   analyses        Analysis[]
   projectContexts ProjectContext[]
+  state           RepositoryState?
 
   @@unique([userId, githubId])
   @@index([userId])
   @@index([fullName])
   @@map("repositories")
+}
+
+model RepositoryState {
+  id                      String                    @id @default(cuid())
+  repositoryId            String                    @unique @map("repository_id")
+  remoteHeadCommitSha     String?                   @map("remote_head_commit_sha")
+  remoteHeadCheckedAt     DateTime?                 @map("remote_head_checked_at")
+  lastScannedCommitSha    String?                   @map("last_scanned_commit_sha")
+  lastAnalyzedCommitSha   String?                   @map("last_analyzed_commit_sha")
+  currentProjectContextId String?                   @unique @map("current_project_context_id")
+  currentContextCommitSha String?                   @map("current_context_commit_sha")
+  freshnessStatus         RepositoryFreshnessStatus @default(UNKNOWN) @map("freshness_status")
+  lastUpdateStatus        String?                   @map("last_update_status")
+  createdAt               DateTime                  @default(now()) @map("created_at")
+  updatedAt               DateTime                  @updatedAt @map("updated_at")
+
+  repository            Repository      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  currentProjectContext ProjectContext? @relation("RepositoryStateCurrentProjectContext", fields: [currentProjectContextId], references: [id], onDelete: SetNull)
+
+  @@index([freshnessStatus])
+  @@index([lastScannedCommitSha])
+  @@index([lastAnalyzedCommitSha])
+  @@index([currentContextCommitSha])
+  @@map("repository_states")
 }
 
 model Scan {
@@ -218,10 +250,11 @@ model ProjectContext {
   snapshot       Json
   createdAt      DateTime @default(now()) @map("created_at")
 
-  analysis   Analysis   @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  scan       Scan       @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  documents  Document[]
+  analysis                   Analysis          @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  scan                       Scan              @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  repository                 Repository        @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  documents                  Document[]
+  currentForRepositoryStates RepositoryState[] @relation("RepositoryStateCurrentProjectContext")
 
   @@index([contextId])
   @@index([analysisId, generatedAt, createdAt, id])
