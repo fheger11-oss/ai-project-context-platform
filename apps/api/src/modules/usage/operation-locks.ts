@@ -33,6 +33,14 @@ export function repositoryScanLock(repositoryId: string): OperationLockSpec {
   };
 }
 
+export function repositoryUpdateLock(repositoryId: string): OperationLockSpec {
+  return {
+    key: `repository:${repositoryId}:update`,
+    operationType: "repository.update",
+    leaseMs: V1_USAGE_LIMITS.lockLeaseMs.scan
+  };
+}
+
 export function scanAnalysisLock(scanId: string): OperationLockSpec {
   return {
     key: `scan:${scanId}:analysis`,

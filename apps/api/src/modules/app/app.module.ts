@@ -16,6 +16,7 @@ import { FeedbackModule } from "../feedback/feedback.module.js";
 import { HealthModule } from "../health/health.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { RepositoriesModule } from "../repositories/repositories.module.js";
+import { RepositoryUpdatesModule } from "../repository-updates/repository-updates.module.js";
 import { ScanModule } from "../scan/scan.module.js";
 import { UsersModule } from "../users/users.module.js";
 
@@ -36,6 +37,7 @@ import { UsersModule } from "../users/users.module.js";
     UsersModule,
     AuthModule,
     RepositoriesModule,
+    RepositoryUpdatesModule,
     ScanModule,
     AnalysisModule,
     ContextModule,
