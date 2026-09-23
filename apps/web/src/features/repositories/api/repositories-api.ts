@@ -3,6 +3,7 @@ import type {
   ListAvailableGitHubRepositoriesResponse,
   ListRepositoriesResponse,
   ProjectContextResponse,
+  RepositoryUpdateResponse,
   RepositoryStateSummary,
   RepositorySummary
 } from "@ai-context/contracts";
@@ -75,6 +76,13 @@ export function getCurrentProjectContext(accessToken: string, id: string) {
   return request<ProjectContextResponse>(`/repositories/${id}/current-context`, { accessToken });
 }
 
+export function runRepositoryUpdate(accessToken: string, id: string) {
+  return request<RepositoryUpdateResponse>(`/repositories/${id}/updates`, {
+    accessToken,
+    method: "POST"
+  });
+}
+
 export function listAvailableGitHubRepositories(accessToken: string) {
   return request<ListAvailableGitHubRepositoriesResponse>("/repositories/github/list", {
     accessToken
@@ -108,6 +116,7 @@ export function syncRepository(accessToken: string, repositoryId: string) {
 export type {
   AvailableGitHubRepository,
   ProjectContextResponse,
+  RepositoryUpdateResponse,
   RepositoryStateSummary,
   RepositorySummary
 };

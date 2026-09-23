@@ -30,6 +30,21 @@ export type RepositoryStateBackfillResult = {
   skippedCount: number;
 };
 
+export type MarkRepositoryCurrentContextInput = {
+  repositoryId: string;
+  userId: string;
+  projectContextId: string;
+  commitSha: string;
+  remoteHeadCheckedAt?: Date;
+};
+
+export type MarkRepositoryRemoteHeadObservedInput = {
+  repositoryId: string;
+  userId: string;
+  remoteHeadCommitSha: string;
+  remoteHeadCheckedAt?: Date;
+};
+
 @Injectable()
 export class RepositoryStateService {
   constructor(
@@ -106,6 +121,54 @@ export class RepositoryStateService {
 
       throw error;
     }
+  }
+
+  async markRemoteHeadObserved(
+    input: MarkRepositoryRemoteHeadObservedInput
+  ): Promise<RepositoryStateSnapshot> {
+    await this.repositoriesService.getScanAccessMetadataForUser(input.userId, input.repositoryId);
+    const state = await this.getOrCreateRepositoryState(input.repositoryId);
+    const remoteHeadCheckedAt = input.remoteHeadCheckedAt ?? new Date();
+
+    const updated = await this.prisma.repositoryState.update({
+      where: { repositoryId: input.repositoryId },
+      data: {
+        remoteHeadCommitSha: input.remoteHeadCommitSha,
+        remoteHeadCheckedAt,
+        freshnessStatus: deriveRepositoryFreshnessStatus({
+          remoteHeadCommitSha: input.remoteHeadCommitSha,
+          currentContextCommitSha: state.currentContextCommitSha
+        })
+      }
+    });
+
+    return toRepositoryStateSnapshot(updated);
+  }
+
+  async markCurrentProjectContext(
+    input: MarkRepositoryCurrentContextInput
+  ): Promise<RepositoryStateSnapshot> {
+    await this.repositoriesService.getScanAccessMetadataForUser(input.userId, input.repositoryId);
+    await this.getOrCreateRepositoryState(input.repositoryId);
+
+    const remoteHeadCheckedAt = input.remoteHeadCheckedAt ?? new Date();
+    const updated = await this.prisma.repositoryState.update({
+      where: { repositoryId: input.repositoryId },
+      data: {
+        lastScannedCommitSha: input.commitSha,
+        lastAnalyzedCommitSha: input.commitSha,
+        currentProjectContextId: input.projectContextId,
+        currentContextCommitSha: input.commitSha,
+        remoteHeadCommitSha: input.commitSha,
+        remoteHeadCheckedAt,
+        freshnessStatus: deriveRepositoryFreshnessStatus({
+          remoteHeadCommitSha: input.commitSha,
+          currentContextCommitSha: input.commitSha
+        })
+      }
+    });
+
+    return toRepositoryStateSnapshot(updated);
   }
 
   async backfillMissingRepositoryStates(): Promise<RepositoryStateBackfillResult> {

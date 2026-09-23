@@ -97,12 +97,25 @@ function createHarness(
       failureReason: input.failureReason
     })
   );
+  const updateArtifacts = vi.fn(async (input) =>
+    createUpdate({
+      ...(options.update ?? {}),
+      scanId: input.scanId === undefined ? (options.update?.scanId ?? null) : input.scanId,
+      analysisId:
+        input.analysisId === undefined ? (options.update?.analysisId ?? null) : input.analysisId,
+      projectContextId:
+        input.projectContextId === undefined
+          ? (options.update?.projectContextId ?? null)
+          : input.projectContextId
+    })
+  );
   const repositoryUpdates = {
     createPending,
     findById,
     markRunning,
     markCompleted,
-    markFailed
+    markFailed,
+    updateArtifacts
   } satisfies RepositoryUpdateRepository;
   const getScanAccessMetadataForUser = vi.fn(async () => {
     if (options.ownershipError) {
@@ -142,6 +155,7 @@ function createHarness(
     markRunning,
     markCompleted,
     markFailed,
+    updateArtifacts,
     getScanAccessMetadataForUser,
     withRenewingLocks
   };

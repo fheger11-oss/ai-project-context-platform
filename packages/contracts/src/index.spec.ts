@@ -10,6 +10,7 @@ import type {
   GeneratedDocumentResponse,
   GenerateDocumentRequest,
   RepositoryStateSummary,
+  RepositoryUpdateResponse,
   ScanLimitErrorResponse,
   ScanLimits,
   ScanSnapshot,
@@ -67,6 +68,21 @@ describe("contracts package exports", () => {
       lastUpdateStatus: string | null;
     }>();
     expectTypeOf<RepositoryStateSummary>().not.toHaveProperty("id");
+  });
+
+  it("exports RepositoryUpdateResponse from the public entrypoint", () => {
+    expectTypeOf<RepositoryUpdateResponse>().toMatchTypeOf<{
+      noop: boolean;
+      updateId: string | null;
+      status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | null;
+      triggerType: "MANUAL" | "WEBHOOK" | "SYSTEM";
+      baseCommitSha: string | null;
+      targetCommitSha: string;
+      scanId: string | null;
+      analysisId: string | null;
+      projectContextId: string | null;
+      freshnessStatus: "UNKNOWN" | "FRESH" | "STALE" | "UPDATE_FAILED";
+    }>();
   });
 
   it("exports Scan limit and usage contracts from the public entrypoint", () => {

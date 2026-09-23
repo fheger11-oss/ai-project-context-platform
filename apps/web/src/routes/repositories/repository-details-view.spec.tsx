@@ -11,7 +11,8 @@ import type {
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
 import {
   getRepository,
-  refreshRepositoryState
+  refreshRepositoryState,
+  runRepositoryUpdate
 } from "@/features/repositories/api/repositories-api";
 import { getScanHistory } from "@/features/scans/api/scan-api";
 import { RepositoryDetailsView } from "./repository-details-view";
@@ -33,7 +34,7 @@ type QueryResult = {
 
 type MutationOptions = {
   mutationFn: () => Promise<unknown>;
-  onSuccess?: () => Promise<void>;
+  onSuccess?: (data?: unknown) => Promise<void>;
 };
 
 const queryOptions: QueryOptions[] = [];
@@ -219,6 +220,7 @@ vi.mock("@/features/repositories/api/repositories-api", async (importOriginal) =
     ...actual,
     getRepository: vi.fn(),
     refreshRepositoryState: vi.fn(),
+    runRepositoryUpdate: vi.fn(),
     syncRepository: vi.fn()
   };
 });
@@ -290,6 +292,7 @@ describe("RepositoryDetailsView", () => {
     invalidateQueries.mockClear();
     vi.mocked(getRepository).mockReset();
     vi.mocked(refreshRepositoryState).mockReset();
+    vi.mocked(runRepositoryUpdate).mockReset();
     vi.mocked(getScanHistory).mockReset();
     vi.mocked(listDashboardProjects).mockReset();
   });
@@ -325,6 +328,7 @@ describe("RepositoryDetailsView", () => {
     expect(markup).toContain("Last scanned commit");
     expect(markup).toContain("Last analyzed commit");
     expect(markup).toContain("abcdef123456");
+    expect(markup).toContain("Update repository");
     expect(markup).not.toContain("Up to date");
   });
 
@@ -486,6 +490,47 @@ describe("RepositoryDetailsView", () => {
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["repositories", "repository_1", "state"]
+    });
+  });
+
+  it("runs a manual repository update and refreshes repository state views", async () => {
+    vi.mocked(runRepositoryUpdate).mockResolvedValue({
+      noop: false,
+      updateId: "update_1",
+      status: "COMPLETED",
+      triggerType: "MANUAL",
+      baseCommitSha: "abcdef1234567890",
+      targetCommitSha: "bcdef12345678901",
+      scanId: "scan_2",
+      analysisId: "analysis_2",
+      projectContextId: "context_2",
+      freshnessStatus: "FRESH"
+    });
+    renderToStaticMarkup(<RepositoryDetailsView />);
+
+    await mutationOptions[2]?.mutationFn();
+    await mutationOptions[2]?.onSuccess?.({
+      noop: false,
+      updateId: "update_1",
+      status: "COMPLETED",
+      triggerType: "MANUAL",
+      baseCommitSha: "abcdef1234567890",
+      targetCommitSha: "bcdef12345678901",
+      scanId: "scan_2",
+      analysisId: "analysis_2",
+      projectContextId: "context_2",
+      freshnessStatus: "FRESH"
+    });
+
+    expect(runRepositoryUpdate).toHaveBeenCalledWith("access_token", "repository_1");
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1", "state"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["scan-history", "repository_1"]
     });
   });
 });

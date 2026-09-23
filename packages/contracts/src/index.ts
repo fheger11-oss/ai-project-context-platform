@@ -83,6 +83,10 @@ export type RepositoryVisibility = "PUBLIC" | "PRIVATE" | "INTERNAL";
 
 export type RepositoryFreshnessStatus = "UNKNOWN" | "FRESH" | "STALE" | "UPDATE_FAILED";
 
+export type RepositoryUpdateStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
+
+export type RepositoryUpdateTriggerType = "MANUAL" | "WEBHOOK" | "SYSTEM";
+
 export type RepositoryStateSummary = {
   repositoryId: string;
   freshnessStatus: RepositoryFreshnessStatus;
@@ -93,6 +97,19 @@ export type RepositoryStateSummary = {
   currentProjectContextId: string | null;
   currentContextCommitSha: string | null;
   lastUpdateStatus: string | null;
+};
+
+export type RepositoryUpdateResponse = {
+  noop: boolean;
+  updateId: string | null;
+  status: RepositoryUpdateStatus | null;
+  triggerType: RepositoryUpdateTriggerType;
+  baseCommitSha: string | null;
+  targetCommitSha: string;
+  scanId: string | null;
+  analysisId: string | null;
+  projectContextId: string | null;
+  freshnessStatus: RepositoryFreshnessStatus;
 };
 
 export type RepositorySummary = {

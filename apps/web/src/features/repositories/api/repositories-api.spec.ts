@@ -1,11 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ProjectContextResponse, RepositoryStateSummary } from "@ai-context/contracts";
+import type {
+  ProjectContextResponse,
+  RepositoryStateSummary,
+  RepositoryUpdateResponse
+} from "@ai-context/contracts";
 
 import {
   ApiRequestError,
   getCurrentProjectContext,
   getRepositoryState,
-  refreshRepositoryState
+  refreshRepositoryState,
+  runRepositoryUpdate
 } from "@/features/repositories/api/repositories-api";
 
 const state: RepositoryStateSummary = {
@@ -38,6 +43,19 @@ const context: ProjectContextResponse = {
   testing: { claims: [] },
   infrastructure: { claims: [] },
   ambiguities: []
+};
+
+const updateResponse: RepositoryUpdateResponse = {
+  noop: false,
+  updateId: "update_1",
+  status: "COMPLETED",
+  triggerType: "MANUAL",
+  baseCommitSha: "commit-context",
+  targetCommitSha: "commit-next",
+  scanId: "scan_2",
+  analysisId: "analysis_2",
+  projectContextId: "context_2",
+  freshnessStatus: "FRESH"
 };
 
 function mockFetch(body: unknown, init: ResponseInit = { status: 200 }) {
@@ -109,6 +127,24 @@ describe("repositories-api RepositoryState endpoints", () => {
       }
     );
     expect(result.freshnessStatus).toBe("FRESH");
+  });
+
+  it("runs a manual repository update through the update endpoint", async () => {
+    const fetchMock = mockFetch(updateResponse);
+
+    const result = await runRepositoryUpdate("access_token", "repository_1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/v1/repositories/repository_1/updates",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer access_token",
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    expect(result).toEqual(updateResponse);
   });
 
   it("propagates repository state API errors", async () => {

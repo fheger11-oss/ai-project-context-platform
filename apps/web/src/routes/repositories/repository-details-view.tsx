@@ -28,6 +28,7 @@ import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
 import {
   getRepository,
   refreshRepositoryState,
+  runRepositoryUpdate,
   syncRepository
 } from "@/features/repositories/api/repositories-api";
 import type { RepositorySummary } from "@/features/repositories/api/repositories-api";
@@ -39,7 +40,7 @@ import { limitReasonLabel } from "@/features/scans/utils/scan-usage";
 import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
 import { analytics } from "@/lib/analytics";
 import { productPipelineStages, type ProductPipelineStageKey } from "@/lib/product-pipeline";
-import type { DashboardProjectSummary } from "@ai-context/contracts";
+import type { DashboardProjectSummary, RepositoryUpdateResponse } from "@ai-context/contracts";
 
 function repositoryName(fullName: string): string {
   const parts = fullName.split("/");
@@ -111,6 +112,20 @@ export function RepositoryDetailsView() {
     },
     onError: () => {
       analytics.track("repository_state_refresh_failed", { reason: "UNKNOWN" });
+    }
+  });
+  const repositoryUpdateMutation = useMutation({
+    mutationFn: () => runRepositoryUpdate(apiAccessToken, id ?? ""),
+    onSuccess: async (result) => {
+      analytics.track("repository_update_completed", { noop: result.noop });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["repositories", id, "state"] }),
+        queryClient.invalidateQueries({ queryKey: ["scan-history", id] })
+      ]);
+    },
+    onError: () => {
+      analytics.track("repository_update_failed", { reason: "UNKNOWN" });
     }
   });
   const repository = repositoryQuery.data;
@@ -264,9 +279,13 @@ export function RepositoryDetailsView() {
             latestScan={latestScan}
             projectSummary={projectSummary}
             isRefreshing={refreshStateMutation.isPending}
+            isUpdating={repositoryUpdateMutation.isPending}
             refreshError={refreshStateMutation.isError}
             refreshSucceeded={refreshStateMutation.isSuccess}
+            updateError={repositoryUpdateMutation.isError}
+            updateResult={repositoryUpdateMutation.data ?? null}
             onRefresh={() => refreshStateMutation.mutate()}
+            onUpdate={() => repositoryUpdateMutation.mutate()}
           />
         </aside>
       </div>
@@ -622,19 +641,27 @@ function WorkflowRow({
 
 function CurrentState({
   isRefreshing,
+  isUpdating,
   latestScan,
   onRefresh,
+  onUpdate,
   projectSummary,
   refreshError,
   refreshSucceeded,
+  updateError,
+  updateResult,
   repository
 }: {
   isRefreshing: boolean;
+  isUpdating: boolean;
   latestScan: ScanSnapshot | null;
   onRefresh: () => void;
+  onUpdate: () => void;
   projectSummary: DashboardProjectSummary | null;
   refreshError: boolean;
   refreshSucceeded: boolean;
+  updateError: boolean;
+  updateResult: RepositoryUpdateResponse | null;
   repository: RepositorySummary;
 }) {
   const repositoryState = projectSummary?.state ?? null;
@@ -710,20 +737,41 @@ function CurrentState({
           <Button
             type="button"
             variant="outline"
-            disabled={isRefreshing}
+            disabled={isRefreshing || isUpdating}
             aria-busy={isRefreshing}
             onClick={onRefresh}
           >
             <RefreshCw className={isRefreshing ? "animate-spin" : undefined} />
             {isRefreshing ? "Refreshing" : "Refresh freshness"}
           </Button>
+          <Button
+            type="button"
+            disabled={isUpdating || isRefreshing}
+            aria-busy={isUpdating}
+            onClick={onUpdate}
+          >
+            <RefreshCw className={isUpdating ? "animate-spin" : undefined} />
+            {isUpdating ? "Updating" : "Update repository"}
+          </Button>
           <div aria-live="polite">
             {refreshSucceeded ? (
               <p className="text-xs text-primary">Repository freshness refreshed.</p>
             ) : null}
+            {updateResult ? (
+              <p className="text-xs text-primary">
+                {updateResult.noop
+                  ? "Repository context is already current."
+                  : "Repository context updated."}
+              </p>
+            ) : null}
             {refreshError ? (
               <p className="text-xs text-destructive" role="alert">
                 Freshness refresh failed.
+              </p>
+            ) : null}
+            {updateError ? (
+              <p className="text-xs text-destructive" role="alert">
+                Repository update failed.
               </p>
             ) : null}
           </div>

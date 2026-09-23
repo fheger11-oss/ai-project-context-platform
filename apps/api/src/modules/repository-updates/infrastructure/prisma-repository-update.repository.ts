@@ -9,7 +9,8 @@ import type {
   MarkRepositoryUpdateFailedInput,
   MarkRepositoryUpdateRunningInput,
   RepositoryUpdateRepository,
-  RepositoryUpdateSnapshot
+  RepositoryUpdateSnapshot,
+  UpdateRepositoryUpdateArtifactsInput
 } from "../domain/contracts/repository-update-repository.contract.js";
 
 @Injectable()
@@ -104,6 +105,23 @@ export class PrismaRepositoryUpdateRepository implements RepositoryUpdateReposit
     }
 
     return this.findById(input.updateId);
+  }
+
+  async updateArtifacts(
+    input: UpdateRepositoryUpdateArtifactsInput
+  ): Promise<RepositoryUpdateSnapshot | null> {
+    const update = await this.prisma.repositoryUpdate.update({
+      where: { id: input.updateId },
+      data: {
+        ...(input.scanId !== undefined ? { scanId: input.scanId } : {}),
+        ...(input.analysisId !== undefined ? { analysisId: input.analysisId } : {}),
+        ...(input.projectContextId !== undefined
+          ? { projectContextId: input.projectContextId }
+          : {})
+      }
+    });
+
+    return toRepositoryUpdateSnapshot(update);
   }
 }
 

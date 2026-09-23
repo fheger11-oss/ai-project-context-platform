@@ -39,6 +39,6 @@ import { UsageModule } from "../usage/usage.module.js";
       useClass: GitHubRepositoryContentProvider
     }
   ],
-  exports: [SCAN_REPOSITORY, REPOSITORY_OWNERSHIP_VERIFIER]
+  exports: [ScanService, SCAN_REPOSITORY, REPOSITORY_OWNERSHIP_VERIFIER]
 })
 export class ScanModule {}

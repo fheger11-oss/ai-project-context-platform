@@ -47,6 +47,13 @@ export type MarkRepositoryUpdateFailedInput = {
   failureReason: string;
 };
 
+export type UpdateRepositoryUpdateArtifactsInput = {
+  updateId: string;
+  scanId?: string | null;
+  analysisId?: string | null;
+  projectContextId?: string | null;
+};
+
 export interface RepositoryUpdateRepository {
   createPending(input: CreatePendingRepositoryUpdateInput): Promise<RepositoryUpdateSnapshot>;
   findById(updateId: string): Promise<RepositoryUpdateSnapshot | null>;
@@ -55,4 +62,7 @@ export interface RepositoryUpdateRepository {
     input: MarkRepositoryUpdateCompletedInput
   ): Promise<RepositoryUpdateSnapshot | null>;
   markFailed(input: MarkRepositoryUpdateFailedInput): Promise<RepositoryUpdateSnapshot | null>;
+  updateArtifacts(
+    input: UpdateRepositoryUpdateArtifactsInput
+  ): Promise<RepositoryUpdateSnapshot | null>;
 }

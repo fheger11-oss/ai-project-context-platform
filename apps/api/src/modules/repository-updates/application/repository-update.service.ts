@@ -66,37 +66,13 @@ export class RepositoryUpdateService {
 
   async start(updateId: string, userId: string): Promise<RepositoryUpdateSnapshot> {
     return this.transitionWithRepositoryLock(updateId, userId, async (update) => {
-      this.assertTransition(update, RepositoryUpdateStatus.PENDING, RepositoryUpdateStatus.RUNNING);
-
-      const transitioned = await this.repositoryUpdates.markRunning({
-        updateId,
-        startedAt: new Date()
-      });
-
-      return (
-        transitioned ??
-        this.invalidTransition(updateId, update.status, RepositoryUpdateStatus.RUNNING)
-      );
+      return this.startWithinLock(update, new Date());
     });
   }
 
   async complete(updateId: string, userId: string): Promise<RepositoryUpdateSnapshot> {
     return this.transitionWithRepositoryLock(updateId, userId, async (update) => {
-      this.assertTransition(
-        update,
-        RepositoryUpdateStatus.RUNNING,
-        RepositoryUpdateStatus.COMPLETED
-      );
-
-      const transitioned = await this.repositoryUpdates.markCompleted({
-        updateId,
-        completedAt: new Date()
-      });
-
-      return (
-        transitioned ??
-        this.invalidTransition(updateId, update.status, RepositoryUpdateStatus.COMPLETED)
-      );
+      return this.completeWithinLock(update, new Date());
     });
   }
 
@@ -112,19 +88,72 @@ export class RepositoryUpdateService {
     }
 
     return this.transitionWithRepositoryLock(updateId, userId, async (update) => {
-      this.assertTransition(update, RepositoryUpdateStatus.RUNNING, RepositoryUpdateStatus.FAILED);
-
-      const transitioned = await this.repositoryUpdates.markFailed({
-        updateId,
-        failedAt: new Date(),
-        failureReason: sanitizedFailureReason
-      });
-
-      return (
-        transitioned ??
-        this.invalidTransition(updateId, update.status, RepositoryUpdateStatus.FAILED)
-      );
+      return this.failWithinLock(update, sanitizedFailureReason, new Date());
     });
+  }
+
+  async findOwned(updateId: string, userId: string): Promise<RepositoryUpdateSnapshot> {
+    return this.findOwnedUpdate(updateId, userId);
+  }
+
+  async startOwnedWithinLock(
+    updateId: string,
+    userId: string,
+    startedAt = new Date()
+  ): Promise<RepositoryUpdateSnapshot> {
+    const update = await this.findOwnedUpdate(updateId, userId);
+
+    return this.startWithinLock(update, startedAt);
+  }
+
+  async completeOwnedWithinLock(
+    updateId: string,
+    userId: string,
+    completedAt = new Date()
+  ): Promise<RepositoryUpdateSnapshot> {
+    const update = await this.findOwnedUpdate(updateId, userId);
+
+    return this.completeWithinLock(update, completedAt);
+  }
+
+  async failOwnedWithinLock(
+    updateId: string,
+    userId: string,
+    failureReason: string,
+    failedAt = new Date()
+  ): Promise<RepositoryUpdateSnapshot> {
+    const sanitizedFailureReason = failureReason.trim();
+
+    if (!sanitizedFailureReason) {
+      throw new RepositoryUpdateFailureReasonError();
+    }
+
+    const update = await this.findOwnedUpdate(updateId, userId);
+
+    return this.failWithinLock(update, sanitizedFailureReason, failedAt);
+  }
+
+  async recordArtifactsOwned(
+    updateId: string,
+    userId: string,
+    artifacts: {
+      scanId?: string | null;
+      analysisId?: string | null;
+      projectContextId?: string | null;
+    }
+  ): Promise<RepositoryUpdateSnapshot> {
+    await this.findOwnedUpdate(updateId, userId);
+
+    const update = await this.repositoryUpdates.updateArtifacts({
+      updateId,
+      ...artifacts
+    });
+
+    if (!update) {
+      throw new RepositoryUpdateNotFoundError(updateId);
+    }
+
+    return update;
   }
 
   private async transitionWithRepositoryLock(
@@ -138,6 +167,59 @@ export class RepositoryUpdateService {
       const lockedUpdate = await this.findOwnedUpdate(updateId, userId);
       return transition(lockedUpdate);
     });
+  }
+
+  private async startWithinLock(
+    update: RepositoryUpdateSnapshot,
+    startedAt: Date
+  ): Promise<RepositoryUpdateSnapshot> {
+    this.assertTransition(update, RepositoryUpdateStatus.PENDING, RepositoryUpdateStatus.RUNNING);
+
+    const transitioned = await this.repositoryUpdates.markRunning({
+      updateId: update.id,
+      startedAt
+    });
+
+    return (
+      transitioned ??
+      this.invalidTransition(update.id, update.status, RepositoryUpdateStatus.RUNNING)
+    );
+  }
+
+  private async completeWithinLock(
+    update: RepositoryUpdateSnapshot,
+    completedAt: Date
+  ): Promise<RepositoryUpdateSnapshot> {
+    this.assertTransition(update, RepositoryUpdateStatus.RUNNING, RepositoryUpdateStatus.COMPLETED);
+
+    const transitioned = await this.repositoryUpdates.markCompleted({
+      updateId: update.id,
+      completedAt
+    });
+
+    return (
+      transitioned ??
+      this.invalidTransition(update.id, update.status, RepositoryUpdateStatus.COMPLETED)
+    );
+  }
+
+  private async failWithinLock(
+    update: RepositoryUpdateSnapshot,
+    failureReason: string,
+    failedAt: Date
+  ): Promise<RepositoryUpdateSnapshot> {
+    this.assertTransition(update, RepositoryUpdateStatus.RUNNING, RepositoryUpdateStatus.FAILED);
+
+    const transitioned = await this.repositoryUpdates.markFailed({
+      updateId: update.id,
+      failedAt,
+      failureReason
+    });
+
+    return (
+      transitioned ??
+      this.invalidTransition(update.id, update.status, RepositoryUpdateStatus.FAILED)
+    );
   }
 
   private async findOwnedUpdate(
