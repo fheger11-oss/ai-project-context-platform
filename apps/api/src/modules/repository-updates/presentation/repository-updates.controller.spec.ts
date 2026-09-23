@@ -1,4 +1,4 @@
-import { NotFoundException } from "@nestjs/common";
+import { NotFoundException, ValidationPipe } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -11,6 +11,7 @@ import type { RunRepositoryUpdateService } from "../application/run-repository-u
 import type { RepositoryUpdateSnapshot } from "../domain/contracts/repository-update-repository.contract.js";
 import { RepositoryUpdatesController } from "./repository-updates.controller.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
+import { RunRepositoryUpdateRequestDto } from "./dto/run-repository-update-request.dto.js";
 
 const user: AuthenticatedUser = {
   id: "user_1",
@@ -61,6 +62,40 @@ function createController(options: {
 }
 
 describe("RepositoryUpdatesController", () => {
+  const validationPipe = new ValidationPipe({
+    forbidNonWhitelisted: true,
+    transform: true,
+    whitelist: true
+  });
+
+  it("accepts the valid manual update request body", async () => {
+    await expect(
+      validationPipe.transform(
+        {},
+        {
+          metatype: RunRepositoryUpdateRequestDto,
+          type: "body"
+        }
+      )
+    ).resolves.toBeInstanceOf(RunRepositoryUpdateRequestDto);
+  });
+
+  it("rejects repository ids in the manual update request body", async () => {
+    await expect(
+      validationPipe.transform(
+        { id: "repository_1" },
+        {
+          metatype: RunRepositoryUpdateRequestDto,
+          type: "body"
+        }
+      )
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        message: expect.arrayContaining(["property id should not exist"])
+      })
+    });
+  });
+
   it("returns paginated repository update history", async () => {
     const listByRepository = vi.fn(async () => ({
       items: [createUpdate()],
@@ -179,8 +214,9 @@ describe("RepositoryUpdatesController", () => {
     }));
     const controller = createController({ runManualUpdate });
 
-    const response = await controller.runManualUpdate(user, { id: "repository_1" });
+    const response = await controller.runManualUpdate(user, { id: "repository_1" }, {});
 
+    expect(runManualUpdate).toHaveBeenCalledWith("repository_1", "user_1");
     expect(response).toMatchObject({
       noop: false,
       updateId: "update_1",

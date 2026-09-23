@@ -15,6 +15,7 @@ import type {
   RepositoryUpdateHistoryResponse,
   RepositoryUpdateResponse,
   RepositoryUpdateSummary,
+  RunRepositoryUpdateRequest,
   ScanLimitErrorResponse,
   ScanLimits,
   ScanSnapshot,
@@ -75,6 +76,12 @@ describe("contracts package exports", () => {
   });
 
   it("exports RepositoryUpdateResponse from the public entrypoint", () => {
+    type RunRepositoryUpdateRequestHasId = RunRepositoryUpdateRequest extends { id: unknown }
+      ? true
+      : false;
+
+    expectTypeOf<RunRepositoryUpdateRequestHasId>().toEqualTypeOf<false>();
+    expectTypeOf<RunRepositoryUpdateRequest>().toMatchTypeOf<Record<string, never>>();
     expectTypeOf<RepositoryUpdateResponse>().toMatchTypeOf<{
       noop: boolean;
       updateId: string | null;

@@ -1,4 +1,14 @@
-import { Controller, Get, HttpCode, HttpStatus, Inject, Param, Post, Query } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Param,
+  Post,
+  Query
+} from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 
 import { Auth } from "../../auth/decorators/auth.decorator.js";
@@ -21,6 +31,7 @@ import {
   type RepositoryUpdateHistoryResponse,
   type RepositoryUpdateResponse
 } from "./dto/repository-update-response.dto.js";
+import { type RunRepositoryUpdateRequestDto } from "./dto/run-repository-update-request.dto.js";
 
 @ApiTags("repositories")
 @Auth()
@@ -81,7 +92,8 @@ export class RepositoryUpdatesController {
   @ApiOkResponse({ type: RepositoryUpdateResponseDto })
   async runManualUpdate(
     @CurrentUser() user: AuthenticatedUser,
-    @Param() params: RepositoryParamsDto
+    @Param() params: RepositoryParamsDto,
+    @Body() _request: RunRepositoryUpdateRequestDto
   ): Promise<RepositoryUpdateResponse> {
     const result = await this.runRepositoryUpdateService.runManualUpdate(params.id, user.id);
 

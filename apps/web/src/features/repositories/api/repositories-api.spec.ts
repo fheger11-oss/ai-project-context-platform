@@ -166,6 +166,8 @@ describe("repositories-api RepositoryState endpoints", () => {
         }
       }
     );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty("body");
     expect(result).toEqual(updateResponse);
   });
 

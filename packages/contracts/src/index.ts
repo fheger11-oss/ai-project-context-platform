@@ -87,6 +87,8 @@ export type RepositoryUpdateStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAIL
 
 export type RepositoryUpdateTriggerType = "MANUAL" | "WEBHOOK" | "SYSTEM";
 
+export type RunRepositoryUpdateRequest = Record<string, never>;
+
 export type RepositoryStateSummary = {
   repositoryId: string;
   freshnessStatus: RepositoryFreshnessStatus;
