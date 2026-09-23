@@ -8,6 +8,8 @@ import type {
   MarkRepositoryUpdateCompletedInput,
   MarkRepositoryUpdateFailedInput,
   MarkRepositoryUpdateRunningInput,
+  RepositoryUpdateHistoryQuery,
+  RepositoryUpdateHistoryResult,
   RepositoryUpdateRepository,
   RepositoryUpdateSnapshot,
   UpdateRepositoryUpdateArtifactsInput
@@ -39,6 +41,54 @@ export class PrismaRepositoryUpdateRepository implements RepositoryUpdateReposit
     });
 
     return update ? toRepositoryUpdateSnapshot(update) : null;
+  }
+
+  async findByRepositoryAndId(
+    repositoryId: string,
+    updateId: string
+  ): Promise<RepositoryUpdateSnapshot | null> {
+    const update = await this.prisma.repositoryUpdate.findFirst({
+      where: {
+        id: updateId,
+        repositoryId
+      }
+    });
+
+    return update ? toRepositoryUpdateSnapshot(update) : null;
+  }
+
+  async findCurrentByRepository(repositoryId: string): Promise<RepositoryUpdateSnapshot | null> {
+    const update = await this.prisma.repositoryUpdate.findFirst({
+      where: {
+        repositoryId,
+        status: { in: [RepositoryUpdateStatus.PENDING, RepositoryUpdateStatus.RUNNING] }
+      },
+      orderBy: [{ startedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }]
+    });
+
+    return update ? toRepositoryUpdateSnapshot(update) : null;
+  }
+
+  async listByRepository(
+    query: RepositoryUpdateHistoryQuery
+  ): Promise<RepositoryUpdateHistoryResult> {
+    const skip = (query.page - 1) * query.pageSize;
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.repositoryUpdate.findMany({
+        where: { repositoryId: query.repositoryId },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip,
+        take: query.pageSize
+      }),
+      this.prisma.repositoryUpdate.count({
+        where: { repositoryId: query.repositoryId }
+      })
+    ]);
+
+    return {
+      items: items.map(toRepositoryUpdateSnapshot),
+      total
+    };
   }
 
   async markRunning(

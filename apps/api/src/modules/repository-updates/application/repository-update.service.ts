@@ -1,4 +1,4 @@
-import { Inject, Injectable } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import {
   RepositoryUpdateStatus,
@@ -26,6 +26,23 @@ export type CreatePendingRepositoryUpdateCommand = {
   baseCommitSha?: string | null;
 };
 
+export type RepositoryUpdateHistoryQuery = {
+  repositoryId: string;
+  userId: string;
+  page: number;
+  pageSize: number;
+};
+
+export type RepositoryUpdateHistoryResult = {
+  items: RepositoryUpdateSnapshot[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    hasNextPage: boolean;
+  };
+};
+
 @Injectable()
 export class RepositoryUpdateService {
   constructor(
@@ -49,6 +66,53 @@ export class RepositoryUpdateService {
       targetCommitSha: command.targetCommitSha,
       baseCommitSha: command.baseCommitSha ?? null
     });
+  }
+
+  async getById(
+    repositoryId: string,
+    updateId: string,
+    userId: string
+  ): Promise<RepositoryUpdateSnapshot> {
+    await this.repositoriesService.getScanAccessMetadataForUser(userId, repositoryId);
+
+    const update = await this.repositoryUpdates.findByRepositoryAndId(repositoryId, updateId);
+
+    if (!update) {
+      throw new NotFoundException("RepositoryUpdate was not found");
+    }
+
+    return update;
+  }
+
+  async listByRepository(
+    query: RepositoryUpdateHistoryQuery
+  ): Promise<RepositoryUpdateHistoryResult> {
+    await this.repositoriesService.getScanAccessMetadataForUser(query.userId, query.repositoryId);
+
+    const result = await this.repositoryUpdates.listByRepository({
+      repositoryId: query.repositoryId,
+      page: query.page,
+      pageSize: query.pageSize
+    });
+
+    return {
+      items: result.items,
+      pagination: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total: result.total,
+        hasNextPage: query.page * query.pageSize < result.total
+      }
+    };
+  }
+
+  async getCurrentByRepository(
+    repositoryId: string,
+    userId: string
+  ): Promise<RepositoryUpdateSnapshot | null> {
+    await this.repositoriesService.getScanAccessMetadataForUser(userId, repositoryId);
+
+    return this.repositoryUpdates.findCurrentByRepository(repositoryId);
   }
 
   async withRepositoryUpdateLock<T>(

@@ -4,13 +4,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   DashboardProjectSummary,
   DashboardProjectsResponse,
+  RepositoryCurrentUpdateResponse,
   RepositorySummary,
+  RepositoryUpdateHistoryResponse,
   ScanHistoryResponse
 } from "@ai-context/contracts";
 
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
 import {
+  getCurrentRepositoryUpdate,
   getRepository,
+  getRepositoryUpdateHistory,
   refreshRepositoryState,
   runRepositoryUpdate
 } from "@/features/repositories/api/repositories-api";
@@ -42,6 +46,8 @@ let accessToken = "access_token";
 let repositoryQuery: QueryResult = {};
 let latestScanQuery: QueryResult = {};
 let dashboardQuery: QueryResult = {};
+let updateHistoryQuery: QueryResult = {};
+let currentUpdateQuery: QueryResult = {};
 const mutationOptions: MutationOptions[] = [];
 const invalidateQueries = vi.fn();
 
@@ -146,6 +152,24 @@ const projectSummary: DashboardProjectSummary = {
   }
 };
 
+const completedUpdate: RepositoryUpdateHistoryResponse["items"][number] = {
+  id: "update_completed",
+  repositoryId: "repository_1",
+  triggerType: "MANUAL",
+  status: "COMPLETED",
+  baseCommitSha: "abcdef1234567890",
+  targetCommitSha: "bcdef12345678901",
+  startedAt: "2026-08-26T10:05:00.000Z",
+  completedAt: "2026-08-26T10:08:00.000Z",
+  failedAt: null,
+  failureReason: null,
+  scanId: "scan_2",
+  analysisId: "analysis_2",
+  projectContextId: "context_2",
+  createdAt: "2026-08-26T10:04:59.000Z",
+  updatedAt: "2026-08-26T10:08:00.000Z"
+};
+
 function dashboardResponse(projects: DashboardProjectSummary[]): DashboardProjectsResponse {
   return { projects };
 }
@@ -163,6 +187,20 @@ vi.mock("@tanstack/react-query", () => ({
   },
   useQuery: (options: QueryOptions) => {
     queryOptions.push(options);
+
+    if (options.queryKey[0] === "repositories" && options.queryKey[2] === "updates") {
+      const result = options.queryKey[3] === "current" ? currentUpdateQuery : updateHistoryQuery;
+
+      return {
+        data: result.data,
+        error: result.error,
+        isError: result.isError ?? false,
+        isFetching: result.isFetching ?? false,
+        isLoading: result.isLoading ?? false,
+        isSuccess: result.isSuccess ?? false,
+        refetch: vi.fn()
+      };
+    }
 
     if (options.queryKey[0] === "repositories") {
       return {
@@ -218,7 +256,9 @@ vi.mock("@/features/repositories/api/repositories-api", async (importOriginal) =
 
   return {
     ...actual,
+    getCurrentRepositoryUpdate: vi.fn(),
     getRepository: vi.fn(),
+    getRepositoryUpdateHistory: vi.fn(),
     refreshRepositoryState: vi.fn(),
     runRepositoryUpdate: vi.fn(),
     syncRepository: vi.fn()
@@ -288,9 +328,27 @@ describe("RepositoryDetailsView", () => {
       } satisfies ScanHistoryResponse
     };
     dashboardQuery = { data: dashboardResponse([projectSummary]) };
+    updateHistoryQuery = {
+      data: {
+        items: [completedUpdate],
+        pagination: {
+          page: 1,
+          pageSize: 5,
+          total: 1,
+          hasNextPage: false
+        }
+      } satisfies RepositoryUpdateHistoryResponse
+    };
+    currentUpdateQuery = {
+      data: {
+        update: null
+      } satisfies RepositoryCurrentUpdateResponse
+    };
     mutationOptions.length = 0;
     invalidateQueries.mockClear();
+    vi.mocked(getCurrentRepositoryUpdate).mockReset();
     vi.mocked(getRepository).mockReset();
+    vi.mocked(getRepositoryUpdateHistory).mockReset();
     vi.mocked(refreshRepositoryState).mockReset();
     vi.mocked(runRepositoryUpdate).mockReset();
     vi.mocked(getScanHistory).mockReset();
@@ -330,6 +388,90 @@ describe("RepositoryDetailsView", () => {
     expect(markup).toContain("abcdef123456");
     expect(markup).toContain("Update repository");
     expect(markup).not.toContain("Up to date");
+  });
+
+  it("renders current update status and recent update history", () => {
+    currentUpdateQuery = {
+      data: {
+        update: {
+          ...completedUpdate,
+          id: "update_running",
+          status: "RUNNING",
+          startedAt: "2026-08-26T10:10:00.000Z",
+          completedAt: null,
+          targetCommitSha: "runningabcdef123456"
+        }
+      } satisfies RepositoryCurrentUpdateResponse
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Updates");
+    expect(markup).toContain("Current update");
+    expect(markup).toContain("Running");
+    expect(markup).toContain("runningabcde");
+    expect(markup).toContain("Completed");
+    expect(markup).toContain("bcdef1234567");
+  });
+
+  it("renders failed update history with failure reason", () => {
+    updateHistoryQuery = {
+      data: {
+        items: [
+          {
+            ...completedUpdate,
+            id: "update_failed",
+            status: "FAILED",
+            completedAt: null,
+            failedAt: "2026-08-26T10:09:00.000Z",
+            failureReason: "CONTEXT_GENERATION_FAILED",
+            projectContextId: null
+          }
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 5,
+          total: 1,
+          hasNextPage: false
+        }
+      } satisfies RepositoryUpdateHistoryResponse
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Failed");
+    expect(markup).toContain("CONTEXT_GENERATION_FAILED");
+  });
+
+  it("renders empty update history", () => {
+    updateHistoryQuery = {
+      data: {
+        items: [],
+        pagination: {
+          page: 1,
+          pageSize: 5,
+          total: 0,
+          hasNextPage: false
+        }
+      } satisfies RepositoryUpdateHistoryResponse
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("No update in progress");
+    expect(markup).toContain("No repository updates yet");
+  });
+
+  it("renders update history loading and error states", () => {
+    updateHistoryQuery = { isLoading: true };
+    currentUpdateQuery = { isLoading: true };
+
+    expect(renderToStaticMarkup(<RepositoryDetailsView />)).toContain("Loading update status");
+
+    updateHistoryQuery = { isError: true };
+    currentUpdateQuery = { data: { update: null } satisfies RepositoryCurrentUpdateResponse };
+
+    expect(renderToStaticMarkup(<RepositoryDetailsView />)).toContain("Updates unavailable");
   });
 
   it.each([
@@ -448,11 +590,15 @@ describe("RepositoryDetailsView", () => {
     expect(queryOptions.map((option) => option.queryKey)).toEqual([
       ["repositories", "repository_1"],
       ["scan-history", "repository_1", 1, 1],
-      ["dashboard", "projects"]
+      ["dashboard", "projects"],
+      ["repositories", "repository_1", "updates", 1, 5],
+      ["repositories", "repository_1", "updates", "current"]
     ]);
     expect(getRepository).toHaveBeenCalledTimes(1);
     expect(getScanHistory).toHaveBeenCalledTimes(1);
     expect(listDashboardProjects).toHaveBeenCalledTimes(1);
+    expect(getRepositoryUpdateHistory).toHaveBeenCalledTimes(1);
+    expect(getCurrentRepositoryUpdate).toHaveBeenCalledTimes(1);
   });
 
   it("refreshes repository and dashboard state after metadata sync succeeds", async () => {
@@ -531,6 +677,9 @@ describe("RepositoryDetailsView", () => {
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["scan-history", "repository_1"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1", "updates"]
     });
   });
 });

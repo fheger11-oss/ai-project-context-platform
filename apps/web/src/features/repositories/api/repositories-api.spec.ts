@@ -1,14 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   ProjectContextResponse,
+  RepositoryCurrentUpdateResponse,
   RepositoryStateSummary,
+  RepositoryUpdateHistoryResponse,
   RepositoryUpdateResponse
 } from "@ai-context/contracts";
 
 import {
   ApiRequestError,
+  getCurrentRepositoryUpdate,
   getCurrentProjectContext,
   getRepositoryState,
+  getRepositoryUpdateHistory,
   refreshRepositoryState,
   runRepositoryUpdate
 } from "@/features/repositories/api/repositories-api";
@@ -56,6 +60,24 @@ const updateResponse: RepositoryUpdateResponse = {
   analysisId: "analysis_2",
   projectContextId: "context_2",
   freshnessStatus: "FRESH"
+};
+
+const updateSummary: RepositoryUpdateHistoryResponse["items"][number] = {
+  id: "update_1",
+  repositoryId: "repository_1",
+  triggerType: "MANUAL",
+  status: "FAILED",
+  baseCommitSha: "commit-context",
+  targetCommitSha: "commit-next",
+  startedAt: "2026-09-22T12:00:00.000Z",
+  completedAt: null,
+  failedAt: "2026-09-22T12:02:00.000Z",
+  failureReason: "SCAN_FAILED",
+  scanId: null,
+  analysisId: null,
+  projectContextId: null,
+  createdAt: "2026-09-22T11:59:59.000Z",
+  updatedAt: "2026-09-22T12:02:00.000Z"
 };
 
 function mockFetch(body: unknown, init: ResponseInit = { status: 200 }) {
@@ -145,6 +167,54 @@ describe("repositories-api RepositoryState endpoints", () => {
       }
     );
     expect(result).toEqual(updateResponse);
+  });
+
+  it("loads repository update history with pagination", async () => {
+    const history: RepositoryUpdateHistoryResponse = {
+      items: [updateSummary],
+      pagination: {
+        page: 2,
+        pageSize: 5,
+        total: 8,
+        hasNextPage: true
+      }
+    };
+    const fetchMock = mockFetch(history);
+
+    const result = await getRepositoryUpdateHistory("access_token", "repository_1", 2, 5);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/v1/repositories/repository_1/updates?page=2&pageSize=5",
+      {
+        method: "GET",
+        headers: {
+          Authorization: "Bearer access_token",
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    expect(result).toEqual(history);
+  });
+
+  it("loads the current repository update status", async () => {
+    const current: RepositoryCurrentUpdateResponse = {
+      update: { ...updateSummary, status: "RUNNING", failedAt: null, failureReason: null }
+    };
+    const fetchMock = mockFetch(current);
+
+    const result = await getCurrentRepositoryUpdate("access_token", "repository_1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/v1/repositories/repository_1/updates/current",
+      {
+        method: "GET",
+        headers: {
+          Authorization: "Bearer access_token",
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    expect(result.update?.status).toBe("RUNNING");
   });
 
   it("propagates repository state API errors", async () => {

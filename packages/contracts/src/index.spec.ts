@@ -9,8 +9,12 @@ import type {
   DashboardProjectsResponse,
   GeneratedDocumentResponse,
   GenerateDocumentRequest,
+  RepositoryCurrentUpdateResponse,
   RepositoryStateSummary,
+  RepositoryUpdateDetail,
+  RepositoryUpdateHistoryResponse,
   RepositoryUpdateResponse,
+  RepositoryUpdateSummary,
   ScanLimitErrorResponse,
   ScanLimits,
   ScanSnapshot,
@@ -82,6 +86,37 @@ describe("contracts package exports", () => {
       analysisId: string | null;
       projectContextId: string | null;
       freshnessStatus: "UNKNOWN" | "FRESH" | "STALE" | "UPDATE_FAILED";
+    }>();
+  });
+
+  it("exports RepositoryUpdate read contracts from the public entrypoint", () => {
+    expectTypeOf<RepositoryUpdateSummary>().toMatchTypeOf<{
+      id: string;
+      repositoryId: string;
+      triggerType: "MANUAL" | "WEBHOOK" | "SYSTEM";
+      status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
+      baseCommitSha: string | null;
+      targetCommitSha: string;
+      startedAt: string | null;
+      completedAt: string | null;
+      failedAt: string | null;
+      failureReason: string | null;
+      scanId: string | null;
+      analysisId: string | null;
+      projectContextId: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }>();
+    expectTypeOf<RepositoryUpdateDetail>().toEqualTypeOf<RepositoryUpdateSummary>();
+    expectTypeOf<RepositoryUpdateHistoryResponse>().toHaveProperty("items");
+    expectTypeOf<RepositoryUpdateHistoryResponse["pagination"]>().toMatchTypeOf<{
+      page: number;
+      pageSize: number;
+      total: number;
+      hasNextPage: boolean;
+    }>();
+    expectTypeOf<RepositoryCurrentUpdateResponse>().toMatchTypeOf<{
+      update: RepositoryUpdateSummary | null;
     }>();
   });
 

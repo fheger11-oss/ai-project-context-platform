@@ -3,6 +3,8 @@ import type {
   ListAvailableGitHubRepositoriesResponse,
   ListRepositoriesResponse,
   ProjectContextResponse,
+  RepositoryCurrentUpdateResponse,
+  RepositoryUpdateHistoryResponse,
   RepositoryUpdateResponse,
   RepositoryStateSummary,
   RepositorySummary
@@ -83,6 +85,28 @@ export function runRepositoryUpdate(accessToken: string, id: string) {
   });
 }
 
+export function getRepositoryUpdateHistory(
+  accessToken: string,
+  id: string,
+  page = 1,
+  pageSize = 5
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize)
+  });
+
+  return request<RepositoryUpdateHistoryResponse>(`/repositories/${id}/updates?${params}`, {
+    accessToken
+  });
+}
+
+export function getCurrentRepositoryUpdate(accessToken: string, id: string) {
+  return request<RepositoryCurrentUpdateResponse>(`/repositories/${id}/updates/current`, {
+    accessToken
+  });
+}
+
 export function listAvailableGitHubRepositories(accessToken: string) {
   return request<ListAvailableGitHubRepositoriesResponse>("/repositories/github/list", {
     accessToken
@@ -116,6 +140,8 @@ export function syncRepository(accessToken: string, repositoryId: string) {
 export type {
   AvailableGitHubRepository,
   ProjectContextResponse,
+  RepositoryCurrentUpdateResponse,
+  RepositoryUpdateHistoryResponse,
   RepositoryUpdateResponse,
   RepositoryStateSummary,
   RepositorySummary

@@ -46,6 +46,10 @@ function createUpdate(overrides: Partial<RepositoryUpdateSnapshot> = {}): Reposi
 function createHarness(
   options: {
     update?: RepositoryUpdateSnapshot | null;
+    repositoryUpdate?: RepositoryUpdateSnapshot | null;
+    currentUpdate?: RepositoryUpdateSnapshot | null;
+    historyItems?: RepositoryUpdateSnapshot[];
+    historyTotal?: number;
     lockedUpdate?: RepositoryUpdateSnapshot | null;
     ownershipError?: Error;
     lockError?: Error;
@@ -65,6 +69,24 @@ function createHarness(
 
     return createUpdate();
   });
+  const findByRepositoryAndId = vi.fn(async () => {
+    if ("repositoryUpdate" in options) {
+      return options.repositoryUpdate ?? null;
+    }
+
+    return options.update ?? createUpdate();
+  });
+  const findCurrentByRepository = vi.fn(async () => {
+    if ("currentUpdate" in options) {
+      return options.currentUpdate ?? null;
+    }
+
+    return null;
+  });
+  const listByRepository = vi.fn(async () => ({
+    items: options.historyItems ?? [createUpdate()],
+    total: options.historyTotal ?? (options.historyItems ?? [createUpdate()]).length
+  }));
   const createPending = vi.fn(async (input) =>
     createUpdate({
       repositoryId: input.repositoryId,
@@ -112,6 +134,9 @@ function createHarness(
   const repositoryUpdates = {
     createPending,
     findById,
+    findByRepositoryAndId,
+    findCurrentByRepository,
+    listByRepository,
     markRunning,
     markCompleted,
     markFailed,
@@ -152,6 +177,9 @@ function createHarness(
     ),
     createPending,
     findById,
+    findByRepositoryAndId,
+    findCurrentByRepository,
+    listByRepository,
     markRunning,
     markCompleted,
     markFailed,
@@ -162,6 +190,90 @@ function createHarness(
 }
 
 describe("RepositoryUpdateService", () => {
+  it("lists repository updates for the repository owner with pagination", async () => {
+    const updates = [
+      createUpdate({ id: "update_new" }),
+      createUpdate({ id: "update_old", targetCommitSha: "target_old" })
+    ];
+    const { service, listByRepository, getScanAccessMetadataForUser } = createHarness({
+      historyItems: updates,
+      historyTotal: 5
+    });
+
+    await expect(
+      service.listByRepository({
+        repositoryId: "repository_1",
+        userId: "user_1",
+        page: 2,
+        pageSize: 2
+      })
+    ).resolves.toEqual({
+      items: updates,
+      pagination: {
+        page: 2,
+        pageSize: 2,
+        total: 5,
+        hasNextPage: true
+      }
+    });
+    expect(getScanAccessMetadataForUser).toHaveBeenCalledWith("user_1", "repository_1");
+    expect(listByRepository).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      page: 2,
+      pageSize: 2
+    });
+  });
+
+  it("denies repository update history across users", async () => {
+    const { service, listByRepository } = createHarness({
+      ownershipError: new NotFoundException("Repository not found")
+    });
+
+    await expect(
+      service.listByRepository({
+        repositoryId: "repository_1",
+        userId: "user_2",
+        page: 1,
+        pageSize: 10
+      })
+    ).rejects.toThrow(NotFoundException);
+    expect(listByRepository).not.toHaveBeenCalled();
+  });
+
+  it("reads a repository-scoped update for the owner", async () => {
+    const update = createUpdate({ id: "update_1", repositoryId: "repository_1" });
+    const { service, findByRepositoryAndId } = createHarness({ repositoryUpdate: update });
+
+    await expect(service.getById("repository_1", "update_1", "user_1")).resolves.toBe(update);
+    expect(findByRepositoryAndId).toHaveBeenCalledWith("repository_1", "update_1");
+  });
+
+  it("does not return updates from another repository through the wrong repository id", async () => {
+    const { service } = createHarness({ repositoryUpdate: null });
+
+    await expect(
+      service.getById("repository_1", "update_from_other_repo", "user_1")
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it.each([
+    [RepositoryUpdateStatus.PENDING, true],
+    [RepositoryUpdateStatus.RUNNING, true],
+    [RepositoryUpdateStatus.COMPLETED, false],
+    [RepositoryUpdateStatus.FAILED, false]
+  ] as const)("returns current update for active status %s only", async (status, active) => {
+    const currentUpdate =
+      status === RepositoryUpdateStatus.PENDING || status === RepositoryUpdateStatus.RUNNING
+        ? createUpdate({ status })
+        : null;
+    const { service, findCurrentByRepository } = createHarness({ currentUpdate });
+
+    await expect(service.getCurrentByRepository("repository_1", "user_1")).resolves.toBe(
+      active ? currentUpdate : null
+    );
+    expect(findCurrentByRepository).toHaveBeenCalledWith("repository_1");
+  });
+
   it("creates a pending update for the repository owner", async () => {
     const { service, createPending, getScanAccessMetadataForUser } = createHarness();
 

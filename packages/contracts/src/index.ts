@@ -112,6 +112,40 @@ export type RepositoryUpdateResponse = {
   freshnessStatus: RepositoryFreshnessStatus;
 };
 
+export type RepositoryUpdateSummary = {
+  id: string;
+  repositoryId: string;
+  triggerType: RepositoryUpdateTriggerType;
+  status: RepositoryUpdateStatus;
+  baseCommitSha: string | null;
+  targetCommitSha: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  failedAt: string | null;
+  failureReason: string | null;
+  scanId: string | null;
+  analysisId: string | null;
+  projectContextId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RepositoryUpdateDetail = RepositoryUpdateSummary;
+
+export type RepositoryUpdateHistoryResponse = {
+  items: RepositoryUpdateSummary[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    hasNextPage: boolean;
+  };
+};
+
+export type RepositoryCurrentUpdateResponse = {
+  update: RepositoryUpdateSummary | null;
+};
+
 export type RepositorySummary = {
   id: string;
   githubId: string;

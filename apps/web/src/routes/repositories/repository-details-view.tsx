@@ -26,7 +26,9 @@ import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
 import {
+  getCurrentRepositoryUpdate,
   getRepository,
+  getRepositoryUpdateHistory,
   refreshRepositoryState,
   runRepositoryUpdate,
   syncRepository
@@ -40,7 +42,11 @@ import { limitReasonLabel } from "@/features/scans/utils/scan-usage";
 import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
 import { analytics } from "@/lib/analytics";
 import { productPipelineStages, type ProductPipelineStageKey } from "@/lib/product-pipeline";
-import type { DashboardProjectSummary, RepositoryUpdateResponse } from "@ai-context/contracts";
+import type {
+  DashboardProjectSummary,
+  RepositoryUpdateResponse,
+  RepositoryUpdateSummary
+} from "@ai-context/contracts";
 
 function repositoryName(fullName: string): string {
   const parts = fullName.split("/");
@@ -87,6 +93,16 @@ export function RepositoryDetailsView() {
     queryFn: () => listDashboardProjects(apiAccessToken),
     enabled: Boolean(apiAccessToken && id)
   });
+  const updateHistoryQuery = useQuery({
+    queryKey: ["repositories", id, "updates", 1, 5],
+    queryFn: () => getRepositoryUpdateHistory(apiAccessToken, id ?? "", 1, 5),
+    enabled: Boolean(apiAccessToken && id)
+  });
+  const currentUpdateQuery = useQuery({
+    queryKey: ["repositories", id, "updates", "current"],
+    queryFn: () => getCurrentRepositoryUpdate(apiAccessToken, id ?? ""),
+    enabled: Boolean(apiAccessToken && id)
+  });
   const syncMutation = useMutation({
     mutationFn: () => syncRepository(apiAccessToken, id ?? ""),
     onSuccess: async () => {
@@ -121,7 +137,8 @@ export function RepositoryDetailsView() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
         queryClient.invalidateQueries({ queryKey: ["repositories", id, "state"] }),
-        queryClient.invalidateQueries({ queryKey: ["scan-history", id] })
+        queryClient.invalidateQueries({ queryKey: ["scan-history", id] }),
+        queryClient.invalidateQueries({ queryKey: ["repositories", id, "updates"] })
       ]);
     },
     onError: () => {
@@ -217,6 +234,12 @@ export function RepositoryDetailsView() {
             latestScan={latestScan}
             projectSummary={projectSummary}
             repositoryLoaded
+          />
+          <RepositoryUpdatesPanel
+            currentUpdate={currentUpdateQuery.data?.update ?? null}
+            history={updateHistoryQuery.data?.items ?? []}
+            isError={updateHistoryQuery.isError || currentUpdateQuery.isError}
+            isLoading={updateHistoryQuery.isLoading || currentUpdateQuery.isLoading}
           />
           <ScanHistory accessToken={apiAccessToken} repositoryId={repository.id} />
           <ProjectMetadata repository={repository} />
@@ -381,6 +404,139 @@ function ProjectPipeline({
       </CardContent>
     </Card>
   );
+}
+
+function RepositoryUpdatesPanel({
+  currentUpdate,
+  history,
+  isError,
+  isLoading
+}: {
+  currentUpdate: RepositoryUpdateSummary | null;
+  history: RepositoryUpdateSummary[];
+  isError: boolean;
+  isLoading: boolean;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Updates</CardTitle>
+        <CardDescription>
+          Manual repository update status and recent update attempts.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <div className="rounded-md border bg-surface/60 p-3">
+          <p className="text-sm font-medium text-foreground">Current update</p>
+          {isLoading ? (
+            <p className="mt-1 text-xs text-muted-foreground">Loading update status.</p>
+          ) : currentUpdate ? (
+            <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-2">
+                <Badge tone="warning">{repositoryUpdateStatusLabel(currentUpdate.status)}</Badge>
+                <span title={currentUpdate.targetCommitSha}>
+                  Target {shortCommit(currentUpdate.targetCommitSha)}
+                </span>
+              </span>
+              <span>
+                {currentUpdate.startedAt
+                  ? `Started ${displayDate(currentUpdate.startedAt)}`
+                  : `Created ${displayDate(currentUpdate.createdAt)}`}
+              </span>
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">No update in progress.</p>
+          )}
+        </div>
+
+        {isError ? (
+          <StatePanel
+            className="p-3"
+            description="Repository update history could not be loaded."
+            title="Updates unavailable"
+            tone="error"
+          />
+        ) : null}
+
+        {!isLoading && !isError && history.length === 0 ? (
+          <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+            No repository updates yet.
+          </p>
+        ) : null}
+
+        {!isError && history.length > 0 ? (
+          <ol className="grid gap-2">
+            {history.map((update) => (
+              <li key={update.id} className="rounded-md border bg-card/70 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={repositoryUpdateStatusTone(update.status)}>
+                      {repositoryUpdateStatusLabel(update.status)}
+                    </Badge>
+                    <span className="text-xs uppercase text-muted-foreground">
+                      {update.triggerType.toLowerCase()}
+                    </span>
+                  </div>
+                  <span
+                    className="font-mono text-xs text-subtle-foreground"
+                    title={update.targetCommitSha}
+                  >
+                    {shortCommit(update.targetCommitSha)}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {repositoryUpdateTimestamp(update)}
+                </p>
+                {update.status === "FAILED" && update.failureReason ? (
+                  <p className="mt-1 break-words text-xs text-destructive">
+                    {update.failureReason}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function repositoryUpdateStatusLabel(status: RepositoryUpdateSummary["status"]): string {
+  return status.toLowerCase().replace(/^\w/, (char) => char.toUpperCase());
+}
+
+function repositoryUpdateStatusTone(
+  status: RepositoryUpdateSummary["status"]
+): "success" | "warning" | "error" | "muted" {
+  if (status === "COMPLETED") {
+    return "success";
+  }
+
+  if (status === "FAILED") {
+    return "error";
+  }
+
+  if (status === "RUNNING" || status === "PENDING") {
+    return "warning";
+  }
+
+  return "muted";
+}
+
+function repositoryUpdateTimestamp(update: RepositoryUpdateSummary): string {
+  if (update.completedAt) {
+    return `Completed ${displayDate(update.completedAt)}`;
+  }
+
+  if (update.failedAt) {
+    return `Failed ${displayDate(update.failedAt)}`;
+  }
+
+  if (update.startedAt) {
+    return `Started ${displayDate(update.startedAt)}`;
+  }
+
+  return `Created ${displayDate(update.createdAt)}`;
 }
 
 function stageState(

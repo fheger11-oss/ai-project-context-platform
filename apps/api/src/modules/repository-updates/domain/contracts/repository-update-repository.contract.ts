@@ -54,9 +54,26 @@ export type UpdateRepositoryUpdateArtifactsInput = {
   projectContextId?: string | null;
 };
 
+export type RepositoryUpdateHistoryQuery = {
+  repositoryId: string;
+  page: number;
+  pageSize: number;
+};
+
+export type RepositoryUpdateHistoryResult = {
+  items: RepositoryUpdateSnapshot[];
+  total: number;
+};
+
 export interface RepositoryUpdateRepository {
   createPending(input: CreatePendingRepositoryUpdateInput): Promise<RepositoryUpdateSnapshot>;
   findById(updateId: string): Promise<RepositoryUpdateSnapshot | null>;
+  findByRepositoryAndId(
+    repositoryId: string,
+    updateId: string
+  ): Promise<RepositoryUpdateSnapshot | null>;
+  findCurrentByRepository(repositoryId: string): Promise<RepositoryUpdateSnapshot | null>;
+  listByRepository(query: RepositoryUpdateHistoryQuery): Promise<RepositoryUpdateHistoryResult>;
   markRunning(input: MarkRepositoryUpdateRunningInput): Promise<RepositoryUpdateSnapshot | null>;
   markCompleted(
     input: MarkRepositoryUpdateCompletedInput
