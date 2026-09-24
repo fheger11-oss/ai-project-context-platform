@@ -4,7 +4,11 @@ import { RepositoryUpdateTriggerType } from "../../../generated/prisma/enums.js"
 import type { RepositoryFreshnessStatus } from "../../../generated/prisma/enums.js";
 import { RunAnalysisService } from "../../analysis/application/run-analysis.service.js";
 import { ChangeSetService } from "../../change-sets/application/change-set.service.js";
-import { ChangeSetCompleteness, type ChangeSet } from "../../change-sets/domain/change-set.js";
+import {
+  IncrementalProcessingEligibilityService,
+  type IncrementalProcessingDecision
+} from "../../change-sets/application/incremental-processing-eligibility.service.js";
+import type { ChangeSet } from "../../change-sets/domain/change-set.js";
 import { GenerateAndPersistProjectContextService } from "../../context/application/generate-and-persist-project-context.service.js";
 import {
   RepositoryStateService,
@@ -27,7 +31,7 @@ export type RepositoryUpdateFailureReason =
 type RepositoryUpdateExecutionContext = {
   update: RepositoryUpdateSnapshot;
   changeSet: ChangeSet | null;
-  changeSetUsableForIncrementalProcessing: boolean;
+  incrementalProcessingDecision: IncrementalProcessingDecision;
 };
 
 export type RunRepositoryUpdateResult = {
@@ -50,6 +54,8 @@ export class RunRepositoryUpdateService {
     private readonly repositoryStateService: RepositoryStateService,
     @Inject(ChangeSetService)
     private readonly changeSetService: ChangeSetService,
+    @Inject(IncrementalProcessingEligibilityService)
+    private readonly incrementalProcessingEligibilityService: IncrementalProcessingEligibilityService,
     @Inject(ScanService)
     private readonly scanService: ScanService,
     @Inject(RunAnalysisService)
@@ -92,15 +98,19 @@ export class RunRepositoryUpdateService {
             targetCommitSha
           });
         } catch (error) {
-          const failedExecution = await this.createExecutionContext({
+          const pendingUpdate = await this.repositoryUpdateService.createPendingUpdate({
             repositoryId,
             userId,
+            triggerType: RepositoryUpdateTriggerType.MANUAL,
             baseCommitSha,
-            targetCommitSha,
-            changeSet: null
+            targetCommitSha
           });
+          const failedUpdate = await this.repositoryUpdateService.startOwnedWithinLock(
+            pendingUpdate.id,
+            userId
+          );
           await this.repositoryUpdateService.failOwnedWithinLock(
-            failedExecution.update.id,
+            failedUpdate.id,
             userId,
             "CHANGESET_COMPARISON_FAILED"
           );
@@ -109,12 +119,16 @@ export class RunRepositoryUpdateService {
         }
       }
 
+      const incrementalProcessingDecision =
+        this.incrementalProcessingEligibilityService.evaluate(changeSet);
+
       const execution = await this.createExecutionContext({
         repositoryId,
         userId,
         baseCommitSha,
         targetCommitSha,
-        changeSet
+        changeSet,
+        incrementalProcessingDecision
       });
       let update = execution.update;
       let scan: ScanSnapshot | null = null;
@@ -175,6 +189,7 @@ export class RunRepositoryUpdateService {
     baseCommitSha: string | null;
     targetCommitSha: string;
     changeSet: ChangeSet | null;
+    incrementalProcessingDecision: IncrementalProcessingDecision;
   }): Promise<RepositoryUpdateExecutionContext> {
     const pendingUpdate = await this.repositoryUpdateService.createPendingUpdate({
       repositoryId: input.repositoryId,
@@ -191,8 +206,7 @@ export class RunRepositoryUpdateService {
     return {
       update,
       changeSet: input.changeSet,
-      changeSetUsableForIncrementalProcessing:
-        input.changeSet?.completeness === ChangeSetCompleteness.COMPLETE
+      incrementalProcessingDecision: input.incrementalProcessingDecision
     };
   }
 

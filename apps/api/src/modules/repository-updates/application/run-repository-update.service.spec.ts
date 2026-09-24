@@ -9,6 +9,7 @@ import {
 import type { RunAnalysisService } from "../../analysis/application/run-analysis.service.js";
 import type { AnalysisResult } from "../../analysis/domain/contracts/analysis-result.contract.js";
 import type { ChangeSetService } from "../../change-sets/application/change-set.service.js";
+import { IncrementalProcessingEligibilityService } from "../../change-sets/application/incremental-processing-eligibility.service.js";
 import { ChangeSetCompleteness, ComparisonStatus } from "../../change-sets/domain/change-set.js";
 import type { GenerateAndPersistProjectContextService } from "../../context/application/generate-and-persist-project-context.service.js";
 import type { PersistedProjectContext } from "../../context/domain/contracts/project-context-repository.contract.js";
@@ -267,6 +268,8 @@ function createHarness(
     };
   });
   const changeSetService = { compare } as unknown as ChangeSetService;
+  const incrementalProcessingEligibilityService = new IncrementalProcessingEligibilityService();
+  const evaluateEligibility = vi.spyOn(incrementalProcessingEligibilityService, "evaluate");
 
   const startScan = vi.fn(async () => {
     if (options.scanError) {
@@ -300,6 +303,7 @@ function createHarness(
       repositoryUpdateService,
       repositoryStateService,
       changeSetService,
+      incrementalProcessingEligibilityService,
       scanService,
       runAnalysisService,
       generateAndPersistProjectContextService
@@ -315,6 +319,7 @@ function createHarness(
     markCurrentProjectContext,
     markRemoteHeadObserved,
     compare,
+    evaluateEligibility,
     isLockActive: () => lockActive,
     startScan,
     run,
@@ -346,6 +351,13 @@ describe("RunRepositoryUpdateService", () => {
     expect(harness.compare.mock.invocationCallOrder[0]!).toBeLessThan(
       harness.startScan.mock.invocationCallOrder[0]!
     );
+    expect(harness.evaluateEligibility).toHaveBeenCalledWith(
+      expect.objectContaining({ completeness: ChangeSetCompleteness.COMPLETE })
+    );
+    expect(harness.evaluateEligibility).toHaveReturnedWith({
+      eligible: true,
+      reason: "COMPLETE_CHANGE_SET"
+    });
     expect(harness.startScan).toHaveBeenCalledWith({
       repositoryId: "repository_1",
       userId: "user_1",
@@ -380,6 +392,11 @@ describe("RunRepositoryUpdateService", () => {
       targetCommitSha: "commit_b"
     });
     expect(harness.compare).not.toHaveBeenCalled();
+    expect(harness.evaluateEligibility).toHaveBeenCalledWith(null);
+    expect(harness.evaluateEligibility).toHaveReturnedWith({
+      eligible: false,
+      reason: "NO_CHANGE_SET"
+    });
     expect(harness.startScan).toHaveBeenCalled();
     expect(harness.run).toHaveBeenCalled();
     expect(harness.generate).toHaveBeenCalled();
@@ -409,6 +426,7 @@ describe("RunRepositoryUpdateService", () => {
     });
     expect(harness.createPendingUpdate).not.toHaveBeenCalled();
     expect(harness.compare).not.toHaveBeenCalled();
+    expect(harness.evaluateEligibility).not.toHaveBeenCalled();
     expect(harness.startScan).not.toHaveBeenCalled();
     expect(harness.run).not.toHaveBeenCalled();
     expect(harness.generate).not.toHaveBeenCalled();
@@ -428,6 +446,7 @@ describe("RunRepositoryUpdateService", () => {
       targetCommitSha: "commit_b"
     });
     expect(harness.startOwnedWithinLock).toHaveBeenCalled();
+    expect(harness.evaluateEligibility).not.toHaveBeenCalled();
     expect(harness.failOwnedWithinLock).toHaveBeenCalledWith(
       "update_1",
       "user_1",
@@ -451,6 +470,10 @@ describe("RunRepositoryUpdateService", () => {
       targetCommitSha: "commit_b"
     });
     expect(harness.compare).toHaveBeenCalledTimes(1);
+    expect(harness.evaluateEligibility).toHaveReturnedWith({
+      eligible: false,
+      reason: "INCOMPLETE_CHANGE_SET"
+    });
     expect(harness.startScan).toHaveBeenCalledWith({
       repositoryId: "repository_1",
       userId: "user_1",
