@@ -457,7 +457,7 @@ export function hasValidCurrentContextProvenance(
   );
 }
 
-function toRepositoryStateSnapshot(state: RepositoryStateModel): RepositoryStateSnapshot {
+export function toRepositoryStateSnapshot(state: RepositoryStateModel): RepositoryStateSnapshot {
   return {
     id: state.id,
     repositoryId: state.repositoryId,

@@ -22,6 +22,7 @@ import type { ScanService } from "../../scan/application/scan.service.js";
 import type { ScanSnapshot } from "../../scan/domain/contracts/scan-repository.contract.js";
 import type { RepositoryUpdateSnapshot } from "../domain/contracts/repository-update-repository.contract.js";
 import type { RepositoryUpdateService } from "./repository-update.service.js";
+import type { RepositoryUpdateFinalizationService } from "./repository-update-finalization.service.js";
 import { RunRepositoryUpdateService } from "./run-repository-update.service.js";
 import { RepositoryProcessingStrategySelector } from "./repository-processing-strategy.selector.js";
 import {
@@ -194,7 +195,7 @@ function createHarness(
       startedAt: now
     })
   );
-  const completeOwnedWithinLock = vi.fn(async () =>
+  const completeOwnedWithinLock = vi.fn(async (_updateId?: string, _userId?: string) =>
     createUpdate({
       status: RepositoryUpdateStatus.COMPLETED,
       startedAt: now,
@@ -246,7 +247,7 @@ function createHarness(
       ...(options.refreshedState ?? {})
     })
   );
-  const markCurrentProjectContext = vi.fn(async () => {
+  const markCurrentProjectContext = vi.fn(async (_input?: unknown) => {
     if (options.stateUpdateError) {
       throw options.stateUpdateError;
     }
@@ -343,6 +344,16 @@ function createHarness(
     if (options.consumerError) throw options.consumerError;
   });
   const processingResultConsumer = { consume: consumeProcessingResult };
+  const finalize = vi.fn(async (input) => ({
+    state: await markCurrentProjectContext({
+      repositoryId: input.repositoryId,
+      userId: input.userId,
+      projectContextId: input.projectContextId,
+      commitSha: input.targetCommitSha
+    }),
+    update: await completeOwnedWithinLock(input.updateId, input.userId)
+  }));
+  const finalizationService = { finalize } as unknown as RepositoryUpdateFinalizationService;
 
   return {
     service: new RunRepositoryUpdateService(
@@ -355,7 +366,8 @@ function createHarness(
       scanService,
       runAnalysisService,
       generateAndPersistProjectContextService,
-      processingResultConsumer
+      processingResultConsumer,
+      finalizationService
     ),
     withRepositoryUpdateLock,
     createPendingUpdate,
@@ -375,7 +387,8 @@ function createHarness(
     startScan,
     run,
     generate,
-    consumeProcessingResult
+    consumeProcessingResult,
+    finalize
   };
 }
 
@@ -411,6 +424,19 @@ describe("RunRepositoryUpdateService", () => {
     expect(result.processingResult.incrementalSummary).toEqual(incrementalSummary);
     expect(h.consumeProcessingResult).toHaveBeenCalledTimes(1);
     expect(h.consumeProcessingResult.mock.calls[0]![0]).toBe(result.processingResult);
+    expect(h.finalize).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      userId: "user_1",
+      updateId: "update_1",
+      projectContextId: "context_b",
+      targetCommitSha: "commit_b"
+    });
+    expect(h.processIncrementally.mock.invocationCallOrder[0]!).toBeLessThan(
+      h.finalize.mock.invocationCallOrder[0]!
+    );
+    expect(h.finalize.mock.invocationCallOrder[0]!).toBeLessThan(
+      h.consumeProcessingResult.mock.invocationCallOrder[0]!
+    );
     expect(h.completeOwnedWithinLock.mock.invocationCallOrder[0]!).toBeLessThan(
       h.consumeProcessingResult.mock.invocationCallOrder[0]!
     );

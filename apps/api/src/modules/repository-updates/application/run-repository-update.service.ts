@@ -36,6 +36,7 @@ import {
 } from "./contracts/repository-processing-result-consumer.contract.js";
 import { RepositoryProcessingStrategy } from "./repository-processing-strategy.js";
 import { RepositoryProcessingStrategySelector } from "./repository-processing-strategy.selector.js";
+import { RepositoryUpdateFinalizationService } from "./repository-update-finalization.service.js";
 import { RepositoryUpdateService } from "./repository-update.service.js";
 
 export type RepositoryUpdateFailureReason =
@@ -87,7 +88,9 @@ export class RunRepositoryUpdateService {
     @Inject(GenerateAndPersistProjectContextService)
     private readonly generateAndPersistProjectContextService: GenerateAndPersistProjectContextService,
     @Inject(REPOSITORY_PROCESSING_RESULT_CONSUMER)
-    private readonly processingResultConsumer: RepositoryProcessingResultConsumer
+    private readonly processingResultConsumer: RepositoryProcessingResultConsumer,
+    @Inject(RepositoryUpdateFinalizationService)
+    private readonly finalizationService: RepositoryUpdateFinalizationService
   ) {}
 
   async runManualUpdate(repositoryId: string, userId: string): Promise<RunRepositoryUpdateResult> {
@@ -254,13 +257,14 @@ export class RunRepositoryUpdateService {
               targetCommitSha
             };
 
-        const finalState = await this.repositoryStateService.markCurrentProjectContext({
+        const finalized = await this.finalizationService.finalize({
           repositoryId,
           userId,
+          updateId: update.id,
           projectContextId: context.id,
-          commitSha: targetCommitSha
+          targetCommitSha
         });
-        update = await this.repositoryUpdateService.completeOwnedWithinLock(update.id, userId);
+        update = finalized.update;
         await this.consumeProcessingResult(processingResult);
 
         return {
@@ -271,7 +275,7 @@ export class RunRepositoryUpdateService {
           scanId: scan.id,
           analysisId: analysis.analysisId,
           projectContextId: context.id,
-          freshnessStatus: finalState.freshnessStatus,
+          freshnessStatus: finalized.state.freshnessStatus,
           processingResult
         };
       } catch (error) {

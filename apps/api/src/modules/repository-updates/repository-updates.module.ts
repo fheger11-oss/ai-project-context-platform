@@ -12,6 +12,7 @@ import { RunRepositoryUpdateService } from "./application/run-repository-update.
 import { RepositoryIncrementalProcessorService } from "./application/repository-incremental.processor.js";
 import { RepositoryProcessingStrategySelector } from "./application/repository-processing-strategy.selector.js";
 import { RepositoryUpdateService } from "./application/repository-update.service.js";
+import { RepositoryUpdateFinalizationService } from "./application/repository-update-finalization.service.js";
 import { REPOSITORY_INCREMENTAL_PROCESSOR } from "./application/contracts/repository-incremental-processor.contract.js";
 import { REPOSITORY_PROCESSING_RESULT_CONSUMER } from "./application/contracts/repository-processing-result-consumer.contract.js";
 import { LoggingRepositoryProcessingResultConsumer } from "./application/logging-repository-processing-result.consumer.js";
@@ -43,6 +44,7 @@ import { RepositoryUpdatesController } from "./presentation/repository-updates.c
     IncrementalAnalysisDecisionService,
     IncrementalAnalysisExecutionService,
     RepositoryUpdateService,
+    RepositoryUpdateFinalizationService,
     {
       provide: REPOSITORY_INCREMENTAL_PROCESSOR,
       useClass: RepositoryIncrementalProcessorService
