@@ -31,4 +31,13 @@ describe("durable repository context history schema", () => {
       /scan\s+Scan\s+@relation\(fields: \[scanId\], references: \[id\], onDelete: Cascade\)/
     );
   });
+
+  it("preserves repository cleanup and update-history semantics", () => {
+    expect(schema).toMatch(
+      /repository\s+Repository\s+@relation\(fields: \[repositoryId\], references: \[id\], onDelete: Cascade\)/
+    );
+    expect(schema).toMatch(
+      /projectContext\s+ProjectContext\?\s+@relation\("RepositoryUpdateProjectContext", fields: \[projectContextId\], references: \[id\], onDelete: SetNull\)/
+    );
+  });
 });

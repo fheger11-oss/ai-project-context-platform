@@ -137,9 +137,16 @@ export class RepositoriesService {
       throw new ForbiddenException("Repository belongs to another user");
     }
 
-    await this.prisma.repository.delete({
-      where: { id: repository.id }
-    });
+    // RepositoryContextHistory protects ProjectContext rows with RESTRICT. Remove only this
+    // repository's history rows first so the existing repository-owned cascade can complete.
+    await this.prisma.$transaction([
+      this.prisma.repositoryContextHistory.deleteMany({
+        where: { repositoryId: repository.id }
+      }),
+      this.prisma.repository.delete({
+        where: { id: repository.id }
+      })
+    ]);
   }
 
   async sync(user: AuthenticatedUser, id: string) {

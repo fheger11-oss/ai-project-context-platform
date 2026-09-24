@@ -75,15 +75,26 @@ export class PrismaScanRepository implements ScanRepository {
   }
 
   async pruneCompletedScans(repositoryId: string, retainCount: number): Promise<number> {
+    // V2.3-B policy: current and durable historical contexts are retained indefinitely;
+    // V1 retention continues to apply only to ordinary completed scans.
     const retainedScans = await this.prisma.scan.findMany({
       where: {
         repositoryId,
         status: "COMPLETED",
         projectContexts: {
           none: {
-            repositoryContextHistory: {
-              some: {}
-            }
+            OR: [
+              {
+                repositoryContextHistory: {
+                  some: {}
+                }
+              },
+              {
+                currentForRepositoryStates: {
+                  some: {}
+                }
+              }
+            ]
           }
         }
       },
@@ -98,9 +109,18 @@ export class PrismaScanRepository implements ScanRepository {
         status: "COMPLETED",
         projectContexts: {
           none: {
-            repositoryContextHistory: {
-              some: {}
-            }
+            OR: [
+              {
+                repositoryContextHistory: {
+                  some: {}
+                }
+              },
+              {
+                currentForRepositoryStates: {
+                  some: {}
+                }
+              }
+            ]
           }
         },
         ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {})

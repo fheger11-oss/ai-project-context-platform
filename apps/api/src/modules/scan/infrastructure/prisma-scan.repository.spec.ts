@@ -266,9 +266,18 @@ describe("PrismaScanRepository", () => {
         status: "COMPLETED",
         projectContexts: {
           none: {
-            repositoryContextHistory: {
-              some: {}
-            }
+            OR: [
+              {
+                repositoryContextHistory: {
+                  some: {}
+                }
+              },
+              {
+                currentForRepositoryStates: {
+                  some: {}
+                }
+              }
+            ]
           }
         }
       },
@@ -282,9 +291,18 @@ describe("PrismaScanRepository", () => {
         status: "COMPLETED",
         projectContexts: {
           none: {
-            repositoryContextHistory: {
-              some: {}
-            }
+            OR: [
+              {
+                repositoryContextHistory: {
+                  some: {}
+                }
+              },
+              {
+                currentForRepositoryStates: {
+                  some: {}
+                }
+              }
+            ]
           }
         },
         id: { notIn: ["scan_new", "scan_previous"] }

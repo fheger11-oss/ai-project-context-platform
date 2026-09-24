@@ -32,13 +32,18 @@ function serviceFor(prisma: PrismaService) {
 
 function createService(repository: {
   delete?: ReturnType<typeof vi.fn>;
+  deleteHistory?: ReturnType<typeof vi.fn>;
   findUnique?: ReturnType<typeof vi.fn>;
 }) {
   const prisma = {
     repository: {
       delete: repository.delete ?? vi.fn(),
       findUnique: repository.findUnique ?? vi.fn()
-    }
+    },
+    repositoryContextHistory: {
+      deleteMany: repository.deleteHistory ?? vi.fn().mockResolvedValue({ count: 0 })
+    },
+    $transaction: vi.fn(async (operations: Promise<unknown>[]) => Promise.all(operations))
   } as unknown as PrismaService;
 
   return {
@@ -127,12 +132,14 @@ describe("RepositoriesService", () => {
   describe("disconnect", () => {
     it("removes an owned repository record", async () => {
       const deleteRepository = vi.fn().mockResolvedValue({});
+      const deleteHistory = vi.fn().mockResolvedValue({ count: 2 });
       const findUnique = vi.fn().mockResolvedValue({
         id: "repository_1",
         userId: user.id
       });
       const { service } = createService({
         delete: deleteRepository,
+        deleteHistory,
         findUnique
       });
 
@@ -144,6 +151,9 @@ describe("RepositoriesService", () => {
       });
       expect(deleteRepository).toHaveBeenCalledWith({
         where: { id: "repository_1" }
+      });
+      expect(deleteHistory).toHaveBeenCalledWith({
+        where: { repositoryId: "repository_1" }
       });
     });
 
