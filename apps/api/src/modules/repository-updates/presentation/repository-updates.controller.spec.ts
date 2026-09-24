@@ -11,6 +11,7 @@ import type { RunRepositoryUpdateService } from "../application/run-repository-u
 import type { RepositoryUpdateSnapshot } from "../domain/contracts/repository-update-repository.contract.js";
 import { RepositoryUpdatesController } from "./repository-updates.controller.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
+import { RepositoryParamsDto } from "../../repositories/dto/repository-params.dto.js";
 import { RunRepositoryUpdateRequestDto } from "./dto/run-repository-update-request.dto.js";
 
 const user: AuthenticatedUser = {
@@ -66,6 +67,34 @@ describe("RepositoryUpdatesController", () => {
     forbidNonWhitelisted: true,
     transform: true,
     whitelist: true
+  });
+
+  it("validates manual update route params and body with separate DTOs", async () => {
+    const paramTypes = Reflect.getMetadata(
+      "design:paramtypes",
+      RepositoryUpdatesController.prototype,
+      "runManualUpdate"
+    ) as unknown[];
+
+    expect(paramTypes[1]).toBe(RepositoryParamsDto);
+    expect(paramTypes[2]).toBe(RunRepositoryUpdateRequestDto);
+
+    await expect(
+      validationPipe.transform(
+        { id: "cmue8jqya00020knyocesewhh" },
+        {
+          metatype: paramTypes[1] as typeof RepositoryParamsDto,
+          type: "param"
+        }
+      )
+    ).resolves.toBeInstanceOf(RepositoryParamsDto);
+
+    await expect(
+      validationPipe.transform(undefined, {
+        metatype: paramTypes[2] as typeof RunRepositoryUpdateRequestDto,
+        type: "body"
+      })
+    ).resolves.toBeInstanceOf(RunRepositoryUpdateRequestDto);
   });
 
   it("accepts the valid manual update request body", async () => {
