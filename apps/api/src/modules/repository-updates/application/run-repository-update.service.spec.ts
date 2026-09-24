@@ -31,6 +31,20 @@ import {
 
 const now = new Date("2026-09-23T12:00:00.000Z");
 
+const incrementalSummary = {
+  totalTargetFiles: 1,
+  reusedFileCount: 0,
+  parsedFileCount: 1,
+  excludedFileCount: 0,
+  addedFileCount: 0,
+  modifiedFileCount: 1,
+  deletedFileCount: 0,
+  renamedFileCount: 0,
+  parsingWorkReduced: false,
+  fallbackRequired: false,
+  fallbackReason: null
+};
+
 function createState(overrides: Partial<RepositoryStateSnapshot> = {}): RepositoryStateSnapshot {
   return {
     id: "state_1",
@@ -280,7 +294,12 @@ function createHarness(
   const selectProcessingStrategy = vi.spyOn(processingStrategySelector, "select");
   const processIncrementally = vi.fn(async (): Promise<IncrementalProcessingResult> => ({
     outcome: "FALLBACK_REQUIRED",
-    reason: IncrementalFallbackReason.MISSING_BASE_ARTIFACTS
+    reason: IncrementalFallbackReason.MISSING_BASE_ARTIFACTS,
+    summary: {
+      ...incrementalSummary,
+      fallbackRequired: true,
+      fallbackReason: IncrementalFallbackReason.MISSING_BASE_ARTIFACTS
+    }
   }));
   const incrementalProcessor = { process: processIncrementally };
 
@@ -359,7 +378,8 @@ describe("RunRepositoryUpdateService", () => {
         targetCommitSha: "commit_b",
         scan: createScan(),
         analysis: createAnalysis(),
-        projectContext: createContext()
+        projectContext: createContext(),
+        summary: incrementalSummary
       };
     });
     await expect(h.service.runManualUpdate("repository_1", "user_1")).resolves.toMatchObject({
@@ -387,7 +407,8 @@ describe("RunRepositoryUpdateService", () => {
         targetCommitSha: part === "envelope" ? "wrong" : "commit_b",
         scan: createScan({ commitSha: part === "scan" ? "wrong" : "commit_b" }),
         analysis: createAnalysis({ commitSha: part === "analysis" ? "wrong" : "commit_b" }),
-        projectContext: createContext({ commitSha: part === "context" ? "wrong" : "commit_b" })
+        projectContext: createContext({ commitSha: part === "context" ? "wrong" : "commit_b" }),
+        summary: incrementalSummary
       });
       await expect(h.service.runManualUpdate("repository_1", "user_1")).rejects.toThrow();
       expect(h.markCurrentProjectContext).not.toHaveBeenCalled();

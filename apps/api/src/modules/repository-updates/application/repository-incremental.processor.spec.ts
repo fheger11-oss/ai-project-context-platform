@@ -43,9 +43,22 @@ const base = {
   "src/old.ts": "export const x = 1;"
 };
 
-async function harness(type = FileChangeType.MODIFIED) {
-  const target: Record<string, string> = { ...base };
-  const change: ChangedFile = { path: "src/old.ts", type, additions: 1, deletions: 1 };
+async function harness(
+  type = FileChangeType.MODIFIED,
+  path = "src/old.ts",
+  additionalSourceFiles = 0,
+  includeManifest = true
+) {
+  const baseSnapshot: Record<string, string> = {
+    ...(includeManifest
+      ? base
+      : Object.fromEntries(Object.entries(base).filter(([p]) => p !== "package.json")))
+  };
+  for (let index = 0; index < additionalSourceFiles; index += 1) {
+    baseSnapshot[`src/unchanged-${index}.ts`] = `export const unchanged${index} = ${index};`;
+  }
+  const target: Record<string, string> = { ...baseSnapshot };
+  const change: ChangedFile = { path, type, additions: 1, deletions: 1 };
   if (type === FileChangeType.MODIFIED) target[change.path] = "export const x = 2;";
   if (type === FileChangeType.ADDED || type === FileChangeType.COPIED) {
     change.path = "src/new.ts";
@@ -59,7 +72,7 @@ async function harness(type = FileChangeType.MODIFIED) {
     delete target[change.previousPath];
   }
   const snapshots: Record<string, Record<string, string>> = {
-    base_scan: base,
+    base_scan: baseSnapshot,
     target_scan: target
   };
   const reader: ScanContentReader = {
@@ -242,7 +255,8 @@ async function harness(type = FileChangeType.MODIFIED) {
     startScan,
     runIncremental,
     generate,
-    generator
+    generator,
+    states
   };
 }
 
@@ -282,13 +296,30 @@ describe("RepositoryIncrementalProcessorService", () => {
       ...(await h.generator.generate({ analysis: full })).toSnapshot(),
       generatedAt: result.projectContext.generatedAt
     });
+    expect(result.summary).toMatchObject({
+      totalTargetFiles: Object.keys(h.target).length,
+      reusedFileCount: type === FileChangeType.ADDED ? 2 : 1,
+      parsedFileCount: type === FileChangeType.DELETED ? 0 : 1,
+      excludedFileCount: 1,
+      addedFileCount: type === FileChangeType.ADDED ? 1 : 0,
+      modifiedFileCount: type === FileChangeType.MODIFIED ? 1 : 0,
+      deletedFileCount: type === FileChangeType.DELETED ? 1 : 0,
+      renamedFileCount: type === FileChangeType.RENAMED ? 1 : 0,
+      parsingWorkReduced: true,
+      fallbackRequired: false,
+      fallbackReason: null
+    });
   });
 
   it("falls back for copied files without beginning a scan", async () => {
     const h = await harness(FileChangeType.COPIED);
-    expect(await h.service.process(h.input)).toEqual({
+    expect(await h.service.process(h.input)).toMatchObject({
       outcome: "FALLBACK_REQUIRED",
-      reason: Reason.UNSUPPORTED_CHANGE
+      reason: Reason.UNSUPPORTED_CHANGE,
+      summary: {
+        fallbackRequired: true,
+        fallbackReason: Reason.UNSUPPORTED_CHANGE
+      }
     });
     expect(h.startScan).not.toHaveBeenCalled();
   });
@@ -376,6 +407,89 @@ describe("RepositoryIncrementalProcessorService", () => {
     const error = new Error("provider failed");
     h.startScan.mockRejectedValue(error);
     await expect(h.service.process(h.input)).rejects.toBe(error);
+    expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it("does not claim parsing for a non-source-only modification", async () => {
+    const h = await harness(FileChangeType.MODIFIED, "package.json");
+    h.target["package.json"] = '{"name":"fixture-updated","dependencies":{"react":"19"}}';
+    const result = await h.service.process(h.input);
+    expect(result.outcome).toBe("COMPLETED");
+    if (result.outcome !== "COMPLETED") throw new Error("expected completed result");
+    expect(result.summary).toMatchObject({
+      totalTargetFiles: 3,
+      reusedFileCount: 2,
+      parsedFileCount: 0,
+      excludedFileCount: 1,
+      modifiedFileCount: 1,
+      parsingWorkReduced: true
+    });
+    expect(h.parse).not.toHaveBeenCalled();
+    const full = await h.pipeline.analyze({
+      analysis: Analysis.create({
+        id: result.analysis.analysisId,
+        scanId: "target_scan",
+        analyzerVersion: ANALYSIS_ENGINE_VERSION
+      }),
+      input: h.analysisInput("target_scan", "target"),
+      generatedAt: result.analysis.generatedAt
+    });
+    expect(result.analysis).toEqual(full);
+    expect(result.projectContext.context.toSnapshot()).toEqual({
+      ...(await h.generator.generate({ analysis: full })).toSnapshot(),
+      generatedAt: result.projectContext.generatedAt
+    });
+  });
+
+  it("measures reduced parser work from actual reuse for 100 target source files", async () => {
+    const h = await harness(FileChangeType.MODIFIED, "src/old.ts", 98, false);
+    h.target["src/stable.ts"] = "export const stable = 2;";
+    h.input.changeSet.files.push({
+      path: "src/stable.ts",
+      type: FileChangeType.MODIFIED,
+      additions: 1,
+      deletions: 1
+    });
+    const result = await h.service.process(h.input);
+    expect(result.outcome).toBe("COMPLETED");
+    if (result.outcome !== "COMPLETED") throw new Error("expected completed result");
+    expect(result.summary).toMatchObject({
+      totalTargetFiles: 100,
+      reusedFileCount: 98,
+      parsedFileCount: 2,
+      excludedFileCount: 0,
+      modifiedFileCount: 2,
+      parsingWorkReduced: true
+    });
+    expect(h.parse).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back when the retained analyzer version is incompatible", async () => {
+    const h = await harness();
+    const baseState = h.states.get(h.baseAnalysis.analysisId)!;
+    h.states.set(
+      h.baseAnalysis.analysisId,
+      Analysis.create({
+        id: baseState.id,
+        scanId: baseState.scanId,
+        status: "COMPLETED",
+        analyzerVersion: "incompatible"
+      })
+    );
+    expect(await h.service.process(h.input)).toMatchObject({
+      outcome: "FALLBACK_REQUIRED",
+      reason: Reason.MISSING_BASE_ARTIFACTS,
+      summary: { fallbackRequired: true, fallbackReason: Reason.MISSING_BASE_ARTIFACTS }
+    });
+    expect(h.startScan).not.toHaveBeenCalled();
+  });
+
+  it("propagates unexpected parser exceptions instead of falling back", async () => {
+    const h = await harness();
+    h.parse.mockImplementation(() => {
+      throw new Error("parser failed");
+    });
+    await expect(h.service.process(h.input)).rejects.toThrow("parser failed");
     expect(h.generate).not.toHaveBeenCalled();
   });
 });

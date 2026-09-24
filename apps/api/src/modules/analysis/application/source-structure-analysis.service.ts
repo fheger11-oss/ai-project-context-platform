@@ -9,6 +9,17 @@ import {
   shouldAnalyzeSourceStructure
 } from "../domain/source-structure/source-file-selector.js";
 
+export enum SourceStructureProcessingDisposition {
+  REUSED = "REUSED",
+  PARSED = "PARSED",
+  EXCLUDED = "EXCLUDED"
+}
+
+export type SourceStructureProcessingObserver = (event: {
+  path: string;
+  disposition: SourceStructureProcessingDisposition;
+}) => void;
+
 @Injectable()
 export class SourceStructureAnalysisService {
   private readonly fileClassifier = new RuleBasedFileClassifier();
@@ -20,7 +31,8 @@ export class SourceStructureAnalysisService {
 
   async analyzeSourceStructure(
     input: AnalysisInput,
-    reusableStructures?: ReadonlyMap<string, SourceFileStructure>
+    reusableStructures?: ReadonlyMap<string, SourceFileStructure>,
+    observer?: SourceStructureProcessingObserver
   ): Promise<SourceFileStructure[]> {
     const structures: SourceFileStructure[] = [];
 
@@ -28,12 +40,14 @@ export class SourceStructureAnalysisService {
       const classification = this.fileClassifier.classify(file);
 
       if (!shouldAnalyzeSourceStructure(file, classification)) {
+        observer?.({ path: file.path, disposition: SourceStructureProcessingDisposition.EXCLUDED });
         continue;
       }
 
       const reused = reusableStructures?.get(file.path);
       if (reused) {
         structures.push(reused);
+        observer?.({ path: file.path, disposition: SourceStructureProcessingDisposition.REUSED });
         continue;
       }
 
@@ -41,16 +55,17 @@ export class SourceStructureAnalysisService {
       const content = await input.contentReader.readFile(input.scanId, file.path);
 
       if (!language || !content) {
+        observer?.({ path: file.path, disposition: SourceStructureProcessingDisposition.EXCLUDED });
         continue;
       }
 
-      structures.push(
-        this.sourceParser.parse({
-          path: file.path,
-          language,
-          content: content.content
-        })
-      );
+      const structure = this.sourceParser.parse({
+        path: file.path,
+        language,
+        content: content.content
+      });
+      structures.push(structure);
+      observer?.({ path: file.path, disposition: SourceStructureProcessingDisposition.PARSED });
     }
 
     return structures;

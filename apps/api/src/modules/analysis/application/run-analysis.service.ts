@@ -7,6 +7,7 @@ import type { SourceFileStructure } from "../domain/source-structure/source-file
 import { ANALYSIS_ENGINE_VERSION } from "./analysis-engine-version.js";
 import { AnalysisInputService } from "./analysis-input.service.js";
 import { AnalysisPipelineService } from "./analysis-pipeline.service.js";
+import type { SourceStructureProcessingObserver } from "./source-structure-analysis.service.js";
 import { PersistAnalysisResultService } from "./persist-analysis-result.service.js";
 import {
   ANALYSIS_REPOSITORY,
@@ -62,14 +63,16 @@ export class RunAnalysisService {
   // Internal incremental entry point; the caller has verified reuse against both snapshots.
   async runWithSourceStructureReuse(
     command: RunAnalysisCommand,
-    reusableSourceStructures: ReadonlyMap<string, SourceFileStructure>
+    reusableSourceStructures: ReadonlyMap<string, SourceFileStructure>,
+    observer?: SourceStructureProcessingObserver
   ): Promise<AnalysisResult> {
-    return this.execute(command, reusableSourceStructures);
+    return this.execute(command, reusableSourceStructures, observer);
   }
 
   private async execute(
     command: RunAnalysisCommand,
-    reusableSourceStructures?: ReadonlyMap<string, SourceFileStructure>
+    reusableSourceStructures?: ReadonlyMap<string, SourceFileStructure>,
+    observer?: SourceStructureProcessingObserver
   ): Promise<AnalysisResult> {
     const scan = await this.scanRepository.getScan(command.scanId);
 
@@ -114,7 +117,8 @@ export class RunAnalysisService {
             analysis: acceptedAnalysis,
             input: analysisInput,
             generatedAt: new Date(),
-            ...(reusableSourceStructures ? { reusableSourceStructures } : {})
+            ...(reusableSourceStructures ? { reusableSourceStructures } : {}),
+            ...(observer ? { sourceStructureProcessingObserver: observer } : {})
           });
 
           return await this.persistAnalysisResultService.save(result);

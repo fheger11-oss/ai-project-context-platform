@@ -2,6 +2,7 @@ import { BadGatewayException, Inject, Injectable, NotFoundException } from "@nes
 
 import { ANALYSIS_ENGINE_VERSION } from "../../analysis/application/analysis-engine-version.js";
 import { RunAnalysisService } from "../../analysis/application/run-analysis.service.js";
+import { SourceStructureProcessingDisposition } from "../../analysis/application/source-structure-analysis.service.js";
 import {
   ANALYSIS_REPOSITORY,
   type AnalysisRepository
@@ -30,6 +31,7 @@ import {
   IncrementalFallbackReason as Reason,
   type IncrementalProcessingInput,
   type IncrementalProcessingResult,
+  type IncrementalProcessingSummary,
   type RepositoryIncrementalProcessor
 } from "./contracts/repository-incremental-processor.contract.js";
 
@@ -47,42 +49,44 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
   ) {}
 
   async process(input: IncrementalProcessingInput): Promise<IncrementalProcessingResult> {
+    const summary = this.createSummary(input);
     // This ownership check precedes reading any base artifact, including fallback cases.
     const state = await this.states.getOrInitialize(input.repositoryId, input.userId);
     if (input.changeSet.targetCommitSha !== input.targetCommitSha) {
       throw new BadGatewayException("Incremental ChangeSet target commit mismatch.");
     }
     if (input.changeSet.completeness !== ChangeSetCompleteness.COMPLETE) {
-      return this.fallback(Reason.INCOMPLETE_CHANGE_SET);
+      return this.fallback(Reason.INCOMPLETE_CHANGE_SET, summary);
     }
     if (!state.currentProjectContextId || !state.currentContextCommitSha) {
-      return this.fallback(Reason.MISSING_BASE_CONTEXT);
+      return this.fallback(Reason.MISSING_BASE_CONTEXT, summary);
     }
     if (
       state.currentContextCommitSha !== input.baseCommitSha ||
       input.changeSet.baseCommitSha !== input.baseCommitSha
     ) {
-      return this.fallback(Reason.BASE_COMMIT_MISMATCH);
+      return this.fallback(Reason.BASE_COMMIT_MISMATCH, summary);
     }
     // Diverged/behind comparisons may describe a merge-base diff rather than the base tree.
     if (
       input.changeSet.comparisonStatus !== ComparisonStatus.AHEAD ||
       input.changeSet.files.some((file) => file.type === FileChangeType.COPIED)
     ) {
-      return this.fallback(Reason.UNSUPPORTED_CHANGE);
+      return this.fallback(Reason.UNSUPPORTED_CHANGE, summary);
     }
     let baseContext;
     try {
       baseContext = await this.states.getCurrentProjectContext(input.repositoryId, input.userId);
     } catch (error) {
-      if (error instanceof NotFoundException) return this.fallback(Reason.MISSING_BASE_CONTEXT);
+      if (error instanceof NotFoundException)
+        return this.fallback(Reason.MISSING_BASE_CONTEXT, summary);
       throw error;
     }
     if (
       baseContext.commitSha !== input.baseCommitSha ||
       baseContext.id !== state.currentProjectContextId
     ) {
-      return this.fallback(Reason.BASE_COMMIT_MISMATCH);
+      return this.fallback(Reason.BASE_COMMIT_MISMATCH, summary);
     }
     const baseScan = await this.scans.getScan(baseContext.scanId);
     const baseAnalysis = await this.analyses.findResultById(baseContext.analysisId);
@@ -101,30 +105,33 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
       baseAnalysis.commitSha !== input.baseCommitSha ||
       baseAnalysis.analyzerVersion !== ANALYSIS_ENGINE_VERSION
     ) {
-      return this.fallback(Reason.MISSING_BASE_ARTIFACTS);
+      return this.fallback(Reason.MISSING_BASE_ARTIFACTS, summary);
     }
     // Materialize base evidence before target scan retention can prune ordinary artifacts.
     const baseFiles = await this.files(baseScan.id);
     if (baseFiles.size !== baseScan.totalFiles)
-      return this.fallback(Reason.INSUFFICIENT_REPOSITORY_CONTENT);
+      return this.fallback(Reason.INSUFFICIENT_REPOSITORY_CONTENT, summary);
     const expectedPaths = new Set(baseFiles.keys());
     const changedPaths = new Set<string>();
     const touchedPaths = new Set<string>();
     for (const change of input.changeSet.files) {
-      if (touchedPaths.has(change.path)) return this.fallback(Reason.UNSUPPORTED_CHANGE);
+      if (touchedPaths.has(change.path)) return this.fallback(Reason.UNSUPPORTED_CHANGE, summary);
       touchedPaths.add(change.path);
       switch (change.type) {
         case FileChangeType.ADDED:
-          if (expectedPaths.has(change.path)) return this.fallback(Reason.UNSUPPORTED_CHANGE);
+          if (expectedPaths.has(change.path))
+            return this.fallback(Reason.UNSUPPORTED_CHANGE, summary);
           expectedPaths.add(change.path);
           changedPaths.add(change.path);
           break;
         case FileChangeType.MODIFIED:
-          if (!expectedPaths.has(change.path)) return this.fallback(Reason.UNSUPPORTED_CHANGE);
+          if (!expectedPaths.has(change.path))
+            return this.fallback(Reason.UNSUPPORTED_CHANGE, summary);
           changedPaths.add(change.path);
           break;
         case FileChangeType.DELETED:
-          if (!expectedPaths.delete(change.path)) return this.fallback(Reason.UNSUPPORTED_CHANGE);
+          if (!expectedPaths.delete(change.path))
+            return this.fallback(Reason.UNSUPPORTED_CHANGE, summary);
           break;
         case FileChangeType.RENAMED:
           if (
@@ -133,7 +140,7 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
             expectedPaths.has(change.path) ||
             !expectedPaths.delete(change.previousPath)
           ) {
-            return this.fallback(Reason.UNSUPPORTED_CHANGE);
+            return this.fallback(Reason.UNSUPPORTED_CHANGE, summary);
           }
           touchedPaths.add(change.previousPath);
           expectedPaths.add(change.path);
@@ -141,7 +148,7 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
           break;
         case FileChangeType.COPIED:
         default:
-          return this.fallback(Reason.UNSUPPORTED_CHANGE);
+          return this.fallback(Reason.UNSUPPORTED_CHANGE, summary);
       }
     }
 
@@ -154,14 +161,15 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
     if (scan.commitSha !== input.targetCommitSha)
       throw new BadGatewayException("Incremental scan target commit mismatch.");
     if (scan.status !== "COMPLETED" || scan.repositoryId !== input.repositoryId)
-      return this.fallback(Reason.INCREMENTAL_ARTIFACT_INVALID);
+      return this.fallback(Reason.INCREMENTAL_ARTIFACT_INVALID, summary);
     const targetFiles = await this.files(scan.id);
+    summary.totalTargetFiles = targetFiles.size;
     if (
       targetFiles.size !== scan.totalFiles ||
       targetFiles.size !== expectedPaths.size ||
       [...expectedPaths].some((path) => !targetFiles.has(path))
     ) {
-      return this.fallback(Reason.INSUFFICIENT_REPOSITORY_CONTENT);
+      return this.fallback(Reason.INSUFFICIENT_REPOSITORY_CONTENT, summary);
     }
     const classifier = new RuleBasedFileClassifier();
     const baseStructures = new Map(
@@ -170,7 +178,7 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
     const reuse = new Map<string, SourceFileStructure>();
     for (const file of targetFiles.values()) {
       if (!file.isBinary && !(await this.content.readFile(scan.id, file.path)))
-        return this.fallback(Reason.INSUFFICIENT_REPOSITORY_CONTENT);
+        return this.fallback(Reason.INSUFFICIENT_REPOSITORY_CONTENT, summary);
       if (changedPaths.has(file.path)) continue;
       const previous = baseFiles.get(file.path);
       // Validate ChangeSet completeness against immutable snapshot evidence; never infer
@@ -184,11 +192,11 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
         previous.isBinary !== file.isBinary ||
         previous.isHidden !== file.isHidden
       ) {
-        return this.fallback(Reason.INSUFFICIENT_REPOSITORY_CONTENT);
+        return this.fallback(Reason.INSUFFICIENT_REPOSITORY_CONTENT, summary);
       }
       if (shouldAnalyzeSourceStructure(file, classifier.classify(file))) {
         const structure = baseStructures.get(file.path);
-        if (!structure) return this.fallback(Reason.INSUFFICIENT_REPOSITORY_CONTENT);
+        if (!structure) return this.fallback(Reason.INSUFFICIENT_REPOSITORY_CONTENT, summary);
         reuse.set(file.path, structure);
       }
     }
@@ -196,7 +204,20 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
     // from the complete target snapshot and combined source structures.
     const analysis = await this.analyzer.runWithSourceStructureReuse(
       { userId: input.userId, scanId: scan.id },
-      reuse
+      reuse,
+      ({ disposition }) => {
+        switch (disposition) {
+          case SourceStructureProcessingDisposition.REUSED:
+            summary.reusedFileCount += 1;
+            break;
+          case SourceStructureProcessingDisposition.PARSED:
+            summary.parsedFileCount += 1;
+            break;
+          case SourceStructureProcessingDisposition.EXCLUDED:
+            summary.excludedFileCount += 1;
+            break;
+        }
+      }
     );
     if (analysis.commitSha !== input.targetCommitSha)
       throw new BadGatewayException("Incremental analysis target commit mismatch.");
@@ -208,7 +229,7 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
       completedAnalysis.scanId !== scan.id ||
       analysis.analyzerVersion !== ANALYSIS_ENGINE_VERSION
     )
-      return this.fallback(Reason.INCREMENTAL_ARTIFACT_INVALID);
+      return this.fallback(Reason.INCREMENTAL_ARTIFACT_INVALID, summary);
     const projectContext = await this.contexts.generate({
       userId: input.userId,
       analysisId: analysis.analysisId
@@ -225,18 +246,50 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
       projectContext.context.scanId !== scan.id ||
       projectContext.context.repositoryId !== input.repositoryId
     )
-      return this.fallback(Reason.INCREMENTAL_ARTIFACT_INVALID);
+      return this.fallback(Reason.INCREMENTAL_ARTIFACT_INVALID, summary);
+    if (
+      summary.reusedFileCount + summary.parsedFileCount + summary.excludedFileCount !==
+      summary.totalTargetFiles
+    )
+      return this.fallback(Reason.INCREMENTAL_ARTIFACT_INVALID, summary);
+    summary.parsingWorkReduced = summary.reusedFileCount > 0;
     return {
       outcome: "COMPLETED",
       targetCommitSha: input.targetCommitSha,
       scan,
       analysis,
-      projectContext
+      projectContext,
+      summary
     };
   }
 
-  private fallback(reason: Reason): IncrementalProcessingResult {
-    return { outcome: "FALLBACK_REQUIRED", reason };
+  private createSummary(input: IncrementalProcessingInput): IncrementalProcessingSummary {
+    const count = (type: FileChangeType) =>
+      input.changeSet.files.filter((file) => file.type === type).length;
+    return {
+      totalTargetFiles: 0,
+      reusedFileCount: 0,
+      parsedFileCount: 0,
+      excludedFileCount: 0,
+      addedFileCount: count(FileChangeType.ADDED),
+      modifiedFileCount: count(FileChangeType.MODIFIED),
+      deletedFileCount: count(FileChangeType.DELETED),
+      renamedFileCount: count(FileChangeType.RENAMED),
+      parsingWorkReduced: false,
+      fallbackRequired: false,
+      fallbackReason: null
+    };
+  }
+
+  private fallback(
+    reason: Reason,
+    summary: IncrementalProcessingSummary
+  ): IncrementalProcessingResult {
+    summary.fallbackRequired = true;
+    summary.fallbackReason = reason;
+    // A fallback executes the canonical full parser path, so no net parser work is saved.
+    summary.parsingWorkReduced = false;
+    return { outcome: "FALLBACK_REQUIRED", reason, summary };
   }
 
   private async files(scanId: string): Promise<Map<string, ScanContentFile>> {

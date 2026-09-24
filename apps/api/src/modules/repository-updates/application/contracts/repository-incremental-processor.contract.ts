@@ -23,12 +23,27 @@ export enum IncrementalFallbackReason {
   INCREMENTAL_ARTIFACT_INVALID = "INCREMENTAL_ARTIFACT_INVALID"
 }
 
+export type IncrementalProcessingSummary = {
+  totalTargetFiles: number;
+  reusedFileCount: number;
+  parsedFileCount: number;
+  excludedFileCount: number;
+  addedFileCount: number;
+  modifiedFileCount: number;
+  deletedFileCount: number;
+  renamedFileCount: number;
+  parsingWorkReduced: boolean;
+  fallbackRequired: boolean;
+  fallbackReason: IncrementalFallbackReason | null;
+};
+
 export type CompletedIncrementalProcessingResult = {
   outcome: "COMPLETED";
   targetCommitSha: string;
   scan: ScanSnapshot;
   analysis: AnalysisResult;
   projectContext: PersistedProjectContext;
+  summary: IncrementalProcessingSummary;
 };
 
 export type IncrementalProcessingResult =
@@ -36,6 +51,7 @@ export type IncrementalProcessingResult =
   | {
       outcome: "FALLBACK_REQUIRED";
       reason: IncrementalFallbackReason;
+      summary: IncrementalProcessingSummary;
     };
 
 export interface RepositoryIncrementalProcessor {
