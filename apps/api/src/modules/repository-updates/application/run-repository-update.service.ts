@@ -3,6 +3,8 @@ import { BadGatewayException, Inject, Injectable } from "@nestjs/common";
 import { RepositoryUpdateTriggerType } from "../../../generated/prisma/enums.js";
 import type { RepositoryFreshnessStatus } from "../../../generated/prisma/enums.js";
 import { RunAnalysisService } from "../../analysis/application/run-analysis.service.js";
+import { ChangeSetService } from "../../change-sets/application/change-set.service.js";
+import type { ChangeSet } from "../../change-sets/domain/change-set.js";
 import { GenerateAndPersistProjectContextService } from "../../context/application/generate-and-persist-project-context.service.js";
 import {
   RepositoryStateService,
@@ -16,7 +18,16 @@ import type { RepositoryUpdateSnapshot } from "../domain/contracts/repository-up
 import { RepositoryUpdateService } from "./repository-update.service.js";
 
 export type RepositoryUpdateFailureReason =
-  "SCAN_FAILED" | "ANALYSIS_FAILED" | "CONTEXT_GENERATION_FAILED" | "CURRENT_CONTEXT_UPDATE_FAILED";
+  | "CHANGESET_COMPARISON_FAILED"
+  | "SCAN_FAILED"
+  | "ANALYSIS_FAILED"
+  | "CONTEXT_GENERATION_FAILED"
+  | "CURRENT_CONTEXT_UPDATE_FAILED";
+
+type RepositoryUpdateExecutionContext = {
+  update: RepositoryUpdateSnapshot;
+  changeSet: ChangeSet | null;
+};
 
 export type RunRepositoryUpdateResult = {
   noop: boolean;
@@ -36,6 +47,8 @@ export class RunRepositoryUpdateService {
     private readonly repositoryUpdateService: RepositoryUpdateService,
     @Inject(RepositoryStateService)
     private readonly repositoryStateService: RepositoryStateService,
+    @Inject(ChangeSetService)
+    private readonly changeSetService: ChangeSetService,
     @Inject(ScanService)
     private readonly scanService: ScanService,
     @Inject(RunAnalysisService)
@@ -67,17 +80,42 @@ export class RunRepositoryUpdateService {
         };
       }
 
-      const pendingUpdate = await this.repositoryUpdateService.createPendingUpdate({
+      let changeSet: ChangeSet | null = null;
+
+      if (baseCommitSha) {
+        try {
+          changeSet = await this.changeSetService.compare({
+            repositoryId,
+            userId,
+            baseCommitSha,
+            targetCommitSha
+          });
+        } catch (error) {
+          const failedExecution = await this.createExecutionContext({
+            repositoryId,
+            userId,
+            baseCommitSha,
+            targetCommitSha,
+            changeSet: null
+          });
+          await this.repositoryUpdateService.failOwnedWithinLock(
+            failedExecution.update.id,
+            userId,
+            "CHANGESET_COMPARISON_FAILED"
+          );
+
+          return Promise.reject(error);
+        }
+      }
+
+      const execution = await this.createExecutionContext({
         repositoryId,
         userId,
-        triggerType: RepositoryUpdateTriggerType.MANUAL,
         baseCommitSha,
-        targetCommitSha
+        targetCommitSha,
+        changeSet
       });
-      let update = await this.repositoryUpdateService.startOwnedWithinLock(
-        pendingUpdate.id,
-        userId
-      );
+      let update = execution.update;
       let scan: ScanSnapshot | null = null;
       let analysis: AnalysisResult | null = null;
       let context: PersistedProjectContext | null = null;
@@ -128,6 +166,28 @@ export class RunRepositoryUpdateService {
         return Promise.reject(error);
       }
     });
+  }
+
+  private async createExecutionContext(input: {
+    repositoryId: string;
+    userId: string;
+    baseCommitSha: string | null;
+    targetCommitSha: string;
+    changeSet: ChangeSet | null;
+  }): Promise<RepositoryUpdateExecutionContext> {
+    const pendingUpdate = await this.repositoryUpdateService.createPendingUpdate({
+      repositoryId: input.repositoryId,
+      userId: input.userId,
+      triggerType: RepositoryUpdateTriggerType.MANUAL,
+      baseCommitSha: input.baseCommitSha,
+      targetCommitSha: input.targetCommitSha
+    });
+    const update = await this.repositoryUpdateService.startOwnedWithinLock(
+      pendingUpdate.id,
+      input.userId
+    );
+
+    return { update, changeSet: input.changeSet };
   }
 
   private async runScan(

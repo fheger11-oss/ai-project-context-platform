@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 
 import { AnalysisModule } from "../analysis/analysis.module.js";
 import { AuthModule } from "../auth/auth.module.js";
+import { ChangeSetsModule } from "../change-sets/change-sets.module.js";
 import { ContextModule } from "../context/context.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { RepositoriesModule } from "../repositories/repositories.module.js";
@@ -17,6 +18,7 @@ import { RepositoryUpdatesController } from "./presentation/repository-updates.c
   imports: [
     AnalysisModule,
     AuthModule,
+    ChangeSetsModule,
     ContextModule,
     PrismaModule,
     RepositoriesModule,

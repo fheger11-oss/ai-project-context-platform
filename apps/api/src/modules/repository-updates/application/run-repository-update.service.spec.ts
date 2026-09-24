@@ -8,6 +8,8 @@ import {
 } from "../../../generated/prisma/enums.js";
 import type { RunAnalysisService } from "../../analysis/application/run-analysis.service.js";
 import type { AnalysisResult } from "../../analysis/domain/contracts/analysis-result.contract.js";
+import type { ChangeSetService } from "../../change-sets/application/change-set.service.js";
+import { ComparisonStatus } from "../../change-sets/domain/change-set.js";
 import type { GenerateAndPersistProjectContextService } from "../../context/application/generate-and-persist-project-context.service.js";
 import type { PersistedProjectContext } from "../../context/domain/contracts/project-context-repository.contract.js";
 import type { ProjectContext } from "../../context/domain/project-context.js";
@@ -138,16 +140,24 @@ function createHarness(
     scanError?: Error;
     analysisError?: Error;
     contextError?: Error;
+    changeSetError?: Error;
     stateUpdateError?: Error;
     ownershipError?: Error;
   } = {}
 ) {
+  let lockActive = false;
   const withRepositoryUpdateLock = vi.fn(async (_repositoryId, _userId, operation) => {
     if (options.ownershipError) {
       throw options.ownershipError;
     }
 
-    return operation();
+    lockActive = true;
+
+    try {
+      return await operation();
+    } finally {
+      lockActive = false;
+    }
   });
   const createPendingUpdate = vi.fn(async () => createUpdate());
   const startOwnedWithinLock = vi.fn(async () =>
@@ -237,6 +247,25 @@ function createHarness(
     markRemoteHeadObserved
   } as unknown as RepositoryStateService;
 
+  const compare = vi.fn(async () => {
+    if (options.changeSetError) {
+      throw options.changeSetError;
+    }
+
+    return {
+      baseCommitSha: "commit_a",
+      targetCommitSha: "commit_b",
+      comparisonStatus: ComparisonStatus.AHEAD,
+      aheadBy: 1,
+      behindBy: 0,
+      changedFileCount: 0,
+      additions: 0,
+      deletions: 0,
+      files: []
+    };
+  });
+  const changeSetService = { compare } as unknown as ChangeSetService;
+
   const startScan = vi.fn(async () => {
     if (options.scanError) {
       throw options.scanError;
@@ -268,6 +297,7 @@ function createHarness(
     service: new RunRepositoryUpdateService(
       repositoryUpdateService,
       repositoryStateService,
+      changeSetService,
       scanService,
       runAnalysisService,
       generateAndPersistProjectContextService
@@ -282,6 +312,8 @@ function createHarness(
     refreshRemoteHead,
     markCurrentProjectContext,
     markRemoteHeadObserved,
+    compare,
+    isLockActive: () => lockActive,
     startScan,
     run,
     generate
@@ -303,6 +335,15 @@ describe("RunRepositoryUpdateService", () => {
       update: expect.objectContaining({ status: RepositoryUpdateStatus.COMPLETED })
     });
     expect(harness.withRepositoryUpdateLock).toHaveBeenCalledTimes(1);
+    expect(harness.compare).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      userId: "user_1",
+      baseCommitSha: "commit_a",
+      targetCommitSha: "commit_b"
+    });
+    expect(harness.compare.mock.invocationCallOrder[0]!).toBeLessThan(
+      harness.startScan.mock.invocationCallOrder[0]!
+    );
     expect(harness.startScan).toHaveBeenCalledWith({
       repositoryId: "repository_1",
       userId: "user_1",
@@ -336,6 +377,11 @@ describe("RunRepositoryUpdateService", () => {
       baseCommitSha: null,
       targetCommitSha: "commit_b"
     });
+    expect(harness.compare).not.toHaveBeenCalled();
+    expect(harness.startScan).toHaveBeenCalled();
+    expect(harness.run).toHaveBeenCalled();
+    expect(harness.generate).toHaveBeenCalled();
+    expect(harness.markCurrentProjectContext).toHaveBeenCalled();
   });
 
   it("returns a no-op and avoids pipeline work when current context already matches HEAD", async () => {
@@ -360,9 +406,59 @@ describe("RunRepositoryUpdateService", () => {
       freshnessStatus: RepositoryFreshnessStatus.FRESH
     });
     expect(harness.createPendingUpdate).not.toHaveBeenCalled();
+    expect(harness.compare).not.toHaveBeenCalled();
     expect(harness.startScan).not.toHaveBeenCalled();
     expect(harness.run).not.toHaveBeenCalled();
     expect(harness.generate).not.toHaveBeenCalled();
+  });
+
+  it("fails before pipeline work when ChangeSet comparison fails", async () => {
+    const harness = createHarness({ changeSetError: new Error("compare failed") });
+
+    await expect(harness.service.runManualUpdate("repository_1", "user_1")).rejects.toThrow(
+      "compare failed"
+    );
+    expect(harness.createPendingUpdate).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      userId: "user_1",
+      triggerType: RepositoryUpdateTriggerType.MANUAL,
+      baseCommitSha: "commit_a",
+      targetCommitSha: "commit_b"
+    });
+    expect(harness.startOwnedWithinLock).toHaveBeenCalled();
+    expect(harness.failOwnedWithinLock).toHaveBeenCalledWith(
+      "update_1",
+      "user_1",
+      "CHANGESET_COMPARISON_FAILED"
+    );
+    expect(harness.startScan).not.toHaveBeenCalled();
+    expect(harness.run).not.toHaveBeenCalled();
+    expect(harness.generate).not.toHaveBeenCalled();
+    expect(harness.markCurrentProjectContext).not.toHaveBeenCalled();
+    expect(harness.markRemoteHeadObserved).not.toHaveBeenCalled();
+  });
+
+  it("runs ChangeSet comparison inside the existing repository update lock", async () => {
+    const harness = createHarness();
+    harness.compare.mockImplementation(async () => {
+      expect(harness.isLockActive()).toBe(true);
+      return {
+        baseCommitSha: "commit_a",
+        targetCommitSha: "commit_b",
+        comparisonStatus: ComparisonStatus.AHEAD,
+        aheadBy: 1,
+        behindBy: 0,
+        changedFileCount: 0,
+        additions: 0,
+        deletions: 0,
+        files: []
+      };
+    });
+
+    await harness.service.runManualUpdate("repository_1", "user_1");
+
+    expect(harness.withRepositoryUpdateLock).toHaveBeenCalledTimes(1);
+    expect(harness.compare).toHaveBeenCalledTimes(1);
   });
 
   it("fails the update and preserves current context when scan fails", async () => {
