@@ -78,7 +78,14 @@ export class PrismaScanRepository implements ScanRepository {
     const retainedScans = await this.prisma.scan.findMany({
       where: {
         repositoryId,
-        status: "COMPLETED"
+        status: "COMPLETED",
+        projectContexts: {
+          none: {
+            repositoryContextHistory: {
+              some: {}
+            }
+          }
+        }
       },
       orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       take: retainCount,
@@ -89,6 +96,13 @@ export class PrismaScanRepository implements ScanRepository {
       where: {
         repositoryId,
         status: "COMPLETED",
+        projectContexts: {
+          none: {
+            repositoryContextHistory: {
+              some: {}
+            }
+          }
+        },
         ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {})
       }
     });

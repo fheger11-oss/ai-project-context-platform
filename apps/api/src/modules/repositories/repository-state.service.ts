@@ -152,6 +152,11 @@ export class RepositoryStateService {
     await this.getOrCreateRepositoryState(input.repositoryId);
 
     const remoteHeadCheckedAt = input.remoteHeadCheckedAt ?? new Date();
+    await this.ensureRepositoryContextHistory(
+      input.repositoryId,
+      input.projectContextId,
+      input.commitSha
+    );
     const updated = await this.prisma.repositoryState.update({
       where: { repositoryId: input.repositoryId },
       data: {
@@ -227,6 +232,13 @@ export class RepositoryStateService {
     const initialState = await this.deriveInitialState(repositoryId);
 
     try {
+      if (initialState.currentProjectContextId && initialState.currentContextCommitSha) {
+        await this.ensureRepositoryContextHistory(
+          repositoryId,
+          initialState.currentProjectContextId,
+          initialState.currentContextCommitSha
+        );
+      }
       return await this.prisma.repositoryState.create({
         data: {
           repositoryId,
@@ -254,6 +266,27 @@ export class RepositoryStateService {
   private async findRepositoryState(repositoryId: string): Promise<RepositoryStateModel | null> {
     return this.prisma.repositoryState.findUnique({
       where: { repositoryId }
+    });
+  }
+
+  private async ensureRepositoryContextHistory(
+    repositoryId: string,
+    projectContextId: string,
+    commitSha: string
+  ): Promise<void> {
+    await this.prisma.repositoryContextHistory.upsert({
+      where: {
+        repositoryId_projectContextId: {
+          repositoryId,
+          projectContextId
+        }
+      },
+      update: {},
+      create: {
+        repositoryId,
+        projectContextId,
+        commitSha
+      }
     });
   }
 

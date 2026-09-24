@@ -263,7 +263,14 @@ describe("PrismaScanRepository", () => {
     expect(findMany).toHaveBeenCalledWith({
       where: {
         repositoryId: "repository_1",
-        status: "COMPLETED"
+        status: "COMPLETED",
+        projectContexts: {
+          none: {
+            repositoryContextHistory: {
+              some: {}
+            }
+          }
+        }
       },
       orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       take: 2,
@@ -273,6 +280,13 @@ describe("PrismaScanRepository", () => {
       where: {
         repositoryId: "repository_1",
         status: "COMPLETED",
+        projectContexts: {
+          none: {
+            repositoryContextHistory: {
+              some: {}
+            }
+          }
+        },
         id: { notIn: ["scan_new", "scan_previous"] }
       }
     });

@@ -114,6 +114,7 @@ function createHarness(
   const analysisFindFirst = vi.fn(async () => options.completedAnalysis ?? null);
   const projectContextFindFirst = vi.fn(async () => options.latestContext ?? null);
   const projectContextFindUnique = vi.fn(async () => options.currentContext ?? null);
+  const repositoryContextHistoryUpsert = vi.fn(async () => undefined);
 
   const prisma = {
     repository: {
@@ -133,6 +134,9 @@ function createHarness(
     projectContext: {
       findFirst: projectContextFindFirst,
       findUnique: projectContextFindUnique
+    },
+    repositoryContextHistory: {
+      upsert: repositoryContextHistoryUpsert
     }
   } as unknown as PrismaService;
   const getScanAccessMetadataForUser = vi.fn(async () => {

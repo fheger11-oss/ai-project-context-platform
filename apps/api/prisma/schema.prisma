@@ -158,12 +158,13 @@ model Repository {
   createdAt       DateTime             @default(now()) @map("created_at")
   updatedAt       DateTime             @updatedAt @map("updated_at")
 
-  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   scans           Scan[]
   analyses        Analysis[]
   projectContexts ProjectContext[]
   state           RepositoryState?
   updates         RepositoryUpdate[]
+  contextHistory  RepositoryContextHistory[]
 
   @@unique([userId, githubId])
   @@index([userId])
@@ -296,19 +297,37 @@ model ProjectContext {
   snapshot       Json
   createdAt      DateTime @default(now()) @map("created_at")
 
-  analysis                   Analysis           @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  scan                       Scan               @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  repository                 Repository         @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  analysis                   Analysis                   @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  scan                       Scan                       @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  repository                 Repository                 @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
   documents                  Document[]
-  currentForRepositoryStates RepositoryState[]  @relation("RepositoryStateCurrentProjectContext")
-  repositoryUpdates          RepositoryUpdate[] @relation("RepositoryUpdateProjectContext")
+  currentForRepositoryStates RepositoryState[]          @relation("RepositoryStateCurrentProjectContext")
+  repositoryUpdates          RepositoryUpdate[]         @relation("RepositoryUpdateProjectContext")
+  repositoryContextHistory   RepositoryContextHistory[] @relation("RepositoryContextHistoryProjectContext")
 
+  @@unique([id, repositoryId])
   @@index([contextId])
   @@index([analysisId, generatedAt, createdAt, id])
   @@index([scanId])
   @@index([repositoryId])
   @@index([contextVersion])
   @@map("project_contexts")
+}
+
+model RepositoryContextHistory {
+  id               String   @id @default(cuid())
+  repositoryId     String   @map("repository_id")
+  projectContextId String   @map("project_context_id")
+  commitSha        String   @map("commit_sha")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  repository     Repository     @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  projectContext ProjectContext @relation("RepositoryContextHistoryProjectContext", fields: [projectContextId, repositoryId], references: [id, repositoryId], onDelete: Restrict)
+
+  @@unique([repositoryId, projectContextId])
+  @@index([repositoryId, createdAt, id])
+  @@index([projectContextId])
+  @@map("repository_context_history")
 }
 
 model Document {
