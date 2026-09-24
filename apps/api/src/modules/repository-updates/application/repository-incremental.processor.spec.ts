@@ -35,6 +35,7 @@ import type { OperationLockService } from "../../usage/operation-lock.service.js
 import type { UsageService } from "../../usage/usage.service.js";
 import { RepositoryIncrementalProcessorService } from "./repository-incremental.processor.js";
 import { IncrementalAnalysisDecisionService } from "./incremental-analysis-decision.service.js";
+import { IncrementalAnalysisExecutionService } from "./incremental-analysis-execution.service.js";
 import { IncrementalFallbackReason as Reason } from "./contracts/repository-incremental-processor.contract.js";
 
 const now = new Date("2026-09-24T00:00:00Z");
@@ -100,12 +101,15 @@ async function harness(
   const parse = vi.spyOn(parser, "parse");
   const structures = new SourceStructureAnalysisService(parser);
   const project = new ProjectDetectionService();
+  const files = new FileClassificationService();
+  const relationships = new RelationshipAnalysisService(structures, project);
+  const aggregation = new AnalysisResultAggregationService();
   const pipeline = new AnalysisPipelineService(
-    new FileClassificationService(),
+    files,
     project,
     structures,
-    new RelationshipAnalysisService(structures, project),
-    new AnalysisResultAggregationService()
+    relationships,
+    aggregation
   );
   const analysisInput = (scanId: string, commitSha: string) => ({
     scanId,
@@ -123,6 +127,10 @@ async function harness(
     generatedAt: now
   });
   parse.mockClear();
+  const classifyFiles = vi.spyOn(files, "classifyFiles");
+  const detectProject = vi.spyOn(project, "detectProject");
+  const analyzeRelationships = vi.spyOn(relationships, "analyzeRelationshipsFromResults");
+  const aggregate = vi.spyOn(aggregation, "aggregate");
   const scan = (id: string, commitSha: string): ScanSnapshot => ({
     id,
     repositoryId: "repo",
@@ -225,7 +233,7 @@ async function harness(
     analyses,
     reader,
     { startScan } as unknown as ScanService,
-    analyzer,
+    new IncrementalAnalysisExecutionService(analyzer),
     { generate } as unknown as GenerateAndPersistProjectContextService,
     incrementalAnalysisDecision
   );
@@ -261,7 +269,11 @@ async function harness(
     generate,
     generator,
     states,
-    evaluateIncrementalAnalysis
+    evaluateIncrementalAnalysis,
+    classifyFiles,
+    detectProject,
+    analyzeRelationships,
+    aggregate
   };
 }
 
@@ -288,6 +300,10 @@ describe("RepositoryIncrementalProcessorService", () => {
     expect(h.evaluateIncrementalAnalysis).toHaveReturnedWith(
       expect.objectContaining({ outcome: "PROCEED", reason: "SAFE_FILE_LOCAL_REUSE" })
     );
+    expect(h.classifyFiles).toHaveBeenCalledTimes(1);
+    expect(h.detectProject).toHaveBeenCalledTimes(1);
+    expect(h.analyzeRelationships).toHaveBeenCalledTimes(1);
+    expect(h.aggregate).toHaveBeenCalledTimes(1);
     expect(h.getOrInitialize).toHaveBeenCalledWith("repo", "owner");
     expect(h.baseAnalysis).toEqual(previous);
     const full = await h.pipeline.analyze({

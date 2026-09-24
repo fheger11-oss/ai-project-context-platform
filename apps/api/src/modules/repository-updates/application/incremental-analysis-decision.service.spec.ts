@@ -192,8 +192,22 @@ describe("IncrementalAnalysisDecisionService", () => {
       Reason.ANALYZER_VERSION_MISMATCH
     ],
     [
-      "source mismatch",
-      input([], { baseAnalyzablePaths: new Set(["src/missing.ts"]) }),
+      "missing source structure",
+      input([], { baseAnalysis: analysis({ sourceStructures: [] }) }),
+      Reason.SOURCE_STRUCTURE_MISMATCH
+    ],
+    [
+      "duplicate source structure",
+      input([], {
+        baseAnalysis: analysis({
+          sourceStructures: [...analysis().sourceStructures, ...analysis().sourceStructures]
+        })
+      }),
+      Reason.SOURCE_STRUCTURE_MISMATCH
+    ],
+    [
+      "incomplete source coverage",
+      input([], { baseAnalyzablePaths: new Set(["src/a.ts", "src/missing.ts"]) }),
       Reason.SOURCE_STRUCTURE_MISMATCH
     ]
   ])("requires fallback for %s", (_label, decisionInput, reason) => {

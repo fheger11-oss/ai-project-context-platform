@@ -1,7 +1,6 @@
 import { BadGatewayException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 
 import { ANALYSIS_ENGINE_VERSION } from "../../analysis/application/analysis-engine-version.js";
-import { RunAnalysisService } from "../../analysis/application/run-analysis.service.js";
 import { SourceStructureProcessingDisposition } from "../../analysis/application/source-structure-analysis.service.js";
 import {
   ANALYSIS_REPOSITORY,
@@ -39,6 +38,7 @@ import {
   type RepositoryIncrementalProcessor
 } from "./contracts/repository-incremental-processor.contract.js";
 import { IncrementalAnalysisDecisionService } from "./incremental-analysis-decision.service.js";
+import { IncrementalAnalysisExecutionService } from "./incremental-analysis-execution.service.js";
 
 @Injectable()
 export class RepositoryIncrementalProcessorService implements RepositoryIncrementalProcessor {
@@ -48,7 +48,8 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
     @Inject(ANALYSIS_REPOSITORY) private readonly analyses: AnalysisRepository,
     @Inject(SCAN_CONTENT_READER) private readonly content: ScanContentReader,
     @Inject(ScanService) private readonly scanner: ScanService,
-    @Inject(RunAnalysisService) private readonly analyzer: RunAnalysisService,
+    @Inject(IncrementalAnalysisExecutionService)
+    private readonly incrementalAnalyzer: IncrementalAnalysisExecutionService,
     @Inject(GenerateAndPersistProjectContextService)
     private readonly contexts: GenerateAndPersistProjectContextService,
     @Inject(IncrementalAnalysisDecisionService)
@@ -229,8 +230,9 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
     }
     // Global project detection and relationships are recomputed by the existing pipeline
     // from the complete target snapshot and combined source structures.
-    const analysis = await this.analyzer.runWithSourceStructureReuse(
+    const analysis = await this.incrementalAnalyzer.execute(
       { userId: input.userId, scanId: scan.id },
+      analysisDecision,
       reuse,
       ({ disposition }) => {
         switch (disposition) {

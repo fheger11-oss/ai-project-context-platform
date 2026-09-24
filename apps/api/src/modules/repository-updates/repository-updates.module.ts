@@ -19,6 +19,7 @@ import { REPOSITORY_PROCESSING_OBSERVATION_SINK } from "./application/contracts/
 import { LoggingRepositoryProcessingObservationSink } from "./application/logging-repository-processing-observation.sink.js";
 import { RepositoryProcessingObservationMapper } from "./application/repository-processing-observation.mapper.js";
 import { IncrementalAnalysisDecisionService } from "./application/incremental-analysis-decision.service.js";
+import { IncrementalAnalysisExecutionService } from "./application/incremental-analysis-execution.service.js";
 import { REPOSITORY_UPDATE_REPOSITORY } from "./domain/contracts/repository-update-repository.contract.js";
 import { PrismaRepositoryUpdateRepository } from "./infrastructure/prisma-repository-update.repository.js";
 import { RepositoryUpdatesController } from "./presentation/repository-updates.controller.js";
@@ -40,6 +41,7 @@ import { RepositoryUpdatesController } from "./presentation/repository-updates.c
     RepositoryProcessingStrategySelector,
     RepositoryProcessingObservationMapper,
     IncrementalAnalysisDecisionService,
+    IncrementalAnalysisExecutionService,
     RepositoryUpdateService,
     {
       provide: REPOSITORY_INCREMENTAL_PROCESSOR,
