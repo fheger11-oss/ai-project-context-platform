@@ -20,6 +20,7 @@ const environmentSchema = z
     RATE_LIMIT_GLOBAL_MAX: z.coerce.number().int().positive().default(300),
     RATE_LIMIT_AUTH_TTL_SECONDS: z.coerce.number().int().positive().default(60),
     RATE_LIMIT_AUTH_MAX: z.coerce.number().int().positive().default(10),
+    REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: z.coerce.number().int().positive().default(21_600),
     DATABASE_URL: z.string().url(),
     JWT_ACCESS_SECRET: z.string().min(32),
     JWT_REFRESH_SECRET: z.string().min(32),

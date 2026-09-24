@@ -47,6 +47,14 @@ export type MarkRepositoryUpdateFailedInput = {
   failureReason: string;
 };
 
+export type RecoverStaleRepositoryUpdateInput = {
+  updateId: string;
+  repositoryId: string;
+  staleBeforeOrAt: Date;
+  failedAt: Date;
+  failureReason: string;
+};
+
 export type UpdateRepositoryUpdateArtifactsInput = {
   updateId: string;
   scanId?: string | null;
@@ -79,6 +87,9 @@ export interface RepositoryUpdateRepository {
     input: MarkRepositoryUpdateCompletedInput
   ): Promise<RepositoryUpdateSnapshot | null>;
   markFailed(input: MarkRepositoryUpdateFailedInput): Promise<RepositoryUpdateSnapshot | null>;
+  recoverStaleRunning(
+    input: RecoverStaleRepositoryUpdateInput
+  ): Promise<RepositoryUpdateSnapshot | null>;
   updateArtifacts(
     input: UpdateRepositoryUpdateArtifactsInput
   ): Promise<RepositoryUpdateSnapshot | null>;

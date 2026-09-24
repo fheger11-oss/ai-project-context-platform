@@ -108,4 +108,8 @@ export class AppConfigService {
   get rateLimitAuthMax() {
     return this.config.get("RATE_LIMIT_AUTH_MAX", { infer: true });
   }
+
+  get repositoryUpdateStaleThresholdMilliseconds() {
+    return this.config.get("REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS", { infer: true }) * 1000;
+  }
 }

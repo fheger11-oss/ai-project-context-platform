@@ -39,6 +39,7 @@ describe("validateEnvironment", () => {
       RATE_LIMIT_AUTH_TTL_SECONDS: 60,
       RATE_LIMIT_GLOBAL_MAX: 300,
       RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
+      REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600,
       GITHUB_CALLBACK_URL: "https://api.ctxaro.com/api/v1/auth/github/callback",
       WEB_AUTH_CALLBACK_URL: "https://ctxaro.com/auth/callback"
     });
@@ -96,7 +97,8 @@ describe("validateEnvironment", () => {
       RATE_LIMIT_AUTH_MAX: 10,
       RATE_LIMIT_AUTH_TTL_SECONDS: 60,
       RATE_LIMIT_GLOBAL_MAX: 300,
-      RATE_LIMIT_GLOBAL_TTL_SECONDS: 60
+      RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
+      REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600
     });
   });
 

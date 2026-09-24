@@ -119,6 +119,7 @@ function createHarness(
       failureReason: input.failureReason
     })
   );
+  const recoverStaleRunning = vi.fn(async () => null);
   const updateArtifacts = vi.fn(async (input) =>
     createUpdate({
       ...(options.update ?? {}),
@@ -140,6 +141,7 @@ function createHarness(
     markRunning,
     markCompleted,
     markFailed,
+    recoverStaleRunning,
     updateArtifacts
   } satisfies RepositoryUpdateRepository;
   const getScanAccessMetadataForUser = vi.fn(async () => {

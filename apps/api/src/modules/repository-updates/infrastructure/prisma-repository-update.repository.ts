@@ -12,6 +12,7 @@ import type {
   RepositoryUpdateHistoryResult,
   RepositoryUpdateRepository,
   RepositoryUpdateSnapshot,
+  RecoverStaleRepositoryUpdateInput,
   UpdateRepositoryUpdateArtifactsInput
 } from "../domain/contracts/repository-update-repository.contract.js";
 
@@ -154,6 +155,27 @@ export class PrismaRepositoryUpdateRepository implements RepositoryUpdateReposit
       return null;
     }
 
+    return this.findById(input.updateId);
+  }
+
+  async recoverStaleRunning(
+    input: RecoverStaleRepositoryUpdateInput
+  ): Promise<RepositoryUpdateSnapshot | null> {
+    const updated = await this.prisma.repositoryUpdate.updateMany({
+      where: {
+        id: input.updateId,
+        repositoryId: input.repositoryId,
+        status: RepositoryUpdateStatus.RUNNING,
+        startedAt: { lte: input.staleBeforeOrAt }
+      },
+      data: {
+        status: RepositoryUpdateStatus.FAILED,
+        failedAt: input.failedAt,
+        failureReason: input.failureReason
+      }
+    });
+
+    if (updated.count !== 1) return null;
     return this.findById(input.updateId);
   }
 

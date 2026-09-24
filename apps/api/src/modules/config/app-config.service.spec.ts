@@ -41,4 +41,14 @@ describe("AppConfigService", () => {
     expect(config.rateLimitGlobalMax).toBe(300);
     expect(config.rateLimitGlobalTtlMilliseconds).toBe(60_000);
   });
+
+  it("exposes the repository update recovery threshold in milliseconds", () => {
+    const config = createConfigService({
+      APP_ENV: "production",
+      NODE_ENV: "production",
+      REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600
+    });
+
+    expect(config.repositoryUpdateStaleThresholdMilliseconds).toBe(21_600_000);
+  });
 });

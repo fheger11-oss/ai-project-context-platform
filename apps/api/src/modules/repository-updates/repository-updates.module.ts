@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { AnalysisModule } from "../analysis/analysis.module.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { ChangeSetsModule } from "../change-sets/change-sets.module.js";
+import { AppConfigModule } from "../config/app-config.module.js";
 import { ContextModule } from "../context/context.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { RepositoriesModule } from "../repositories/repositories.module.js";
@@ -13,6 +14,7 @@ import { RepositoryIncrementalProcessorService } from "./application/repository-
 import { RepositoryProcessingStrategySelector } from "./application/repository-processing-strategy.selector.js";
 import { RepositoryUpdateService } from "./application/repository-update.service.js";
 import { RepositoryUpdateFinalizationService } from "./application/repository-update-finalization.service.js";
+import { RepositoryUpdateRecoveryService } from "./application/repository-update-recovery.service.js";
 import { REPOSITORY_INCREMENTAL_PROCESSOR } from "./application/contracts/repository-incremental-processor.contract.js";
 import { REPOSITORY_PROCESSING_RESULT_CONSUMER } from "./application/contracts/repository-processing-result-consumer.contract.js";
 import { LoggingRepositoryProcessingResultConsumer } from "./application/logging-repository-processing-result.consumer.js";
@@ -30,6 +32,7 @@ import { RepositoryUpdatesController } from "./presentation/repository-updates.c
     AnalysisModule,
     AuthModule,
     ChangeSetsModule,
+    AppConfigModule,
     ContextModule,
     PrismaModule,
     RepositoriesModule,
@@ -45,6 +48,7 @@ import { RepositoryUpdatesController } from "./presentation/repository-updates.c
     IncrementalAnalysisExecutionService,
     RepositoryUpdateService,
     RepositoryUpdateFinalizationService,
+    RepositoryUpdateRecoveryService,
     {
       provide: REPOSITORY_INCREMENTAL_PROCESSOR,
       useClass: RepositoryIncrementalProcessorService
@@ -62,6 +66,11 @@ import { RepositoryUpdatesController } from "./presentation/repository-updates.c
       useClass: PrismaRepositoryUpdateRepository
     }
   ],
-  exports: [RunRepositoryUpdateService, RepositoryUpdateService, REPOSITORY_UPDATE_REPOSITORY]
+  exports: [
+    RunRepositoryUpdateService,
+    RepositoryUpdateService,
+    RepositoryUpdateRecoveryService,
+    REPOSITORY_UPDATE_REPOSITORY
+  ]
 })
 export class RepositoryUpdatesModule {}

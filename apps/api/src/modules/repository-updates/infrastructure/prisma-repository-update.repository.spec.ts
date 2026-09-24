@@ -110,6 +110,69 @@ describe("PrismaRepositoryUpdateRepository read methods", () => {
   });
 });
 
+describe("PrismaRepositoryUpdateRepository recovery", () => {
+  it("conditionally recovers only an old RUNNING update", async () => {
+    const staleBeforeOrAt = new Date("2026-09-23T06:00:00.000Z");
+    const updateMany = vi.fn(async () => ({ count: 1 }));
+    const findUnique = vi.fn(async () =>
+      createRecord({
+        status: RepositoryUpdateStatus.FAILED,
+        completedAt: null,
+        failedAt: now,
+        failureReason: "STALE_UPDATE_RECOVERED"
+      })
+    );
+    const repository = createRepository({
+      repositoryUpdate: { updateMany, findUnique }
+    } as unknown as PrismaService);
+
+    await expect(
+      repository.recoverStaleRunning({
+        updateId: "update_1",
+        repositoryId: "repository_1",
+        staleBeforeOrAt,
+        failedAt: now,
+        failureReason: "STALE_UPDATE_RECOVERED"
+      })
+    ).resolves.toMatchObject({
+      status: RepositoryUpdateStatus.FAILED,
+      failureReason: "STALE_UPDATE_RECOVERED"
+    });
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "update_1",
+        repositoryId: "repository_1",
+        status: RepositoryUpdateStatus.RUNNING,
+        startedAt: { lte: staleBeforeOrAt }
+      },
+      data: {
+        status: RepositoryUpdateStatus.FAILED,
+        failedAt: now,
+        failureReason: "STALE_UPDATE_RECOVERED"
+      }
+    });
+  });
+
+  it("does not read a result when the conditional recovery loses a race", async () => {
+    const updateMany = vi.fn(async () => ({ count: 0 }));
+    const findUnique = vi.fn();
+    const repository = createRepository({
+      repositoryUpdate: { updateMany, findUnique }
+    } as unknown as PrismaService);
+
+    await expect(
+      repository.recoverStaleRunning({
+        updateId: "update_1",
+        repositoryId: "repository_1",
+        staleBeforeOrAt: now,
+        failedAt: now,
+        failureReason: "STALE_UPDATE_RECOVERED"
+      })
+    ).resolves.toBeNull();
+    expect(findUnique).not.toHaveBeenCalled();
+  });
+});
+
 type RepositoryUpdateRecord = {
   id: string;
   repositoryId: string;
