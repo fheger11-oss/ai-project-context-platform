@@ -14,10 +14,14 @@ import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { Auth } from "../../auth/decorators/auth.decorator.js";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
-import { type RepositoryParamsDto } from "../../repositories/dto/repository-params.dto.js";
+// ValidationPipe needs this DTO as a runtime value.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { RepositoryParamsDto } from "../../repositories/dto/repository-params.dto.js";
 import { RepositoryUpdateService } from "../application/repository-update.service.js";
 import { RunRepositoryUpdateService } from "../application/run-repository-update.service.js";
-import { type RepositoryUpdateHistoryQueryDto } from "./dto/repository-update-history-query.dto.js";
+// Swagger and ValidationPipe need this DTO as a runtime value.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { RepositoryUpdateHistoryQueryDto } from "./dto/repository-update-history-query.dto.js";
 import {
   RepositoryCurrentUpdateResponseDto,
   RepositoryUpdateHistoryResponseDto,
@@ -31,7 +35,9 @@ import {
   type RepositoryUpdateHistoryResponse,
   type RepositoryUpdateResponse
 } from "./dto/repository-update-response.dto.js";
-import { type RunRepositoryUpdateRequestDto } from "./dto/run-repository-update-request.dto.js";
+// ValidationPipe needs this DTO as a runtime value.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { RunRepositoryUpdateRequestDto } from "./dto/run-repository-update-request.dto.js";
 
 @ApiTags("repositories")
 @Auth()

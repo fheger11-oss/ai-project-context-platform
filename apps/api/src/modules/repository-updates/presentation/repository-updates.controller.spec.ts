@@ -12,6 +12,7 @@ import type { RepositoryUpdateSnapshot } from "../domain/contracts/repository-up
 import { RepositoryUpdatesController } from "./repository-updates.controller.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
 import { RepositoryParamsDto } from "../../repositories/dto/repository-params.dto.js";
+import { RepositoryUpdateHistoryQueryDto } from "./dto/repository-update-history-query.dto.js";
 import { RunRepositoryUpdateRequestDto } from "./dto/run-repository-update-request.dto.js";
 
 const user: AuthenticatedUser = {
@@ -69,29 +70,87 @@ describe("RepositoryUpdatesController", () => {
     whitelist: true
   });
 
-  it("validates manual update route params and body with separate DTOs", async () => {
-    const paramTypes = Reflect.getMetadata(
+  it("validates repository update route params, query, and body with separate DTOs", async () => {
+    const listParamTypes = Reflect.getMetadata(
+      "design:paramtypes",
+      RepositoryUpdatesController.prototype,
+      "listUpdates"
+    ) as unknown[];
+    const currentParamTypes = Reflect.getMetadata(
+      "design:paramtypes",
+      RepositoryUpdatesController.prototype,
+      "getCurrentUpdate"
+    ) as unknown[];
+    const runParamTypes = Reflect.getMetadata(
       "design:paramtypes",
       RepositoryUpdatesController.prototype,
       "runManualUpdate"
     ) as unknown[];
 
-    expect(paramTypes[1]).toBe(RepositoryParamsDto);
-    expect(paramTypes[2]).toBe(RunRepositoryUpdateRequestDto);
+    expect(listParamTypes[1]).toBe(RepositoryParamsDto);
+    expect(listParamTypes[2]).toBe(RepositoryUpdateHistoryQueryDto);
+    expect(currentParamTypes[1]).toBe(RepositoryParamsDto);
+    expect(runParamTypes[1]).toBe(RepositoryParamsDto);
+    expect(runParamTypes[2]).toBe(RunRepositoryUpdateRequestDto);
 
     await expect(
       validationPipe.transform(
         { id: "cmue8jqya00020knyocesewhh" },
         {
-          metatype: paramTypes[1] as typeof RepositoryParamsDto,
+          metatype: listParamTypes[1] as typeof RepositoryParamsDto,
           type: "param"
         }
       )
     ).resolves.toBeInstanceOf(RepositoryParamsDto);
 
     await expect(
+      validationPipe.transform(
+        { id: "cmue8jqya00020knyocesewhh" },
+        {
+          metatype: currentParamTypes[1] as typeof RepositoryParamsDto,
+          type: "param"
+        }
+      )
+    ).resolves.toBeInstanceOf(RepositoryParamsDto);
+
+    await expect(
+      validationPipe.transform(
+        {},
+        {
+          metatype: runParamTypes[1] as typeof RepositoryParamsDto,
+          type: "param"
+        }
+      )
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        message: expect.arrayContaining([
+          "id must match /^[a-z0-9]+$/i regular expression",
+          "id must be longer than or equal to 10 characters",
+          "id must be a string"
+        ])
+      })
+    });
+
+    await expect(
+      validationPipe.transform(
+        { id: "bad_id" },
+        {
+          metatype: runParamTypes[1] as typeof RepositoryParamsDto,
+          type: "param"
+        }
+      )
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({
+        message: expect.arrayContaining([
+          "id must match /^[a-z0-9]+$/i regular expression",
+          "id must be longer than or equal to 10 characters"
+        ])
+      })
+    });
+
+    await expect(
       validationPipe.transform(undefined, {
-        metatype: paramTypes[2] as typeof RunRepositoryUpdateRequestDto,
+        metatype: runParamTypes[2] as typeof RunRepositoryUpdateRequestDto,
         type: "body"
       })
     ).resolves.toBeInstanceOf(RunRepositoryUpdateRequestDto);
@@ -243,7 +302,11 @@ describe("RepositoryUpdatesController", () => {
     }));
     const controller = createController({ runManualUpdate });
 
-    const response = await controller.runManualUpdate(user, { id: "repository_1" }, {});
+    const response = await controller.runManualUpdate(
+      user,
+      { id: "repository_1" },
+      undefined as unknown as RunRepositoryUpdateRequestDto
+    );
 
     expect(runManualUpdate).toHaveBeenCalledWith("repository_1", "user_1");
     expect(response).toMatchObject({
