@@ -7,6 +7,7 @@ import { RequestLoggerMiddleware } from "../../shared/middleware/request-logger.
 import { AiExportModule } from "../ai-export/ai-export.module.js";
 import { AnalysisModule } from "../analysis/analysis.module.js";
 import { AuthModule } from "../auth/auth.module.js";
+import { ChangeSetsModule } from "../change-sets/change-sets.module.js";
 import { AppConfigModule } from "../config/app-config.module.js";
 import { AppConfigService } from "../config/app-config.service.js";
 import { ContextModule } from "../context/context.module.js";
@@ -37,6 +38,7 @@ import { UsersModule } from "../users/users.module.js";
     UsersModule,
     AuthModule,
     RepositoriesModule,
+    ChangeSetsModule,
     RepositoryUpdatesModule,
     ScanModule,
     AnalysisModule,
