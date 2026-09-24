@@ -14,7 +14,10 @@ import { RepositoryProcessingStrategySelector } from "./application/repository-p
 import { RepositoryUpdateService } from "./application/repository-update.service.js";
 import { REPOSITORY_INCREMENTAL_PROCESSOR } from "./application/contracts/repository-incremental-processor.contract.js";
 import { REPOSITORY_PROCESSING_RESULT_CONSUMER } from "./application/contracts/repository-processing-result-consumer.contract.js";
-import { NoopRepositoryProcessingResultConsumer } from "./application/noop-repository-processing-result.consumer.js";
+import { LoggingRepositoryProcessingResultConsumer } from "./application/logging-repository-processing-result.consumer.js";
+import { REPOSITORY_PROCESSING_OBSERVATION_SINK } from "./application/contracts/repository-processing-observation-sink.contract.js";
+import { LoggingRepositoryProcessingObservationSink } from "./application/logging-repository-processing-observation.sink.js";
+import { RepositoryProcessingObservationMapper } from "./application/repository-processing-observation.mapper.js";
 import { REPOSITORY_UPDATE_REPOSITORY } from "./domain/contracts/repository-update-repository.contract.js";
 import { PrismaRepositoryUpdateRepository } from "./infrastructure/prisma-repository-update.repository.js";
 import { RepositoryUpdatesController } from "./presentation/repository-updates.controller.js";
@@ -34,6 +37,7 @@ import { RepositoryUpdatesController } from "./presentation/repository-updates.c
   providers: [
     RunRepositoryUpdateService,
     RepositoryProcessingStrategySelector,
+    RepositoryProcessingObservationMapper,
     RepositoryUpdateService,
     {
       provide: REPOSITORY_INCREMENTAL_PROCESSOR,
@@ -41,7 +45,11 @@ import { RepositoryUpdatesController } from "./presentation/repository-updates.c
     },
     {
       provide: REPOSITORY_PROCESSING_RESULT_CONSUMER,
-      useClass: NoopRepositoryProcessingResultConsumer
+      useClass: LoggingRepositoryProcessingResultConsumer
+    },
+    {
+      provide: REPOSITORY_PROCESSING_OBSERVATION_SINK,
+      useClass: LoggingRepositoryProcessingObservationSink
     },
     {
       provide: REPOSITORY_UPDATE_REPOSITORY,

@@ -1,4 +1,4 @@
-import { BadGatewayException, Inject, Injectable, Logger } from "@nestjs/common";
+import { BadGatewayException, Inject, Injectable } from "@nestjs/common";
 
 import { RepositoryUpdateTriggerType } from "../../../generated/prisma/enums.js";
 import type { RepositoryFreshnessStatus } from "../../../generated/prisma/enums.js";
@@ -67,8 +67,6 @@ export type RunRepositoryUpdateResult = {
 
 @Injectable()
 export class RunRepositoryUpdateService {
-  private readonly logger = new Logger(RunRepositoryUpdateService.name);
-
   constructor(
     @Inject(RepositoryUpdateService)
     private readonly repositoryUpdateService: RepositoryUpdateService,
@@ -422,10 +420,8 @@ export class RunRepositoryUpdateService {
   private async consumeProcessingResult(result: RepositoryProcessingResult): Promise<void> {
     try {
       await this.processingResultConsumer.consume(result);
-    } catch (error) {
-      this.logger.warn(
-        `Repository processing result consumer failed mode=${result.mode} outcome=${result.outcome} errorName=${error instanceof Error ? error.name : "UnknownError"}`
-      );
+    } catch {
+      // Observability must never change an already completed repository update.
     }
   }
 
