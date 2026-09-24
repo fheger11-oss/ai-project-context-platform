@@ -12,7 +12,12 @@ import type {
   RepositoryCompareProvider,
   RepositoryComparison
 } from "../domain/contracts/repository-compare-provider.contract.js";
-import { ComparisonStatus, FileChangeType, type ChangedFile } from "../domain/change-set.js";
+import {
+  ChangeSetCompleteness,
+  ComparisonStatus,
+  FileChangeType,
+  type ChangedFile
+} from "../domain/change-set.js";
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
 const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
@@ -64,17 +69,15 @@ export class GitHubRepositoryCompareProvider implements RepositoryCompareProvide
 
     const files = parsed.data.files ?? [];
 
-    // GitHub returns changed files only on the first compare page and caps that list at 300.
-    // Commit pagination therefore cannot recover a truncated file list; fail instead of
-    // producing a partial ChangeSet.
-    if (files.length >= 300) {
-      throw new BadGatewayException("GitHub compare response did not contain all changed files");
-    }
-
     return {
       baseCommitSha,
       targetCommitSha,
       comparisonStatus: this.comparisonStatus(parsed.data.status),
+      // GitHub caps compare files at 300 and exposes them only on the first page. At the
+      // boundary the provider cannot prove completeness, so consumers must not use the
+      // returned list as a complete repository diff.
+      completeness:
+        files.length >= 300 ? ChangeSetCompleteness.INCOMPLETE : ChangeSetCompleteness.COMPLETE,
       aheadBy: parsed.data.ahead_by,
       behindBy: parsed.data.behind_by,
       changedFileCount: files.length,

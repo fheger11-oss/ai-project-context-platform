@@ -61,6 +61,7 @@ export class ChangeSetService {
       baseCommitSha: comparison.baseCommitSha,
       targetCommitSha: comparison.targetCommitSha,
       comparisonStatus: comparison.comparisonStatus,
+      completeness: comparison.completeness,
       aheadBy: comparison.aheadBy,
       behindBy: comparison.behindBy,
       files: comparison.files

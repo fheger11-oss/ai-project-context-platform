@@ -5,6 +5,11 @@ export enum ComparisonStatus {
   DIVERGED = "DIVERGED"
 }
 
+export enum ChangeSetCompleteness {
+  COMPLETE = "COMPLETE",
+  INCOMPLETE = "INCOMPLETE"
+}
+
 export enum FileChangeType {
   ADDED = "ADDED",
   MODIFIED = "MODIFIED",
@@ -25,6 +30,7 @@ export type ChangeSet = {
   baseCommitSha: string;
   targetCommitSha: string;
   comparisonStatus: ComparisonStatus;
+  completeness: ChangeSetCompleteness;
   aheadBy: number;
   behindBy: number;
   changedFileCount: number;
@@ -37,6 +43,7 @@ export function createChangeSet(input: {
   baseCommitSha: string;
   targetCommitSha: string;
   comparisonStatus: ComparisonStatus;
+  completeness: ChangeSetCompleteness;
   aheadBy?: number;
   behindBy?: number;
   files: ChangedFile[];
@@ -47,6 +54,7 @@ export function createChangeSet(input: {
     baseCommitSha: input.baseCommitSha,
     targetCommitSha: input.targetCommitSha,
     comparisonStatus: input.comparisonStatus,
+    completeness: input.completeness,
     aheadBy: input.aheadBy ?? 0,
     behindBy: input.behindBy ?? 0,
     changedFileCount: files.length,
@@ -61,6 +69,7 @@ export function createEmptyChangeSet(commitSha: string): ChangeSet {
     baseCommitSha: commitSha,
     targetCommitSha: commitSha,
     comparisonStatus: ComparisonStatus.IDENTICAL,
+    completeness: ChangeSetCompleteness.COMPLETE,
     files: []
   });
 }

@@ -1,4 +1,4 @@
-import type { ChangedFile, ComparisonStatus } from "../change-set.js";
+import type { ChangedFile, ChangeSetCompleteness, ComparisonStatus } from "../change-set.js";
 
 export const REPOSITORY_COMPARE_PROVIDER = Symbol("REPOSITORY_COMPARE_PROVIDER");
 
@@ -12,6 +12,7 @@ export type RepositoryComparison = {
   baseCommitSha: string;
   targetCommitSha: string;
   comparisonStatus: ComparisonStatus;
+  completeness: ChangeSetCompleteness;
   aheadBy: number;
   behindBy: number;
   changedFileCount: number;

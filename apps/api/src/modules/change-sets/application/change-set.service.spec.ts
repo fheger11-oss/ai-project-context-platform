@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { GitHubAccountService } from "../../auth/providers/github-account.service.js";
 import type { RepositoriesService } from "../../repositories/repositories.service.js";
 import type { RepositoryCompareProvider } from "../domain/contracts/repository-compare-provider.contract.js";
-import { ComparisonStatus, FileChangeType } from "../domain/change-set.js";
+import { ChangeSetCompleteness, ComparisonStatus, FileChangeType } from "../domain/change-set.js";
 import { ChangeSetService } from "./change-set.service.js";
 import { ChangeSetComparisonUnavailableError } from "./errors/change-set-comparison-unavailable.error.js";
 
@@ -21,6 +21,7 @@ function createHarness() {
     baseCommitSha: "base",
     targetCommitSha: "target",
     comparisonStatus: ComparisonStatus.AHEAD,
+    completeness: ChangeSetCompleteness.COMPLETE,
     aheadBy: 1,
     behindBy: 0,
     changedFileCount: 1,
@@ -78,6 +79,7 @@ describe("ChangeSetService", () => {
       baseCommitSha: "base",
       targetCommitSha: "target",
       comparisonStatus: ComparisonStatus.AHEAD,
+      completeness: ChangeSetCompleteness.COMPLETE,
       aheadBy: 1,
       behindBy: 0,
       changedFileCount: 1,
@@ -94,6 +96,39 @@ describe("ChangeSetService", () => {
     });
     expect(result).not.toHaveProperty("html_url");
     expect(result.files[0]).not.toHaveProperty("raw_url");
+  });
+
+  it("preserves an incomplete provider result as explicitly incomplete", async () => {
+    const harness = createHarness();
+    harness.compare.mockResolvedValue({
+      baseCommitSha: "base",
+      targetCommitSha: "target",
+      comparisonStatus: ComparisonStatus.AHEAD,
+      completeness: ChangeSetCompleteness.INCOMPLETE,
+      aheadBy: 5,
+      behindBy: 0,
+      changedFileCount: 1,
+      files: [
+        {
+          path: "known.ts",
+          type: FileChangeType.MODIFIED,
+          additions: 1,
+          deletions: 1
+        }
+      ]
+    });
+
+    await expect(
+      harness.service.compare({
+        userId: "user_1",
+        repositoryId: "repository_1",
+        baseCommitSha: "base",
+        targetCommitSha: "target"
+      })
+    ).resolves.toMatchObject({
+      completeness: ChangeSetCompleteness.INCOMPLETE,
+      changedFileCount: 1
+    });
   });
 
   it("rejects a missing current context commit explicitly", async () => {

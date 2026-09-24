@@ -9,7 +9,7 @@ import {
 import type { RunAnalysisService } from "../../analysis/application/run-analysis.service.js";
 import type { AnalysisResult } from "../../analysis/domain/contracts/analysis-result.contract.js";
 import type { ChangeSetService } from "../../change-sets/application/change-set.service.js";
-import { ComparisonStatus } from "../../change-sets/domain/change-set.js";
+import { ChangeSetCompleteness, ComparisonStatus } from "../../change-sets/domain/change-set.js";
 import type { GenerateAndPersistProjectContextService } from "../../context/application/generate-and-persist-project-context.service.js";
 import type { PersistedProjectContext } from "../../context/domain/contracts/project-context-repository.contract.js";
 import type { ProjectContext } from "../../context/domain/project-context.js";
@@ -141,6 +141,7 @@ function createHarness(
     analysisError?: Error;
     contextError?: Error;
     changeSetError?: Error;
+    changeSetCompleteness?: ChangeSetCompleteness;
     stateUpdateError?: Error;
     ownershipError?: Error;
   } = {}
@@ -256,6 +257,7 @@ function createHarness(
       baseCommitSha: "commit_a",
       targetCommitSha: "commit_b",
       comparisonStatus: ComparisonStatus.AHEAD,
+      completeness: options.changeSetCompleteness ?? ChangeSetCompleteness.COMPLETE,
       aheadBy: 1,
       behindBy: 0,
       changedFileCount: 0,
@@ -438,6 +440,33 @@ describe("RunRepositoryUpdateService", () => {
     expect(harness.markRemoteHeadObserved).not.toHaveBeenCalled();
   });
 
+  it("continues the full update when the ChangeSet is incomplete", async () => {
+    const harness = createHarness({
+      changeSetCompleteness: ChangeSetCompleteness.INCOMPLETE
+    });
+
+    await expect(harness.service.runManualUpdate("repository_1", "user_1")).resolves.toMatchObject({
+      noop: false,
+      update: expect.objectContaining({ status: RepositoryUpdateStatus.COMPLETED }),
+      targetCommitSha: "commit_b"
+    });
+    expect(harness.compare).toHaveBeenCalledTimes(1);
+    expect(harness.startScan).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      userId: "user_1",
+      reference: "commit_b"
+    });
+    expect(harness.run).toHaveBeenCalledTimes(1);
+    expect(harness.generate).toHaveBeenCalledTimes(1);
+    expect(harness.markCurrentProjectContext).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      userId: "user_1",
+      projectContextId: "context_b",
+      commitSha: "commit_b"
+    });
+    expect(harness.failOwnedWithinLock).not.toHaveBeenCalled();
+  });
+
   it("runs ChangeSet comparison inside the existing repository update lock", async () => {
     const harness = createHarness();
     harness.compare.mockImplementation(async () => {
@@ -446,6 +475,7 @@ describe("RunRepositoryUpdateService", () => {
         baseCommitSha: "commit_a",
         targetCommitSha: "commit_b",
         comparisonStatus: ComparisonStatus.AHEAD,
+        completeness: ChangeSetCompleteness.COMPLETE,
         aheadBy: 1,
         behindBy: 0,
         changedFileCount: 0,

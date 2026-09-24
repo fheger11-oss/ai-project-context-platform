@@ -1,7 +1,7 @@
 import { BadGatewayException, HttpStatus, UnauthorizedException } from "@nestjs/common";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ComparisonStatus, FileChangeType } from "../domain/change-set.js";
+import { ChangeSetCompleteness, ComparisonStatus, FileChangeType } from "../domain/change-set.js";
 import { GitHubRepositoryCompareProvider } from "./github-repository-compare.provider.js";
 
 const access = {
@@ -64,6 +64,7 @@ describe("GitHubRepositoryCompareProvider", () => {
       baseCommitSha: "base",
       targetCommitSha: "target",
       comparisonStatus: ComparisonStatus.AHEAD,
+      completeness: ChangeSetCompleteness.COMPLETE,
       aheadBy: 2,
       behindBy: 0,
       changedFileCount: 2,
@@ -168,7 +169,7 @@ describe("GitHubRepositoryCompareProvider", () => {
     ).rejects.toEqual(new BadGatewayException("GitHub compare response could not be validated"));
   });
 
-  it("rejects a file list truncated by GitHub's compare limit", async () => {
+  it("marks the conservative 300-file boundary incomplete without dropping returned files", async () => {
     const files = Array.from({ length: 300 }, (_, index) => ({
       filename: `file-${index}.ts`,
       status: "modified",
@@ -179,10 +180,10 @@ describe("GitHubRepositoryCompareProvider", () => {
       new Response(JSON.stringify(payload({ files })), { status: 200 })
     );
 
-    await expect(
-      new GitHubRepositoryCompareProvider().compare(access, "base", "target")
-    ).rejects.toEqual(
-      new BadGatewayException("GitHub compare response did not contain all changed files")
-    );
+    const result = await new GitHubRepositoryCompareProvider().compare(access, "base", "target");
+
+    expect(result.completeness).toBe(ChangeSetCompleteness.INCOMPLETE);
+    expect(result.changedFileCount).toBe(300);
+    expect(result.files).toHaveLength(300);
   });
 });

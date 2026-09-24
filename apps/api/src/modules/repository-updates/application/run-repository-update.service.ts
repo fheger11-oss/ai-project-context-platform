@@ -4,7 +4,7 @@ import { RepositoryUpdateTriggerType } from "../../../generated/prisma/enums.js"
 import type { RepositoryFreshnessStatus } from "../../../generated/prisma/enums.js";
 import { RunAnalysisService } from "../../analysis/application/run-analysis.service.js";
 import { ChangeSetService } from "../../change-sets/application/change-set.service.js";
-import type { ChangeSet } from "../../change-sets/domain/change-set.js";
+import { ChangeSetCompleteness, type ChangeSet } from "../../change-sets/domain/change-set.js";
 import { GenerateAndPersistProjectContextService } from "../../context/application/generate-and-persist-project-context.service.js";
 import {
   RepositoryStateService,
@@ -27,6 +27,7 @@ export type RepositoryUpdateFailureReason =
 type RepositoryUpdateExecutionContext = {
   update: RepositoryUpdateSnapshot;
   changeSet: ChangeSet | null;
+  changeSetUsableForIncrementalProcessing: boolean;
 };
 
 export type RunRepositoryUpdateResult = {
@@ -187,7 +188,12 @@ export class RunRepositoryUpdateService {
       input.userId
     );
 
-    return { update, changeSet: input.changeSet };
+    return {
+      update,
+      changeSet: input.changeSet,
+      changeSetUsableForIncrementalProcessing:
+        input.changeSet?.completeness === ChangeSetCompleteness.COMPLETE
+    };
   }
 
   private async runScan(

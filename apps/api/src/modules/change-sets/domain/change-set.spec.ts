@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ChangeSetCompleteness,
   ComparisonStatus,
   createChangeSet,
   createEmptyChangeSet,
@@ -13,6 +14,7 @@ describe("ChangeSet", () => {
       baseCommitSha: "base",
       targetCommitSha: "target",
       comparisonStatus: ComparisonStatus.AHEAD,
+      completeness: ChangeSetCompleteness.COMPLETE,
       aheadBy: 2,
       files: [
         { path: "added.ts", type: FileChangeType.ADDED, additions: 4, deletions: 0 },
@@ -37,6 +39,7 @@ describe("ChangeSet", () => {
 
     expect(changeSet).toMatchObject({
       changedFileCount: 5,
+      completeness: ChangeSetCompleteness.COMPLETE,
       additions: 15,
       deletions: 8,
       aheadBy: 2,
@@ -56,12 +59,30 @@ describe("ChangeSet", () => {
       baseCommitSha: "same",
       targetCommitSha: "same",
       comparisonStatus: ComparisonStatus.IDENTICAL,
+      completeness: ChangeSetCompleteness.COMPLETE,
       aheadBy: 0,
       behindBy: 0,
       changedFileCount: 0,
       additions: 0,
       deletions: 0,
       files: []
+    });
+  });
+
+  it("represents an incomplete provider-independent ChangeSet without fabricating totals", () => {
+    const changeSet = createChangeSet({
+      baseCommitSha: "base",
+      targetCommitSha: "target",
+      comparisonStatus: ComparisonStatus.AHEAD,
+      completeness: ChangeSetCompleteness.INCOMPLETE,
+      files: [{ path: "known.ts", type: FileChangeType.MODIFIED, additions: 2, deletions: 1 }]
+    });
+
+    expect(changeSet).toMatchObject({
+      completeness: ChangeSetCompleteness.INCOMPLETE,
+      changedFileCount: 1,
+      additions: 2,
+      deletions: 1
     });
   });
 });
