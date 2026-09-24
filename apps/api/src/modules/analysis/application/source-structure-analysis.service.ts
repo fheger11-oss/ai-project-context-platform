@@ -18,13 +18,22 @@ export class SourceStructureAnalysisService {
     private readonly sourceParser: SourceParser
   ) {}
 
-  async analyzeSourceStructure(input: AnalysisInput): Promise<SourceFileStructure[]> {
+  async analyzeSourceStructure(
+    input: AnalysisInput,
+    reusableStructures?: ReadonlyMap<string, SourceFileStructure>
+  ): Promise<SourceFileStructure[]> {
     const structures: SourceFileStructure[] = [];
 
     for await (const file of input.contentReader.listFiles(input.scanId)) {
       const classification = this.fileClassifier.classify(file);
 
       if (!shouldAnalyzeSourceStructure(file, classification)) {
+        continue;
+      }
+
+      const reused = reusableStructures?.get(file.path);
+      if (reused) {
+        structures.push(reused);
         continue;
       }
 

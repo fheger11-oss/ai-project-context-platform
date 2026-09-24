@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import type { Analysis } from "../domain/analysis.js";
+import type { SourceFileStructure } from "../domain/source-structure/source-file-structure.js";
 import type { AnalysisInput } from "../domain/contracts/analysis-input.contract.js";
 import type {
   AnalysisResult,
@@ -17,6 +18,7 @@ export type AnalysisPipelineInput = {
   analysis: Analysis;
   input: AnalysisInput;
   generatedAt: Date;
+  reusableSourceStructures?: ReadonlyMap<string, SourceFileStructure>;
 };
 
 @Injectable()
@@ -42,9 +44,12 @@ export class AnalysisPipelineService {
     const context = this.context(input.input);
     const files = await this.fileClassificationService.classifyFiles(input.input);
     const project = await this.projectDetectionService.detectProject(input.input);
-    const sourceStructures = await this.sourceStructureAnalysisService.analyzeSourceStructure(
-      input.input
-    );
+    const sourceStructures = input.reusableSourceStructures
+      ? await this.sourceStructureAnalysisService.analyzeSourceStructure(
+          input.input,
+          input.reusableSourceStructures
+        )
+      : await this.sourceStructureAnalysisService.analyzeSourceStructure(input.input);
     const relationships = this.relationshipAnalysisService.analyzeRelationshipsFromResults({
       sourceStructures,
       projectProfile: project

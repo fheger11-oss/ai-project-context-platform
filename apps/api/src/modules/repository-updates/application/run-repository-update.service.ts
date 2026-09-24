@@ -22,9 +22,9 @@ import type { RepositoryUpdateSnapshot } from "../domain/contracts/repository-up
 import {
   REPOSITORY_INCREMENTAL_PROCESSOR,
   type RepositoryIncrementalProcessor,
+  type CompletedIncrementalProcessingResult,
   type IncrementalProcessingResult
 } from "./contracts/repository-incremental-processor.contract.js";
-import { IncrementalProcessingUnavailableError } from "./errors/incremental-processing-unavailable.error.js";
 import { RepositoryProcessingStrategy } from "./repository-processing-strategy.js";
 import { RepositoryProcessingStrategySelector } from "./repository-processing-strategy.selector.js";
 import { RepositoryUpdateService } from "./repository-update.service.js";
@@ -171,17 +171,26 @@ export class RunRepositoryUpdateService {
               targetCommitSha,
               changeSet: execution.changeSet
             });
-          } catch (error) {
-            if (!(error instanceof IncrementalProcessingUnavailableError)) {
-              incrementalProcessingFailed = true;
-              throw error;
+            if (
+              !incrementalResult ||
+              (incrementalResult.outcome !== "COMPLETED" &&
+                incrementalResult.outcome !== "FALLBACK_REQUIRED")
+            ) {
+              throw new BadGatewayException("Invalid incremental processing outcome.");
             }
+          } catch (error) {
+            incrementalProcessingFailed = true;
+            throw error;
           }
         }
 
-        if (incrementalResult) {
+        if (incrementalResult?.outcome === "COMPLETED") {
           incrementalProcessingFailed = true;
-          this.assertIncrementalResultMatchesTarget(incrementalResult, targetCommitSha);
+          this.assertIncrementalResultMatchesTarget(
+            incrementalResult,
+            targetCommitSha,
+            repositoryId
+          );
           incrementalProcessingFailed = false;
           scan = incrementalResult.scan;
           update = await this.repositoryUpdateService.recordArtifactsOwned(update.id, userId, {
@@ -297,9 +306,21 @@ export class RunRepositoryUpdateService {
   }
 
   private assertIncrementalResultMatchesTarget(
-    result: IncrementalProcessingResult,
-    targetCommitSha: string
+    result: CompletedIncrementalProcessingResult,
+    targetCommitSha: string,
+    repositoryId: string
   ): void {
+    if (
+      result.targetCommitSha !== targetCommitSha ||
+      result.scan.repositoryId !== repositoryId ||
+      result.analysis.repositoryId !== repositoryId ||
+      result.projectContext.repositoryId !== repositoryId ||
+      result.analysis.scanId !== result.scan.id ||
+      result.projectContext.scanId !== result.scan.id ||
+      result.projectContext.analysisId !== result.analysis.analysisId
+    ) {
+      throw new BadGatewayException("Incremental repository artifact provenance mismatch.");
+    }
     if (result.scan.status !== "COMPLETED" || result.scan.commitSha !== targetCommitSha) {
       throw new BadGatewayException(
         "Incremental repository processing did not produce the target commit scan."

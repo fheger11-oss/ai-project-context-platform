@@ -9,7 +9,7 @@ import { RepositoriesModule } from "../repositories/repositories.module.js";
 import { ScanModule } from "../scan/scan.module.js";
 import { UsageModule } from "../usage/usage.module.js";
 import { RunRepositoryUpdateService } from "./application/run-repository-update.service.js";
-import { UnavailableIncrementalProcessor } from "./application/unavailable-incremental.processor.js";
+import { RepositoryIncrementalProcessorService } from "./application/repository-incremental.processor.js";
 import { RepositoryProcessingStrategySelector } from "./application/repository-processing-strategy.selector.js";
 import { RepositoryUpdateService } from "./application/repository-update.service.js";
 import { REPOSITORY_INCREMENTAL_PROCESSOR } from "./application/contracts/repository-incremental-processor.contract.js";
@@ -35,7 +35,7 @@ import { RepositoryUpdatesController } from "./presentation/repository-updates.c
     RepositoryUpdateService,
     {
       provide: REPOSITORY_INCREMENTAL_PROCESSOR,
-      useClass: UnavailableIncrementalProcessor
+      useClass: RepositoryIncrementalProcessorService
     },
     {
       provide: REPOSITORY_UPDATE_REPOSITORY,

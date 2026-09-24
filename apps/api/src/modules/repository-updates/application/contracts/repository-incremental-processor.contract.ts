@@ -13,11 +13,30 @@ export type IncrementalProcessingInput = {
   changeSet: ChangeSet;
 };
 
-export type IncrementalProcessingResult = {
+export enum IncrementalFallbackReason {
+  INCOMPLETE_CHANGE_SET = "INCOMPLETE_CHANGE_SET",
+  MISSING_BASE_CONTEXT = "MISSING_BASE_CONTEXT",
+  MISSING_BASE_ARTIFACTS = "MISSING_BASE_ARTIFACTS",
+  BASE_COMMIT_MISMATCH = "BASE_COMMIT_MISMATCH",
+  UNSUPPORTED_CHANGE = "UNSUPPORTED_CHANGE",
+  INSUFFICIENT_REPOSITORY_CONTENT = "INSUFFICIENT_REPOSITORY_CONTENT",
+  INCREMENTAL_ARTIFACT_INVALID = "INCREMENTAL_ARTIFACT_INVALID"
+}
+
+export type CompletedIncrementalProcessingResult = {
+  outcome: "COMPLETED";
+  targetCommitSha: string;
   scan: ScanSnapshot;
   analysis: AnalysisResult;
   projectContext: PersistedProjectContext;
 };
+
+export type IncrementalProcessingResult =
+  | CompletedIncrementalProcessingResult
+  | {
+      outcome: "FALLBACK_REQUIRED";
+      reason: IncrementalFallbackReason;
+    };
 
 export interface RepositoryIncrementalProcessor {
   process(input: IncrementalProcessingInput): Promise<IncrementalProcessingResult>;

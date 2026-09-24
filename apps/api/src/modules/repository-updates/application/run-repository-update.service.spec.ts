@@ -24,7 +24,10 @@ import type { RepositoryUpdateSnapshot } from "../domain/contracts/repository-up
 import type { RepositoryUpdateService } from "./repository-update.service.js";
 import { RunRepositoryUpdateService } from "./run-repository-update.service.js";
 import { RepositoryProcessingStrategySelector } from "./repository-processing-strategy.selector.js";
-import { UnavailableIncrementalProcessor } from "./unavailable-incremental.processor.js";
+import {
+  IncrementalFallbackReason,
+  type IncrementalProcessingResult
+} from "./contracts/repository-incremental-processor.contract.js";
 
 const now = new Date("2026-09-23T12:00:00.000Z");
 
@@ -275,8 +278,11 @@ function createHarness(
   const evaluateEligibility = vi.spyOn(incrementalProcessingEligibilityService, "evaluate");
   const processingStrategySelector = new RepositoryProcessingStrategySelector();
   const selectProcessingStrategy = vi.spyOn(processingStrategySelector, "select");
-  const incrementalProcessor = new UnavailableIncrementalProcessor();
-  const processIncrementally = vi.spyOn(incrementalProcessor, "process");
+  const processIncrementally = vi.fn(async (): Promise<IncrementalProcessingResult> => ({
+    outcome: "FALLBACK_REQUIRED",
+    reason: IncrementalFallbackReason.MISSING_BASE_ARTIFACTS
+  }));
+  const incrementalProcessor = { process: processIncrementally };
 
   if (options.incrementalProcessorError) {
     processIncrementally.mockRejectedValue(options.incrementalProcessorError);
@@ -343,6 +349,57 @@ function createHarness(
 }
 
 describe("RunRepositoryUpdateService", () => {
+  it("promotes completed incremental artifacts without executing full processing", async () => {
+    const h = createHarness();
+    h.processIncrementally.mockImplementation(async () => {
+      expect(h.isLockActive()).toBe(true);
+      expect(h.markCurrentProjectContext).not.toHaveBeenCalled();
+      return {
+        outcome: "COMPLETED",
+        targetCommitSha: "commit_b",
+        scan: createScan(),
+        analysis: createAnalysis(),
+        projectContext: createContext()
+      };
+    });
+    await expect(h.service.runManualUpdate("repository_1", "user_1")).resolves.toMatchObject({
+      update: expect.objectContaining({ status: RepositoryUpdateStatus.COMPLETED }),
+      projectContextId: "context_b"
+    });
+    expect(h.startScan).not.toHaveBeenCalled();
+    expect(h.run).not.toHaveBeenCalled();
+    expect(h.generate).not.toHaveBeenCalled();
+    expect(h.createPendingUpdate).toHaveBeenCalledTimes(1);
+    expect(h.markCurrentProjectContext).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      userId: "user_1",
+      projectContextId: "context_b",
+      commitSha: "commit_b"
+    });
+  });
+
+  it.each(["envelope", "scan", "analysis", "context"])(
+    "does not promote a wrong target in %s",
+    async (part) => {
+      const h = createHarness();
+      h.processIncrementally.mockResolvedValue({
+        outcome: "COMPLETED",
+        targetCommitSha: part === "envelope" ? "wrong" : "commit_b",
+        scan: createScan({ commitSha: part === "scan" ? "wrong" : "commit_b" }),
+        analysis: createAnalysis({ commitSha: part === "analysis" ? "wrong" : "commit_b" }),
+        projectContext: createContext({ commitSha: part === "context" ? "wrong" : "commit_b" })
+      });
+      await expect(h.service.runManualUpdate("repository_1", "user_1")).rejects.toThrow();
+      expect(h.markCurrentProjectContext).not.toHaveBeenCalled();
+      expect(h.startScan).not.toHaveBeenCalled();
+      expect(h.failOwnedWithinLock).toHaveBeenCalledWith(
+        "update_1",
+        "user_1",
+        "INCREMENTAL_PROCESSING_FAILED"
+      );
+    }
+  );
+
   it("runs HEAD to scan to analysis to context and promotes the new current context", async () => {
     const harness = createHarness();
 
