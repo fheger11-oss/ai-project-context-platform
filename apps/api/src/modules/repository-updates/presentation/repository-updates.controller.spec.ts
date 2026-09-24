@@ -7,7 +7,14 @@ import {
   RepositoryUpdateTriggerType
 } from "../../../generated/prisma/enums.js";
 import type { RepositoryUpdateService } from "../application/repository-update.service.js";
-import type { RunRepositoryUpdateService } from "../application/run-repository-update.service.js";
+import type {
+  RunRepositoryUpdateResult,
+  RunRepositoryUpdateService
+} from "../application/run-repository-update.service.js";
+import {
+  RepositoryProcessingMode,
+  RepositoryProcessingOutcome
+} from "../application/contracts/repository-processing-result.contract.js";
 import type { RepositoryUpdateSnapshot } from "../domain/contracts/repository-update-repository.contract.js";
 import { RepositoryUpdatesController } from "./repository-updates.controller.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
@@ -290,7 +297,7 @@ describe("RepositoryUpdatesController", () => {
   });
 
   it("keeps the manual update endpoint response shape unchanged", async () => {
-    const runManualUpdate = vi.fn(async () => ({
+    const runManualUpdate = vi.fn(async (): Promise<RunRepositoryUpdateResult> => ({
       noop: false,
       update: createUpdate(),
       baseCommitSha: "commit_a",
@@ -298,7 +305,12 @@ describe("RepositoryUpdatesController", () => {
       scanId: "scan_1",
       analysisId: "analysis_1",
       projectContextId: "context_1",
-      freshnessStatus: RepositoryFreshnessStatus.FRESH
+      freshnessStatus: RepositoryFreshnessStatus.FRESH,
+      processingResult: {
+        mode: RepositoryProcessingMode.FULL,
+        outcome: RepositoryProcessingOutcome.COMPLETED,
+        targetCommitSha: "commit_b"
+      }
     }));
     const controller = createController({ runManualUpdate });
 
@@ -316,5 +328,6 @@ describe("RepositoryUpdatesController", () => {
       triggerType: "MANUAL",
       freshnessStatus: "FRESH"
     });
+    expect(response).not.toHaveProperty("processingResult");
   });
 });

@@ -25,6 +25,11 @@ import {
   type CompletedIncrementalProcessingResult,
   type IncrementalProcessingResult
 } from "./contracts/repository-incremental-processor.contract.js";
+import {
+  RepositoryProcessingMode,
+  RepositoryProcessingOutcome,
+  type RepositoryProcessingResult
+} from "./contracts/repository-processing-result.contract.js";
 import { RepositoryProcessingStrategy } from "./repository-processing-strategy.js";
 import { RepositoryProcessingStrategySelector } from "./repository-processing-strategy.selector.js";
 import { RepositoryUpdateService } from "./repository-update.service.js";
@@ -53,6 +58,7 @@ export type RunRepositoryUpdateResult = {
   analysisId: string | null;
   projectContextId: string | null;
   freshnessStatus: RepositoryFreshnessStatus;
+  processingResult: RepositoryProcessingResult | null;
 };
 
 @Injectable()
@@ -97,7 +103,8 @@ export class RunRepositoryUpdateService {
           scanId: null,
           analysisId: null,
           projectContextId: initialState.currentProjectContextId,
-          freshnessStatus: refreshedState.freshnessStatus
+          freshnessStatus: refreshedState.freshnessStatus,
+          processingResult: null
         };
       }
 
@@ -221,6 +228,26 @@ export class RunRepositoryUpdateService {
           });
         }
 
+        const processingResult: RepositoryProcessingResult = incrementalResult
+          ? incrementalResult.outcome === "COMPLETED"
+            ? {
+                mode: RepositoryProcessingMode.INCREMENTAL,
+                outcome: RepositoryProcessingOutcome.COMPLETED,
+                targetCommitSha,
+                incrementalSummary: incrementalResult.summary
+              }
+            : {
+                mode: RepositoryProcessingMode.FULL,
+                outcome: RepositoryProcessingOutcome.FALLBACK_TO_FULL,
+                targetCommitSha,
+                incrementalSummary: incrementalResult.summary
+              }
+          : {
+              mode: RepositoryProcessingMode.FULL,
+              outcome: RepositoryProcessingOutcome.COMPLETED,
+              targetCommitSha
+            };
+
         const finalState = await this.repositoryStateService.markCurrentProjectContext({
           repositoryId,
           userId,
@@ -237,7 +264,8 @@ export class RunRepositoryUpdateService {
           scanId: scan.id,
           analysisId: analysis.analysisId,
           projectContextId: context.id,
-          freshnessStatus: finalState.freshnessStatus
+          freshnessStatus: finalState.freshnessStatus,
+          processingResult
         };
       } catch (error) {
         const failureReason = this.failureReasonForProgress({

@@ -28,6 +28,10 @@ import {
   IncrementalFallbackReason,
   type IncrementalProcessingResult
 } from "./contracts/repository-incremental-processor.contract.js";
+import {
+  RepositoryProcessingMode,
+  RepositoryProcessingOutcome
+} from "./contracts/repository-processing-result.contract.js";
 
 const now = new Date("2026-09-23T12:00:00.000Z");
 
@@ -382,10 +386,21 @@ describe("RunRepositoryUpdateService", () => {
         summary: incrementalSummary
       };
     });
-    await expect(h.service.runManualUpdate("repository_1", "user_1")).resolves.toMatchObject({
+    const result = await h.service.runManualUpdate("repository_1", "user_1");
+    expect(result).toMatchObject({
       update: expect.objectContaining({ status: RepositoryUpdateStatus.COMPLETED }),
-      projectContextId: "context_b"
+      projectContextId: "context_b",
+      processingResult: {
+        mode: RepositoryProcessingMode.INCREMENTAL,
+        outcome: RepositoryProcessingOutcome.COMPLETED,
+        targetCommitSha: "commit_b",
+        incrementalSummary
+      }
     });
+    if (result.processingResult?.mode !== RepositoryProcessingMode.INCREMENTAL) {
+      throw new Error("expected an incremental processing result");
+    }
+    expect(result.processingResult.incrementalSummary).toEqual(incrementalSummary);
     expect(h.startScan).not.toHaveBeenCalled();
     expect(h.run).not.toHaveBeenCalled();
     expect(h.generate).not.toHaveBeenCalled();
@@ -398,33 +413,48 @@ describe("RunRepositoryUpdateService", () => {
     });
   });
 
-  it.each(["envelope", "scan", "analysis", "context"])(
-    "does not promote a wrong target in %s",
-    async (part) => {
-      const h = createHarness();
-      h.processIncrementally.mockResolvedValue({
-        outcome: "COMPLETED",
-        targetCommitSha: part === "envelope" ? "wrong" : "commit_b",
-        scan: createScan({ commitSha: part === "scan" ? "wrong" : "commit_b" }),
-        analysis: createAnalysis({ commitSha: part === "analysis" ? "wrong" : "commit_b" }),
-        projectContext: createContext({ commitSha: part === "context" ? "wrong" : "commit_b" }),
-        summary: incrementalSummary
-      });
-      await expect(h.service.runManualUpdate("repository_1", "user_1")).rejects.toThrow();
-      expect(h.markCurrentProjectContext).not.toHaveBeenCalled();
-      expect(h.startScan).not.toHaveBeenCalled();
-      expect(h.failOwnedWithinLock).toHaveBeenCalledWith(
-        "update_1",
-        "user_1",
-        "INCREMENTAL_PROCESSING_FAILED"
-      );
-    }
-  );
+  it.each([
+    "envelope",
+    "scan",
+    "analysis",
+    "context",
+    "scanRepository",
+    "analysisRepository",
+    "contextRepository"
+  ])("does not promote invalid incremental provenance in %s", async (part) => {
+    const h = createHarness();
+    h.processIncrementally.mockResolvedValue({
+      outcome: "COMPLETED",
+      targetCommitSha: part === "envelope" ? "wrong" : "commit_b",
+      scan: createScan({
+        commitSha: part === "scan" ? "wrong" : "commit_b",
+        repositoryId: part === "scanRepository" ? "wrong" : "repository_1"
+      }),
+      analysis: createAnalysis({
+        commitSha: part === "analysis" ? "wrong" : "commit_b",
+        repositoryId: part === "analysisRepository" ? "wrong" : "repository_1"
+      }),
+      projectContext: createContext({
+        commitSha: part === "context" ? "wrong" : "commit_b",
+        repositoryId: part === "contextRepository" ? "wrong" : "repository_1"
+      }),
+      summary: incrementalSummary
+    });
+    await expect(h.service.runManualUpdate("repository_1", "user_1")).rejects.toThrow();
+    expect(h.markCurrentProjectContext).not.toHaveBeenCalled();
+    expect(h.startScan).not.toHaveBeenCalled();
+    expect(h.failOwnedWithinLock).toHaveBeenCalledWith(
+      "update_1",
+      "user_1",
+      "INCREMENTAL_PROCESSING_FAILED"
+    );
+  });
 
   it("runs HEAD to scan to analysis to context and promotes the new current context", async () => {
     const harness = createHarness();
 
-    await expect(harness.service.runManualUpdate("repository_1", "user_1")).resolves.toMatchObject({
+    const result = await harness.service.runManualUpdate("repository_1", "user_1");
+    expect(result).toMatchObject({
       noop: false,
       targetCommitSha: "commit_b",
       baseCommitSha: "commit_a",
@@ -432,7 +462,24 @@ describe("RunRepositoryUpdateService", () => {
       analysisId: "analysis_b",
       projectContextId: "context_b",
       freshnessStatus: RepositoryFreshnessStatus.FRESH,
-      update: expect.objectContaining({ status: RepositoryUpdateStatus.COMPLETED })
+      update: expect.objectContaining({ status: RepositoryUpdateStatus.COMPLETED }),
+      processingResult: {
+        mode: RepositoryProcessingMode.FULL,
+        outcome: RepositoryProcessingOutcome.FALLBACK_TO_FULL,
+        targetCommitSha: "commit_b",
+        incrementalSummary: expect.objectContaining({
+          fallbackRequired: true,
+          fallbackReason: IncrementalFallbackReason.MISSING_BASE_ARTIFACTS
+        })
+      }
+    });
+    if (result.processingResult?.outcome !== RepositoryProcessingOutcome.FALLBACK_TO_FULL) {
+      throw new Error("expected a fallback processing result");
+    }
+    expect(result.processingResult.incrementalSummary).toEqual({
+      ...incrementalSummary,
+      fallbackRequired: true,
+      fallbackReason: IncrementalFallbackReason.MISSING_BASE_ARTIFACTS
     });
     expect(harness.withRepositoryUpdateLock).toHaveBeenCalledTimes(1);
     expect(harness.compare).toHaveBeenCalledWith({
@@ -485,7 +532,13 @@ describe("RunRepositoryUpdateService", () => {
       })
     });
 
-    await harness.service.runManualUpdate("repository_1", "user_1");
+    const result = await harness.service.runManualUpdate("repository_1", "user_1");
+
+    expect(result.processingResult).toEqual({
+      mode: RepositoryProcessingMode.FULL,
+      outcome: RepositoryProcessingOutcome.COMPLETED,
+      targetCommitSha: "commit_b"
+    });
 
     expect(harness.createPendingUpdate).toHaveBeenCalledWith({
       repositoryId: "repository_1",
@@ -527,7 +580,8 @@ describe("RunRepositoryUpdateService", () => {
       update: null,
       targetCommitSha: "commit_b",
       projectContextId: "context_b",
-      freshnessStatus: RepositoryFreshnessStatus.FRESH
+      freshnessStatus: RepositoryFreshnessStatus.FRESH,
+      processingResult: null
     });
     expect(harness.createPendingUpdate).not.toHaveBeenCalled();
     expect(harness.compare).not.toHaveBeenCalled();
@@ -576,7 +630,12 @@ describe("RunRepositoryUpdateService", () => {
     await expect(harness.service.runManualUpdate("repository_1", "user_1")).resolves.toMatchObject({
       noop: false,
       update: expect.objectContaining({ status: RepositoryUpdateStatus.COMPLETED }),
-      targetCommitSha: "commit_b"
+      targetCommitSha: "commit_b",
+      processingResult: {
+        mode: RepositoryProcessingMode.FULL,
+        outcome: RepositoryProcessingOutcome.COMPLETED,
+        targetCommitSha: "commit_b"
+      }
     });
     expect(harness.compare).toHaveBeenCalledTimes(1);
     expect(harness.evaluateEligibility).toHaveReturnedWith({
