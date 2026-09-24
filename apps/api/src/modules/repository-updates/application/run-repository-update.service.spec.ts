@@ -23,6 +23,8 @@ import type { ScanSnapshot } from "../../scan/domain/contracts/scan-repository.c
 import type { RepositoryUpdateSnapshot } from "../domain/contracts/repository-update-repository.contract.js";
 import type { RepositoryUpdateService } from "./repository-update.service.js";
 import { RunRepositoryUpdateService } from "./run-repository-update.service.js";
+import { RepositoryProcessingStrategySelector } from "./repository-processing-strategy.selector.js";
+import { UnavailableIncrementalProcessor } from "./unavailable-incremental.processor.js";
 
 const now = new Date("2026-09-23T12:00:00.000Z");
 
@@ -142,6 +144,7 @@ function createHarness(
     analysisError?: Error;
     contextError?: Error;
     changeSetError?: Error;
+    incrementalProcessorError?: Error;
     changeSetCompleteness?: ChangeSetCompleteness;
     stateUpdateError?: Error;
     ownershipError?: Error;
@@ -270,6 +273,14 @@ function createHarness(
   const changeSetService = { compare } as unknown as ChangeSetService;
   const incrementalProcessingEligibilityService = new IncrementalProcessingEligibilityService();
   const evaluateEligibility = vi.spyOn(incrementalProcessingEligibilityService, "evaluate");
+  const processingStrategySelector = new RepositoryProcessingStrategySelector();
+  const selectProcessingStrategy = vi.spyOn(processingStrategySelector, "select");
+  const incrementalProcessor = new UnavailableIncrementalProcessor();
+  const processIncrementally = vi.spyOn(incrementalProcessor, "process");
+
+  if (options.incrementalProcessorError) {
+    processIncrementally.mockRejectedValue(options.incrementalProcessorError);
+  }
 
   const startScan = vi.fn(async () => {
     if (options.scanError) {
@@ -304,6 +315,8 @@ function createHarness(
       repositoryStateService,
       changeSetService,
       incrementalProcessingEligibilityService,
+      processingStrategySelector,
+      incrementalProcessor,
       scanService,
       runAnalysisService,
       generateAndPersistProjectContextService
@@ -320,6 +333,8 @@ function createHarness(
     markRemoteHeadObserved,
     compare,
     evaluateEligibility,
+    selectProcessingStrategy,
+    processIncrementally,
     isLockActive: () => lockActive,
     startScan,
     run,
@@ -357,6 +372,16 @@ describe("RunRepositoryUpdateService", () => {
     expect(harness.evaluateEligibility).toHaveReturnedWith({
       eligible: true,
       reason: "COMPLETE_CHANGE_SET"
+    });
+    expect(harness.selectProcessingStrategy).toHaveReturnedWith("INCREMENTAL");
+    expect(harness.processIncrementally).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      userId: "user_1",
+      baseCommitSha: "commit_a",
+      targetCommitSha: "commit_b",
+      changeSet: expect.objectContaining({
+        completeness: ChangeSetCompleteness.COMPLETE
+      })
     });
     expect(harness.startScan).toHaveBeenCalledWith({
       repositoryId: "repository_1",
@@ -397,6 +422,8 @@ describe("RunRepositoryUpdateService", () => {
       eligible: false,
       reason: "NO_CHANGE_SET"
     });
+    expect(harness.selectProcessingStrategy).toHaveReturnedWith("FULL");
+    expect(harness.processIncrementally).not.toHaveBeenCalled();
     expect(harness.startScan).toHaveBeenCalled();
     expect(harness.run).toHaveBeenCalled();
     expect(harness.generate).toHaveBeenCalled();
@@ -427,6 +454,8 @@ describe("RunRepositoryUpdateService", () => {
     expect(harness.createPendingUpdate).not.toHaveBeenCalled();
     expect(harness.compare).not.toHaveBeenCalled();
     expect(harness.evaluateEligibility).not.toHaveBeenCalled();
+    expect(harness.selectProcessingStrategy).not.toHaveBeenCalled();
+    expect(harness.processIncrementally).not.toHaveBeenCalled();
     expect(harness.startScan).not.toHaveBeenCalled();
     expect(harness.run).not.toHaveBeenCalled();
     expect(harness.generate).not.toHaveBeenCalled();
@@ -447,6 +476,8 @@ describe("RunRepositoryUpdateService", () => {
     });
     expect(harness.startOwnedWithinLock).toHaveBeenCalled();
     expect(harness.evaluateEligibility).not.toHaveBeenCalled();
+    expect(harness.selectProcessingStrategy).not.toHaveBeenCalled();
+    expect(harness.processIncrementally).not.toHaveBeenCalled();
     expect(harness.failOwnedWithinLock).toHaveBeenCalledWith(
       "update_1",
       "user_1",
@@ -474,6 +505,8 @@ describe("RunRepositoryUpdateService", () => {
       eligible: false,
       reason: "INCOMPLETE_CHANGE_SET"
     });
+    expect(harness.selectProcessingStrategy).toHaveReturnedWith("FULL");
+    expect(harness.processIncrementally).not.toHaveBeenCalled();
     expect(harness.startScan).toHaveBeenCalledWith({
       repositoryId: "repository_1",
       userId: "user_1",
@@ -488,6 +521,24 @@ describe("RunRepositoryUpdateService", () => {
       commitSha: "commit_b"
     });
     expect(harness.failOwnedWithinLock).not.toHaveBeenCalled();
+  });
+
+  it("does not convert arbitrary incremental processor failures into full fallback", async () => {
+    const processorError = new Error("incremental processor programming failure");
+    const harness = createHarness({ incrementalProcessorError: processorError });
+
+    await expect(harness.service.runManualUpdate("repository_1", "user_1")).rejects.toBe(
+      processorError
+    );
+    expect(harness.processIncrementally).toHaveBeenCalledTimes(1);
+    expect(harness.startScan).not.toHaveBeenCalled();
+    expect(harness.run).not.toHaveBeenCalled();
+    expect(harness.generate).not.toHaveBeenCalled();
+    expect(harness.failOwnedWithinLock).toHaveBeenCalledWith(
+      "update_1",
+      "user_1",
+      "INCREMENTAL_PROCESSING_FAILED"
+    );
   });
 
   it("runs ChangeSet comparison inside the existing repository update lock", async () => {

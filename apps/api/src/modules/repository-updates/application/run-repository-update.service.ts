@@ -19,10 +19,19 @@ import type { AnalysisResult } from "../../analysis/domain/contracts/analysis-re
 import type { PersistedProjectContext } from "../../context/domain/contracts/project-context-repository.contract.js";
 import type { ScanSnapshot } from "../../scan/domain/contracts/scan-repository.contract.js";
 import type { RepositoryUpdateSnapshot } from "../domain/contracts/repository-update-repository.contract.js";
+import {
+  REPOSITORY_INCREMENTAL_PROCESSOR,
+  type RepositoryIncrementalProcessor,
+  type IncrementalProcessingResult
+} from "./contracts/repository-incremental-processor.contract.js";
+import { IncrementalProcessingUnavailableError } from "./errors/incremental-processing-unavailable.error.js";
+import { RepositoryProcessingStrategy } from "./repository-processing-strategy.js";
+import { RepositoryProcessingStrategySelector } from "./repository-processing-strategy.selector.js";
 import { RepositoryUpdateService } from "./repository-update.service.js";
 
 export type RepositoryUpdateFailureReason =
   | "CHANGESET_COMPARISON_FAILED"
+  | "INCREMENTAL_PROCESSING_FAILED"
   | "SCAN_FAILED"
   | "ANALYSIS_FAILED"
   | "CONTEXT_GENERATION_FAILED"
@@ -32,6 +41,7 @@ type RepositoryUpdateExecutionContext = {
   update: RepositoryUpdateSnapshot;
   changeSet: ChangeSet | null;
   incrementalProcessingDecision: IncrementalProcessingDecision;
+  processingStrategy: RepositoryProcessingStrategy;
 };
 
 export type RunRepositoryUpdateResult = {
@@ -56,6 +66,10 @@ export class RunRepositoryUpdateService {
     private readonly changeSetService: ChangeSetService,
     @Inject(IncrementalProcessingEligibilityService)
     private readonly incrementalProcessingEligibilityService: IncrementalProcessingEligibilityService,
+    @Inject(RepositoryProcessingStrategySelector)
+    private readonly processingStrategySelector: RepositoryProcessingStrategySelector,
+    @Inject(REPOSITORY_INCREMENTAL_PROCESSOR)
+    private readonly incrementalProcessor: RepositoryIncrementalProcessor,
     @Inject(ScanService)
     private readonly scanService: ScanService,
     @Inject(RunAnalysisService)
@@ -121,6 +135,10 @@ export class RunRepositoryUpdateService {
 
       const incrementalProcessingDecision =
         this.incrementalProcessingEligibilityService.evaluate(changeSet);
+      const processingStrategy = this.processingStrategySelector.select(
+        changeSet,
+        incrementalProcessingDecision
+      );
 
       const execution = await this.createExecutionContext({
         repositoryId,
@@ -128,28 +146,71 @@ export class RunRepositoryUpdateService {
         baseCommitSha,
         targetCommitSha,
         changeSet,
-        incrementalProcessingDecision
+        incrementalProcessingDecision,
+        processingStrategy
       });
       let update = execution.update;
       let scan: ScanSnapshot | null = null;
       let analysis: AnalysisResult | null = null;
       let context: PersistedProjectContext | null = null;
+      let incrementalProcessingFailed = false;
 
       try {
-        scan = await this.runScan(repositoryId, userId, targetCommitSha);
-        update = await this.repositoryUpdateService.recordArtifactsOwned(update.id, userId, {
-          scanId: scan.id
-        });
+        let incrementalResult: IncrementalProcessingResult | null = null;
 
-        analysis = await this.runAnalysis(userId, scan, targetCommitSha);
-        update = await this.repositoryUpdateService.recordArtifactsOwned(update.id, userId, {
-          analysisId: analysis.analysisId
-        });
+        if (execution.processingStrategy === RepositoryProcessingStrategy.INCREMENTAL) {
+          if (!baseCommitSha || !execution.changeSet) {
+            throw new Error("Incremental processing was selected without its required inputs.");
+          }
 
-        context = await this.runContextGeneration(userId, analysis, targetCommitSha);
-        update = await this.repositoryUpdateService.recordArtifactsOwned(update.id, userId, {
-          projectContextId: context.id
-        });
+          try {
+            incrementalResult = await this.incrementalProcessor.process({
+              repositoryId,
+              userId,
+              baseCommitSha,
+              targetCommitSha,
+              changeSet: execution.changeSet
+            });
+          } catch (error) {
+            if (!(error instanceof IncrementalProcessingUnavailableError)) {
+              incrementalProcessingFailed = true;
+              throw error;
+            }
+          }
+        }
+
+        if (incrementalResult) {
+          incrementalProcessingFailed = true;
+          this.assertIncrementalResultMatchesTarget(incrementalResult, targetCommitSha);
+          incrementalProcessingFailed = false;
+          scan = incrementalResult.scan;
+          update = await this.repositoryUpdateService.recordArtifactsOwned(update.id, userId, {
+            scanId: scan.id
+          });
+          analysis = incrementalResult.analysis;
+          update = await this.repositoryUpdateService.recordArtifactsOwned(update.id, userId, {
+            analysisId: analysis.analysisId
+          });
+          context = incrementalResult.projectContext;
+          update = await this.repositoryUpdateService.recordArtifactsOwned(update.id, userId, {
+            projectContextId: context.id
+          });
+        } else {
+          scan = await this.runScan(repositoryId, userId, targetCommitSha);
+          update = await this.repositoryUpdateService.recordArtifactsOwned(update.id, userId, {
+            scanId: scan.id
+          });
+
+          analysis = await this.runAnalysis(userId, scan, targetCommitSha);
+          update = await this.repositoryUpdateService.recordArtifactsOwned(update.id, userId, {
+            analysisId: analysis.analysisId
+          });
+
+          context = await this.runContextGeneration(userId, analysis, targetCommitSha);
+          update = await this.repositoryUpdateService.recordArtifactsOwned(update.id, userId, {
+            projectContextId: context.id
+          });
+        }
 
         const finalState = await this.repositoryStateService.markCurrentProjectContext({
           repositoryId,
@@ -170,7 +231,12 @@ export class RunRepositoryUpdateService {
           freshnessStatus: finalState.freshnessStatus
         };
       } catch (error) {
-        const failureReason = this.failureReasonForProgress({ scan, analysis, context });
+        const failureReason = this.failureReasonForProgress({
+          scan,
+          analysis,
+          context,
+          incrementalProcessingFailed
+        });
         await this.repositoryStateService.markRemoteHeadObserved({
           repositoryId,
           userId,
@@ -190,6 +256,7 @@ export class RunRepositoryUpdateService {
     targetCommitSha: string;
     changeSet: ChangeSet | null;
     incrementalProcessingDecision: IncrementalProcessingDecision;
+    processingStrategy: RepositoryProcessingStrategy;
   }): Promise<RepositoryUpdateExecutionContext> {
     const pendingUpdate = await this.repositoryUpdateService.createPendingUpdate({
       repositoryId: input.repositoryId,
@@ -206,7 +273,8 @@ export class RunRepositoryUpdateService {
     return {
       update,
       changeSet: input.changeSet,
-      incrementalProcessingDecision: input.incrementalProcessingDecision
+      incrementalProcessingDecision: input.incrementalProcessingDecision,
+      processingStrategy: input.processingStrategy
     };
   }
 
@@ -226,6 +294,29 @@ export class RunRepositoryUpdateService {
     }
 
     return scan;
+  }
+
+  private assertIncrementalResultMatchesTarget(
+    result: IncrementalProcessingResult,
+    targetCommitSha: string
+  ): void {
+    if (result.scan.status !== "COMPLETED" || result.scan.commitSha !== targetCommitSha) {
+      throw new BadGatewayException(
+        "Incremental repository processing did not produce the target commit scan."
+      );
+    }
+
+    if (result.analysis.commitSha !== targetCommitSha) {
+      throw new BadGatewayException(
+        "Incremental repository processing analysis did not match the target commit."
+      );
+    }
+
+    if (result.projectContext.commitSha !== targetCommitSha) {
+      throw new BadGatewayException(
+        "Incremental repository processing context did not match the target commit."
+      );
+    }
   }
 
   private async runAnalysis(
@@ -274,7 +365,12 @@ export class RunRepositoryUpdateService {
     scan: ScanSnapshot | null;
     analysis: AnalysisResult | null;
     context: PersistedProjectContext | null;
+    incrementalProcessingFailed: boolean;
   }): RepositoryUpdateFailureReason {
+    if (input.incrementalProcessingFailed) {
+      return "INCREMENTAL_PROCESSING_FAILED";
+    }
+
     if (!input.scan) {
       return "SCAN_FAILED";
     }
