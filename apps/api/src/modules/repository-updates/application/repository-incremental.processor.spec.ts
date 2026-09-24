@@ -34,6 +34,7 @@ import type {
 import type { OperationLockService } from "../../usage/operation-lock.service.js";
 import type { UsageService } from "../../usage/usage.service.js";
 import { RepositoryIncrementalProcessorService } from "./repository-incremental.processor.js";
+import { IncrementalAnalysisDecisionService } from "./incremental-analysis-decision.service.js";
 import { IncrementalFallbackReason as Reason } from "./contracts/repository-incremental-processor.contract.js";
 
 const now = new Date("2026-09-24T00:00:00Z");
@@ -216,6 +217,8 @@ async function harness(
     };
   });
   const startScan = vi.fn(async () => targetScan);
+  const incrementalAnalysisDecision = new IncrementalAnalysisDecisionService();
+  const evaluateIncrementalAnalysis = vi.spyOn(incrementalAnalysisDecision, "evaluate");
   const service = new RepositoryIncrementalProcessorService(
     repositoryStates,
     scans,
@@ -223,7 +226,8 @@ async function harness(
     reader,
     { startScan } as unknown as ScanService,
     analyzer,
-    { generate } as unknown as GenerateAndPersistProjectContextService
+    { generate } as unknown as GenerateAndPersistProjectContextService,
+    incrementalAnalysisDecision
   );
   const input = {
     repositoryId: "repo",
@@ -256,7 +260,8 @@ async function harness(
     runIncremental,
     generate,
     generator,
-    states
+    states,
+    evaluateIncrementalAnalysis
   };
 }
 
@@ -280,6 +285,9 @@ describe("RepositoryIncrementalProcessorService", () => {
       userId: "owner",
       reference: "target"
     });
+    expect(h.evaluateIncrementalAnalysis).toHaveReturnedWith(
+      expect.objectContaining({ outcome: "PROCEED", reason: "SAFE_FILE_LOCAL_REUSE" })
+    );
     expect(h.getOrInitialize).toHaveBeenCalledWith("repo", "owner");
     expect(h.baseAnalysis).toEqual(previous);
     const full = await h.pipeline.analyze({

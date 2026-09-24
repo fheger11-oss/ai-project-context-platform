@@ -28,12 +28,17 @@ import {
   type ScanRepository
 } from "../../scan/domain/contracts/scan-repository.contract.js";
 import {
+  IncrementalAnalysisDecisionOutcome,
+  IncrementalAnalysisDecisionReason
+} from "./contracts/incremental-analysis-decision.contract.js";
+import {
   IncrementalFallbackReason as Reason,
   type IncrementalProcessingInput,
   type IncrementalProcessingResult,
   type IncrementalProcessingSummary,
   type RepositoryIncrementalProcessor
 } from "./contracts/repository-incremental-processor.contract.js";
+import { IncrementalAnalysisDecisionService } from "./incremental-analysis-decision.service.js";
 
 @Injectable()
 export class RepositoryIncrementalProcessorService implements RepositoryIncrementalProcessor {
@@ -45,7 +50,9 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
     @Inject(ScanService) private readonly scanner: ScanService,
     @Inject(RunAnalysisService) private readonly analyzer: RunAnalysisService,
     @Inject(GenerateAndPersistProjectContextService)
-    private readonly contexts: GenerateAndPersistProjectContextService
+    private readonly contexts: GenerateAndPersistProjectContextService,
+    @Inject(IncrementalAnalysisDecisionService)
+    private readonly incrementalAnalysisDecision: IncrementalAnalysisDecisionService
   ) {}
 
   async process(input: IncrementalProcessingInput): Promise<IncrementalProcessingResult> {
@@ -111,6 +118,27 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
     const baseFiles = await this.files(baseScan.id);
     if (baseFiles.size !== baseScan.totalFiles)
       return this.fallback(Reason.INSUFFICIENT_REPOSITORY_CONTENT, summary);
+    const classifier = new RuleBasedFileClassifier();
+    const baseAnalyzablePaths = new Set(
+      [...baseFiles.values()]
+        .filter((file) => shouldAnalyzeSourceStructure(file, classifier.classify(file)))
+        .map((file) => file.path)
+    );
+    const analysisDecision = this.incrementalAnalysisDecision.evaluate({
+      repositoryId: input.repositoryId,
+      baseCommitSha: input.baseCommitSha,
+      targetCommitSha: input.targetCommitSha,
+      changeSet: input.changeSet,
+      baseScan,
+      baseAnalysis,
+      baseAnalysisStatus: baseAnalysisState.status,
+      baseAnalysisScanId: baseAnalysisState.scanId,
+      baseAnalysisAnalyzerVersion: baseAnalysisState.analyzerVersion,
+      baseAnalyzablePaths
+    });
+    if (analysisDecision.outcome === IncrementalAnalysisDecisionOutcome.FALLBACK_REQUIRED) {
+      return this.fallback(this.analysisFallbackReason(analysisDecision.reason), summary);
+    }
     const expectedPaths = new Set(baseFiles.keys());
     const changedPaths = new Set<string>();
     const touchedPaths = new Set<string>();
@@ -171,7 +199,6 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
     ) {
       return this.fallback(Reason.INSUFFICIENT_REPOSITORY_CONTENT, summary);
     }
-    const classifier = new RuleBasedFileClassifier();
     const baseStructures = new Map(
       baseAnalysis.sourceStructures.map((structure) => [structure.path, structure])
     );
@@ -290,6 +317,23 @@ export class RepositoryIncrementalProcessorService implements RepositoryIncremen
     // A fallback executes the canonical full parser path, so no net parser work is saved.
     summary.parsingWorkReduced = false;
     return { outcome: "FALLBACK_REQUIRED", reason, summary };
+  }
+
+  private analysisFallbackReason(reason: IncrementalAnalysisDecisionReason): Reason {
+    switch (reason) {
+      case IncrementalAnalysisDecisionReason.INCOMPLETE_CHANGE_SET:
+        return Reason.INCOMPLETE_CHANGE_SET;
+      case IncrementalAnalysisDecisionReason.UNSUPPORTED_COMPARISON:
+      case IncrementalAnalysisDecisionReason.UNSUPPORTED_CHANGE:
+      case IncrementalAnalysisDecisionReason.CONFLICTING_PATH_OPERATION:
+        return Reason.UNSUPPORTED_CHANGE;
+      case IncrementalAnalysisDecisionReason.BASE_COMMIT_MISMATCH:
+        return Reason.BASE_COMMIT_MISMATCH;
+      case IncrementalAnalysisDecisionReason.SOURCE_STRUCTURE_MISMATCH:
+        return Reason.INSUFFICIENT_REPOSITORY_CONTENT;
+      default:
+        return Reason.MISSING_BASE_ARTIFACTS;
+    }
   }
 
   private async files(scanId: string): Promise<Map<string, ScanContentFile>> {
