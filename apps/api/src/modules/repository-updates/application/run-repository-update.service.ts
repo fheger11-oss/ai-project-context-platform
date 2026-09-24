@@ -1,4 +1,4 @@
-import { BadGatewayException, Inject, Injectable } from "@nestjs/common";
+import { BadGatewayException, Inject, Injectable, Logger } from "@nestjs/common";
 
 import { RepositoryUpdateTriggerType } from "../../../generated/prisma/enums.js";
 import type { RepositoryFreshnessStatus } from "../../../generated/prisma/enums.js";
@@ -30,6 +30,10 @@ import {
   RepositoryProcessingOutcome,
   type RepositoryProcessingResult
 } from "./contracts/repository-processing-result.contract.js";
+import {
+  REPOSITORY_PROCESSING_RESULT_CONSUMER,
+  type RepositoryProcessingResultConsumer
+} from "./contracts/repository-processing-result-consumer.contract.js";
 import { RepositoryProcessingStrategy } from "./repository-processing-strategy.js";
 import { RepositoryProcessingStrategySelector } from "./repository-processing-strategy.selector.js";
 import { RepositoryUpdateService } from "./repository-update.service.js";
@@ -63,6 +67,8 @@ export type RunRepositoryUpdateResult = {
 
 @Injectable()
 export class RunRepositoryUpdateService {
+  private readonly logger = new Logger(RunRepositoryUpdateService.name);
+
   constructor(
     @Inject(RepositoryUpdateService)
     private readonly repositoryUpdateService: RepositoryUpdateService,
@@ -81,7 +87,9 @@ export class RunRepositoryUpdateService {
     @Inject(RunAnalysisService)
     private readonly runAnalysisService: RunAnalysisService,
     @Inject(GenerateAndPersistProjectContextService)
-    private readonly generateAndPersistProjectContextService: GenerateAndPersistProjectContextService
+    private readonly generateAndPersistProjectContextService: GenerateAndPersistProjectContextService,
+    @Inject(REPOSITORY_PROCESSING_RESULT_CONSUMER)
+    private readonly processingResultConsumer: RepositoryProcessingResultConsumer
   ) {}
 
   async runManualUpdate(repositoryId: string, userId: string): Promise<RunRepositoryUpdateResult> {
@@ -255,6 +263,7 @@ export class RunRepositoryUpdateService {
           commitSha: targetCommitSha
         });
         update = await this.repositoryUpdateService.completeOwnedWithinLock(update.id, userId);
+        await this.consumeProcessingResult(processingResult);
 
         return {
           noop: false,
@@ -408,6 +417,16 @@ export class RunRepositoryUpdateService {
     }
 
     return state.remoteHeadCommitSha;
+  }
+
+  private async consumeProcessingResult(result: RepositoryProcessingResult): Promise<void> {
+    try {
+      await this.processingResultConsumer.consume(result);
+    } catch (error) {
+      this.logger.warn(
+        `Repository processing result consumer failed mode=${result.mode} outcome=${result.outcome} errorName=${error instanceof Error ? error.name : "UnknownError"}`
+      );
+    }
   }
 
   private failureReasonForProgress(input: {

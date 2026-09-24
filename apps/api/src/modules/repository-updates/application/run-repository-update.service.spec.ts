@@ -30,7 +30,8 @@ import {
 } from "./contracts/repository-incremental-processor.contract.js";
 import {
   RepositoryProcessingMode,
-  RepositoryProcessingOutcome
+  RepositoryProcessingOutcome,
+  type RepositoryProcessingResult
 } from "./contracts/repository-processing-result.contract.js";
 
 const now = new Date("2026-09-23T12:00:00.000Z");
@@ -169,6 +170,7 @@ function createHarness(
     changeSetCompleteness?: ChangeSetCompleteness;
     stateUpdateError?: Error;
     ownershipError?: Error;
+    consumerError?: Error;
   } = {}
 ) {
   let lockActive = false;
@@ -337,6 +339,10 @@ function createHarness(
   const generateAndPersistProjectContextService = {
     generate
   } as unknown as GenerateAndPersistProjectContextService;
+  const consumeProcessingResult = vi.fn(async (_result: RepositoryProcessingResult) => {
+    if (options.consumerError) throw options.consumerError;
+  });
+  const processingResultConsumer = { consume: consumeProcessingResult };
 
   return {
     service: new RunRepositoryUpdateService(
@@ -348,7 +354,8 @@ function createHarness(
       incrementalProcessor,
       scanService,
       runAnalysisService,
-      generateAndPersistProjectContextService
+      generateAndPersistProjectContextService,
+      processingResultConsumer
     ),
     withRepositoryUpdateLock,
     createPendingUpdate,
@@ -367,7 +374,8 @@ function createHarness(
     isLockActive: () => lockActive,
     startScan,
     run,
-    generate
+    generate,
+    consumeProcessingResult
   };
 }
 
@@ -401,6 +409,14 @@ describe("RunRepositoryUpdateService", () => {
       throw new Error("expected an incremental processing result");
     }
     expect(result.processingResult.incrementalSummary).toEqual(incrementalSummary);
+    expect(h.consumeProcessingResult).toHaveBeenCalledTimes(1);
+    expect(h.consumeProcessingResult.mock.calls[0]![0]).toBe(result.processingResult);
+    expect(h.completeOwnedWithinLock.mock.invocationCallOrder[0]!).toBeLessThan(
+      h.consumeProcessingResult.mock.invocationCallOrder[0]!
+    );
+    expect(h.markCurrentProjectContext.mock.invocationCallOrder[0]!).toBeLessThan(
+      h.consumeProcessingResult.mock.invocationCallOrder[0]!
+    );
     expect(h.startScan).not.toHaveBeenCalled();
     expect(h.run).not.toHaveBeenCalled();
     expect(h.generate).not.toHaveBeenCalled();
@@ -448,6 +464,7 @@ describe("RunRepositoryUpdateService", () => {
       "user_1",
       "INCREMENTAL_PROCESSING_FAILED"
     );
+    expect(h.consumeProcessingResult).not.toHaveBeenCalled();
   });
 
   it("runs HEAD to scan to analysis to context and promotes the new current context", async () => {
@@ -481,6 +498,7 @@ describe("RunRepositoryUpdateService", () => {
       fallbackRequired: true,
       fallbackReason: IncrementalFallbackReason.MISSING_BASE_ARTIFACTS
     });
+    expect(harness.consumeProcessingResult.mock.calls[0]![0]).toBe(result.processingResult);
     expect(harness.withRepositoryUpdateLock).toHaveBeenCalledTimes(1);
     expect(harness.compare).toHaveBeenCalledWith({
       repositoryId: "repository_1",
@@ -539,6 +557,7 @@ describe("RunRepositoryUpdateService", () => {
       outcome: RepositoryProcessingOutcome.COMPLETED,
       targetCommitSha: "commit_b"
     });
+    expect(harness.consumeProcessingResult.mock.calls[0]![0]).toBe(result.processingResult);
 
     expect(harness.createPendingUpdate).toHaveBeenCalledWith({
       repositoryId: "repository_1",
@@ -591,6 +610,7 @@ describe("RunRepositoryUpdateService", () => {
     expect(harness.startScan).not.toHaveBeenCalled();
     expect(harness.run).not.toHaveBeenCalled();
     expect(harness.generate).not.toHaveBeenCalled();
+    expect(harness.consumeProcessingResult).not.toHaveBeenCalled();
   });
 
   it("fails before pipeline work when ChangeSet comparison fails", async () => {
@@ -620,6 +640,7 @@ describe("RunRepositoryUpdateService", () => {
     expect(harness.generate).not.toHaveBeenCalled();
     expect(harness.markCurrentProjectContext).not.toHaveBeenCalled();
     expect(harness.markRemoteHeadObserved).not.toHaveBeenCalled();
+    expect(harness.consumeProcessingResult).not.toHaveBeenCalled();
   });
 
   it("continues the full update when the ChangeSet is incomplete", async () => {
@@ -658,6 +679,7 @@ describe("RunRepositoryUpdateService", () => {
       commitSha: "commit_b"
     });
     expect(harness.failOwnedWithinLock).not.toHaveBeenCalled();
+    expect(harness.consumeProcessingResult).toHaveBeenCalledTimes(1);
   });
 
   it("does not convert arbitrary incremental processor failures into full fallback", async () => {
@@ -676,6 +698,7 @@ describe("RunRepositoryUpdateService", () => {
       "user_1",
       "INCREMENTAL_PROCESSING_FAILED"
     );
+    expect(harness.consumeProcessingResult).not.toHaveBeenCalled();
   });
 
   it("runs ChangeSet comparison inside the existing repository update lock", async () => {
@@ -715,6 +738,7 @@ describe("RunRepositoryUpdateService", () => {
       userId: "user_1",
       remoteHeadCommitSha: "commit_b"
     });
+    expect(harness.consumeProcessingResult).not.toHaveBeenCalled();
   });
 
   it("records scan provenance and fails when analysis fails", async () => {
@@ -732,6 +756,7 @@ describe("RunRepositoryUpdateService", () => {
       "ANALYSIS_FAILED"
     );
     expect(harness.markCurrentProjectContext).not.toHaveBeenCalled();
+    expect(harness.consumeProcessingResult).not.toHaveBeenCalled();
   });
 
   it("records scan and analysis provenance and fails when context generation fails", async () => {
@@ -752,6 +777,7 @@ describe("RunRepositoryUpdateService", () => {
       "CONTEXT_GENERATION_FAILED"
     );
     expect(harness.markCurrentProjectContext).not.toHaveBeenCalled();
+    expect(harness.consumeProcessingResult).not.toHaveBeenCalled();
   });
 
   it("records context provenance and fails when current-context promotion fails", async () => {
@@ -768,6 +794,26 @@ describe("RunRepositoryUpdateService", () => {
       "user_1",
       "CURRENT_CONTEXT_UPDATE_FAILED"
     );
+    expect(harness.consumeProcessingResult).not.toHaveBeenCalled();
+  });
+
+  it("keeps a completed update successful when its observational consumer fails", async () => {
+    const harness = createHarness({ consumerError: new Error("consumer failed") });
+
+    await expect(harness.service.runManualUpdate("repository_1", "user_1")).resolves.toMatchObject({
+      update: expect.objectContaining({ status: RepositoryUpdateStatus.COMPLETED }),
+      processingResult: {
+        mode: RepositoryProcessingMode.FULL,
+        outcome: RepositoryProcessingOutcome.FALLBACK_TO_FULL
+      }
+    });
+    expect(harness.consumeProcessingResult).toHaveBeenCalledTimes(1);
+    expect(harness.completeOwnedWithinLock).toHaveBeenCalledTimes(1);
+    expect(harness.markCurrentProjectContext).toHaveBeenCalledTimes(1);
+    expect(harness.failOwnedWithinLock).not.toHaveBeenCalled();
+    expect(harness.startScan).toHaveBeenCalledTimes(1);
+    expect(harness.run).toHaveBeenCalledTimes(1);
+    expect(harness.generate).toHaveBeenCalledTimes(1);
   });
 
   it("enforces ownership through the repository update lock boundary", async () => {
@@ -780,5 +826,6 @@ describe("RunRepositoryUpdateService", () => {
     );
     expect(harness.refreshRemoteHead).not.toHaveBeenCalled();
     expect(harness.createPendingUpdate).not.toHaveBeenCalled();
+    expect(harness.consumeProcessingResult).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,8 @@ import { RepositoryIncrementalProcessorService } from "./application/repository-
 import { RepositoryProcessingStrategySelector } from "./application/repository-processing-strategy.selector.js";
 import { RepositoryUpdateService } from "./application/repository-update.service.js";
 import { REPOSITORY_INCREMENTAL_PROCESSOR } from "./application/contracts/repository-incremental-processor.contract.js";
+import { REPOSITORY_PROCESSING_RESULT_CONSUMER } from "./application/contracts/repository-processing-result-consumer.contract.js";
+import { NoopRepositoryProcessingResultConsumer } from "./application/noop-repository-processing-result.consumer.js";
 import { REPOSITORY_UPDATE_REPOSITORY } from "./domain/contracts/repository-update-repository.contract.js";
 import { PrismaRepositoryUpdateRepository } from "./infrastructure/prisma-repository-update.repository.js";
 import { RepositoryUpdatesController } from "./presentation/repository-updates.controller.js";
@@ -36,6 +38,10 @@ import { RepositoryUpdatesController } from "./presentation/repository-updates.c
     {
       provide: REPOSITORY_INCREMENTAL_PROCESSOR,
       useClass: RepositoryIncrementalProcessorService
+    },
+    {
+      provide: REPOSITORY_PROCESSING_RESULT_CONSUMER,
+      useClass: NoopRepositoryProcessingResultConsumer
     },
     {
       provide: REPOSITORY_UPDATE_REPOSITORY,
