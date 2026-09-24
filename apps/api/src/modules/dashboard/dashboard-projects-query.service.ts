@@ -3,6 +3,11 @@ import type { DashboardProjectSummary, DashboardProjectsResponse } from "@ai-con
 
 import { PrismaService } from "../prisma/prisma.service.js";
 import { toRepositoryStateSummary } from "../repositories/dto/repository-state-response.dto.js";
+import {
+  deriveRepositoryFreshnessStatus,
+  hasValidCurrentContextProvenance,
+  type CurrentContextProvenance
+} from "../repositories/repository-state.service.js";
 
 type DashboardRepositoryRecord = {
   id: string;
@@ -70,6 +75,7 @@ type DashboardRepositoryRecord = {
     lastUpdateStatus: string | null;
     createdAt: Date;
     updatedAt: Date;
+    currentProjectContext: CurrentContextProvenance | null;
   } | null;
 };
 
@@ -153,7 +159,28 @@ export class DashboardProjectsQueryService {
             freshnessStatus: true,
             lastUpdateStatus: true,
             createdAt: true,
-            updatedAt: true
+            updatedAt: true,
+            currentProjectContext: {
+              select: {
+                id: true,
+                repositoryId: true,
+                commitSha: true,
+                scanId: true,
+                analysisId: true,
+                scan: {
+                  select: { id: true, repositoryId: true, commitSha: true, status: true }
+                },
+                analysis: {
+                  select: {
+                    id: true,
+                    scanId: true,
+                    repositoryId: true,
+                    commitSha: true,
+                    status: true
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -184,7 +211,21 @@ function toProjectSummary(repository: DashboardRepositoryRecord): DashboardProje
       isArchived: repository.isArchived,
       lastSyncedAt: repository.lastSyncedAt.toISOString()
     },
-    state: repository.state ? toRepositoryStateSummary(repository.state) : null,
+    state: repository.state
+      ? toRepositoryStateSummary({
+          ...repository.state,
+          freshnessStatus: deriveRepositoryFreshnessStatus({
+            remoteHeadCommitSha: repository.state.remoteHeadCommitSha,
+            currentContextCommitSha: repository.state.currentContextCommitSha,
+            remoteHeadObservationValid: repository.state.remoteHeadCheckedAt !== null,
+            currentContextProvenanceValid: hasValidCurrentContextProvenance(
+              repository.state.currentProjectContext,
+              repository.id,
+              repository.state.currentContextCommitSha
+            )
+          })
+        })
+      : null,
     latestScan: latestScan
       ? {
           id: latestScan.id,

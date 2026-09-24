@@ -32,7 +32,7 @@ function createState(overrides: Partial<RepositoryStateRecord> = {}): Repository
 }
 
 function createContext(overrides: Partial<ProjectContextRecord> = {}): ProjectContextRecord {
-  const context = {
+  const context: ProjectContextRecord = {
     id: "context_1",
     contextId: "ctxaro_context_1",
     analysisId: "analysis_1",
@@ -43,7 +43,34 @@ function createContext(overrides: Partial<ProjectContextRecord> = {}): ProjectCo
     generatedAt: now,
     snapshot: {},
     createdAt: now,
+    scan: {
+      id: "scan_1",
+      repositoryId: "repository_1",
+      commitSha: "commit-context",
+      status: "COMPLETED"
+    },
+    analysis: {
+      id: "analysis_1",
+      scanId: "scan_1",
+      repositoryId: "repository_1",
+      commitSha: "commit-context",
+      status: "COMPLETED"
+    },
     ...overrides
+  };
+
+  context.scan = {
+    ...context.scan,
+    id: context.scanId,
+    repositoryId: overrides.scan?.repositoryId ?? context.repositoryId,
+    commitSha: overrides.scan?.commitSha ?? context.commitSha
+  };
+  context.analysis = {
+    ...context.analysis,
+    id: context.analysisId,
+    scanId: overrides.analysis?.scanId ?? context.scanId,
+    repositoryId: overrides.analysis?.repositoryId ?? context.repositoryId,
+    commitSha: overrides.analysis?.commitSha ?? context.commitSha
   };
 
   return {
@@ -113,7 +140,16 @@ function createHarness(
   const scanFindFirst = vi.fn(async () => options.completedScan ?? null);
   const analysisFindFirst = vi.fn(async () => options.completedAnalysis ?? null);
   const projectContextFindFirst = vi.fn(async () => options.latestContext ?? null);
-  const projectContextFindUnique = vi.fn(async () => options.currentContext ?? null);
+  const projectContextFindUnique = vi.fn(async () => {
+    if (options.currentContext !== undefined) return options.currentContext;
+    const state = options.existingState;
+    if (!state?.currentProjectContextId || !state.currentContextCommitSha) return null;
+    return createContext({
+      id: state.currentProjectContextId,
+      repositoryId: state.repositoryId,
+      commitSha: state.currentContextCommitSha
+    });
+  });
   const repositoryContextHistoryUpsert = vi.fn(async () => undefined);
 
   const prisma = {
@@ -267,6 +303,7 @@ describe("RepositoryStateService", () => {
   it("refreshes remote HEAD using repository ownership metadata and GitHub token access", async () => {
     const { service, getAccessTokenForUser, resolveHead, update } = createHarness({
       existingState: createState({
+        currentProjectContextId: "context_1",
         currentContextCommitSha: "remote_commit_sha",
         freshnessStatus: RepositoryFreshnessStatus.UNKNOWN
       })
@@ -298,7 +335,10 @@ describe("RepositoryStateService", () => {
 
   it("marks state STALE when remote HEAD differs from current context commit", async () => {
     const { service } = createHarness({
-      existingState: createState({ currentContextCommitSha: "context_commit_sha" }),
+      existingState: createState({
+        currentProjectContextId: "context_1",
+        currentContextCommitSha: "context_commit_sha"
+      }),
       remoteHeadCommitSha: "remote_commit_sha"
     });
 
@@ -324,7 +364,10 @@ describe("RepositoryStateService", () => {
 
   it("does not fabricate UPDATE_FAILED during remote HEAD refresh", async () => {
     const { service } = createHarness({
-      existingState: createState({ currentContextCommitSha: "other_commit_sha" }),
+      existingState: createState({
+        currentProjectContextId: "context_1",
+        currentContextCommitSha: "other_commit_sha"
+      }),
       remoteHeadCommitSha: "remote_commit_sha"
     });
 
@@ -347,7 +390,7 @@ describe("RepositoryStateService", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("preserves the previous known remote HEAD and timestamp when GitHub HEAD lookup fails", async () => {
+  it("preserves the cached remote SHA but invalidates its observation timestamp when refresh fails", async () => {
     const previousCheckedAt = new Date("2026-09-22T10:00:00.000Z");
     const { service, update } = createHarness({
       existingState: createState({
@@ -364,16 +407,12 @@ describe("RepositoryStateService", () => {
     expect(update).toHaveBeenCalledWith({
       where: { repositoryId: "repository_1" },
       data: {
+        remoteHeadCheckedAt: null,
         freshnessStatus: RepositoryFreshnessStatus.UNKNOWN
       }
     });
     expect(update).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          remoteHeadCommitSha: null,
-          remoteHeadCheckedAt: expect.any(Date)
-        })
-      })
+      expect.objectContaining({ data: expect.objectContaining({ remoteHeadCommitSha: null }) })
     );
   });
 
@@ -506,7 +545,21 @@ describe("RepositoryStateService", () => {
 
     expect(getScanAccessMetadataForUser).toHaveBeenCalledWith("user_1", "repository_1");
     expect(projectContextFindUnique).toHaveBeenCalledWith({
-      where: { id: "context_1" }
+      where: { id: "context_1" },
+      include: {
+        scan: {
+          select: { id: true, repositoryId: true, commitSha: true, status: true }
+        },
+        analysis: {
+          select: {
+            id: true,
+            scanId: true,
+            repositoryId: true,
+            commitSha: true,
+            status: true
+          }
+        }
+      }
     });
     expect(context).toMatchObject({
       id: "context_1",
@@ -561,6 +614,115 @@ describe("RepositoryStateService", () => {
     );
   });
 
+  it("derives UNKNOWN instead of trusting a stored FRESH status with invalid provenance", async () => {
+    const { service } = createHarness({
+      existingState: createState({
+        remoteHeadCommitSha: "commit-context",
+        remoteHeadCheckedAt: now,
+        currentProjectContextId: "context_1",
+        currentContextCommitSha: "commit-context",
+        freshnessStatus: RepositoryFreshnessStatus.FRESH
+      }),
+      currentContext: createContext({
+        scan: {
+          id: "scan_1",
+          repositoryId: "repository_1",
+          commitSha: "wrong-commit",
+          status: "COMPLETED"
+        }
+      })
+    });
+
+    await expect(service.getOrInitialize("repository_1", "user_1")).resolves.toMatchObject({
+      freshnessStatus: RepositoryFreshnessStatus.UNKNOWN
+    });
+  });
+
+  it.each(["RUNNING", "FAILED"])(
+    "keeps a repository STALE while its latest update is %s",
+    async (lastUpdateStatus) => {
+      const { service } = createHarness({
+        existingState: createState({
+          remoteHeadCommitSha: "commit-b",
+          remoteHeadCheckedAt: now,
+          currentProjectContextId: "context_1",
+          currentContextCommitSha: "commit-a",
+          freshnessStatus: RepositoryFreshnessStatus.FRESH,
+          lastUpdateStatus
+        })
+      });
+
+      await expect(service.getOrInitialize("repository_1", "user_1")).resolves.toMatchObject({
+        currentContextCommitSha: "commit-a",
+        remoteHeadCommitSha: "commit-b",
+        freshnessStatus: RepositoryFreshnessStatus.STALE,
+        lastUpdateStatus
+      });
+    }
+  );
+
+  it("promotes only a completed matching artifact chain and preserves the observed remote HEAD", async () => {
+    const checkedAt = new Date("2026-09-22T11:00:00.000Z");
+    const { service, update, projectContextFindUnique } = createHarness({
+      existingState: createState({
+        remoteHeadCommitSha: "target-commit",
+        remoteHeadCheckedAt: checkedAt
+      }),
+      currentContext: createContext({ commitSha: "target-commit" })
+    });
+
+    const result = await service.markCurrentProjectContext({
+      repositoryId: "repository_1",
+      userId: "user_1",
+      projectContextId: "context_1",
+      commitSha: "target-commit"
+    });
+
+    expect(projectContextFindUnique).toHaveBeenCalledOnce();
+    expect(update).toHaveBeenCalledWith({
+      where: { repositoryId: "repository_1" },
+      data: {
+        lastScannedCommitSha: "target-commit",
+        lastAnalyzedCommitSha: "target-commit",
+        currentProjectContextId: "context_1",
+        currentContextCommitSha: "target-commit",
+        freshnessStatus: RepositoryFreshnessStatus.FRESH
+      }
+    });
+    expect(result).toMatchObject({
+      remoteHeadCommitSha: "target-commit",
+      remoteHeadCheckedAt: checkedAt,
+      currentContextCommitSha: "target-commit",
+      freshnessStatus: RepositoryFreshnessStatus.FRESH
+    });
+  });
+
+  it("rejects promotion when the produced artifacts do not match the target commit", async () => {
+    const { service, update } = createHarness({
+      existingState: createState({ remoteHeadCommitSha: "target-commit" }),
+      currentContext: createContext({
+        commitSha: "target-commit",
+        analysis: {
+          id: "analysis_1",
+          scanId: "scan_1",
+          repositoryId: "repository_1",
+          commitSha: "wrong-commit",
+          status: "COMPLETED"
+        }
+      })
+    });
+
+    await expect(
+      service.markCurrentProjectContext({
+        repositoryId: "repository_1",
+        userId: "user_1",
+        projectContextId: "context_1",
+        commitSha: "target-commit"
+      })
+    ).rejects.toThrow("promotion provenance does not match");
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it("backfills only repositories missing RepositoryState and never overwrites existing rows", async () => {
     const { service, repositoryFindMany, create } = createHarness({
       repositoryIdsWithoutState: ["repository_1", "repository_2"]
@@ -603,4 +765,17 @@ type ProjectContextRecord = {
   generatedAt: Date;
   snapshot: Record<string, unknown>;
   createdAt: Date;
+  scan: {
+    id: string;
+    repositoryId: string;
+    commitSha: string;
+    status: "COMPLETED" | "FAILED" | "PENDING" | "RUNNING";
+  };
+  analysis: {
+    id: string;
+    scanId: string;
+    repositoryId: string;
+    commitSha: string;
+    status: "COMPLETED" | "FAILED" | "PENDING" | "RUNNING";
+  };
 };

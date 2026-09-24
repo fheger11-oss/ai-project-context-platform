@@ -35,7 +35,6 @@ export type MarkRepositoryCurrentContextInput = {
   userId: string;
   projectContextId: string;
   commitSha: string;
-  remoteHeadCheckedAt?: Date;
 };
 
 export type MarkRepositoryRemoteHeadObservedInput = {
@@ -59,7 +58,8 @@ export class RepositoryStateService {
   async getOrInitialize(repositoryId: string, userId: string): Promise<RepositoryStateSnapshot> {
     await this.repositoriesService.getScanAccessMetadataForUser(userId, repositoryId);
 
-    return this.getOrCreateRepositoryState(repositoryId);
+    const state = await this.getOrCreateRepositoryState(repositoryId);
+    return this.withCanonicalFreshness(state);
   }
 
   async getCurrentProjectContext(
@@ -72,11 +72,12 @@ export class RepositoryStateService {
       throw new NotFoundException("Current ProjectContext was not found");
     }
 
-    const context = await this.prisma.projectContext.findUnique({
-      where: { id: state.currentProjectContextId }
-    });
+    const context = await this.findContextWithProvenance(state.currentProjectContextId);
 
-    if (!context || context.repositoryId !== repositoryId) {
+    if (
+      !context ||
+      !hasValidCurrentContextProvenance(context, repositoryId, state.currentContextCommitSha)
+    ) {
       throw new NotFoundException("Current ProjectContext was not found");
     }
 
@@ -89,6 +90,7 @@ export class RepositoryStateService {
       repositoryId
     );
     const state = await this.getOrCreateRepositoryState(repositoryId);
+    const currentContextProvenanceValid = await this.hasValidCurrentContext(state);
     const accessToken = await this.githubAccountService.getAccessTokenForUser(userId);
 
     try {
@@ -105,7 +107,9 @@ export class RepositoryStateService {
           remoteHeadCheckedAt: new Date(),
           freshnessStatus: deriveRepositoryFreshnessStatus({
             remoteHeadCommitSha: remoteHead.commitSha,
-            currentContextCommitSha: state.currentContextCommitSha
+            currentContextCommitSha: state.currentContextCommitSha,
+            currentContextProvenanceValid,
+            remoteHeadObservationValid: true
           })
         }
       });
@@ -115,6 +119,7 @@ export class RepositoryStateService {
       await this.prisma.repositoryState.update({
         where: { repositoryId },
         data: {
+          remoteHeadCheckedAt: null,
           freshnessStatus: RepositoryFreshnessStatus.UNKNOWN
         }
       });
@@ -128,6 +133,7 @@ export class RepositoryStateService {
   ): Promise<RepositoryStateSnapshot> {
     await this.repositoriesService.getScanAccessMetadataForUser(input.userId, input.repositoryId);
     const state = await this.getOrCreateRepositoryState(input.repositoryId);
+    const currentContextProvenanceValid = await this.hasValidCurrentContext(state);
     const remoteHeadCheckedAt = input.remoteHeadCheckedAt ?? new Date();
 
     const updated = await this.prisma.repositoryState.update({
@@ -137,7 +143,9 @@ export class RepositoryStateService {
         remoteHeadCheckedAt,
         freshnessStatus: deriveRepositoryFreshnessStatus({
           remoteHeadCommitSha: input.remoteHeadCommitSha,
-          currentContextCommitSha: state.currentContextCommitSha
+          currentContextCommitSha: state.currentContextCommitSha,
+          currentContextProvenanceValid,
+          remoteHeadObservationValid: true
         })
       }
     });
@@ -149,9 +157,18 @@ export class RepositoryStateService {
     input: MarkRepositoryCurrentContextInput
   ): Promise<RepositoryStateSnapshot> {
     await this.repositoriesService.getScanAccessMetadataForUser(input.userId, input.repositoryId);
-    await this.getOrCreateRepositoryState(input.repositoryId);
+    const state = await this.getOrCreateRepositoryState(input.repositoryId);
+    const context = await this.findContextWithProvenance(input.projectContextId);
+    if (
+      !context ||
+      !hasValidCurrentContextProvenance(context, input.repositoryId, input.commitSha)
+    ) {
+      throw new InvalidPersistedProjectContextError(
+        input.projectContextId,
+        "promotion provenance does not match the repository and commit."
+      );
+    }
 
-    const remoteHeadCheckedAt = input.remoteHeadCheckedAt ?? new Date();
     await this.ensureRepositoryContextHistory(
       input.repositoryId,
       input.projectContextId,
@@ -164,11 +181,11 @@ export class RepositoryStateService {
         lastAnalyzedCommitSha: input.commitSha,
         currentProjectContextId: input.projectContextId,
         currentContextCommitSha: input.commitSha,
-        remoteHeadCommitSha: input.commitSha,
-        remoteHeadCheckedAt,
         freshnessStatus: deriveRepositoryFreshnessStatus({
-          remoteHeadCommitSha: input.commitSha,
-          currentContextCommitSha: input.commitSha
+          remoteHeadCommitSha: state.remoteHeadCommitSha,
+          currentContextCommitSha: input.commitSha,
+          currentContextProvenanceValid: true,
+          remoteHeadObservationValid: state.remoteHeadCheckedAt !== null
         })
       }
     });
@@ -269,6 +286,50 @@ export class RepositoryStateService {
     });
   }
 
+  private async withCanonicalFreshness(
+    state: RepositoryStateSnapshot
+  ): Promise<RepositoryStateSnapshot> {
+    const currentContextProvenanceValid = await this.hasValidCurrentContext(state);
+    return {
+      ...state,
+      freshnessStatus: deriveRepositoryFreshnessStatus({
+        remoteHeadCommitSha: state.remoteHeadCommitSha,
+        currentContextCommitSha: state.currentContextCommitSha,
+        currentContextProvenanceValid,
+        remoteHeadObservationValid: state.remoteHeadCheckedAt !== null
+      })
+    };
+  }
+
+  private async hasValidCurrentContext(state: RepositoryStateSnapshot): Promise<boolean> {
+    if (!state.currentProjectContextId || !state.currentContextCommitSha) return false;
+    const context = await this.findContextWithProvenance(state.currentProjectContextId);
+    return Boolean(
+      context &&
+      hasValidCurrentContextProvenance(context, state.repositoryId, state.currentContextCommitSha)
+    );
+  }
+
+  private findContextWithProvenance(projectContextId: string) {
+    return this.prisma.projectContext.findUnique({
+      where: { id: projectContextId },
+      include: {
+        scan: {
+          select: { id: true, repositoryId: true, commitSha: true, status: true }
+        },
+        analysis: {
+          select: {
+            id: true,
+            scanId: true,
+            repositoryId: true,
+            commitSha: true,
+            status: true
+          }
+        }
+      }
+    });
+  }
+
   private async ensureRepositoryContextHistory(
     repositoryId: string,
     projectContextId: string,
@@ -336,14 +397,64 @@ export class RepositoryStateService {
 export function deriveRepositoryFreshnessStatus(input: {
   currentContextCommitSha: string | null;
   remoteHeadCommitSha: string | null;
+  currentContextProvenanceValid?: boolean;
+  remoteHeadObservationValid?: boolean;
 }): RepositoryFreshnessStatus {
-  if (!input.remoteHeadCommitSha || !input.currentContextCommitSha) {
+  if (
+    !input.remoteHeadCommitSha ||
+    !input.currentContextCommitSha ||
+    input.currentContextProvenanceValid === false ||
+    input.remoteHeadObservationValid === false
+  ) {
     return RepositoryFreshnessStatus.UNKNOWN;
   }
 
   return input.remoteHeadCommitSha === input.currentContextCommitSha
     ? RepositoryFreshnessStatus.FRESH
     : RepositoryFreshnessStatus.STALE;
+}
+
+export type CurrentContextProvenance = {
+  id: string;
+  repositoryId: string;
+  commitSha: string;
+  scanId: string;
+  analysisId: string;
+  scan: {
+    id: string;
+    repositoryId: string;
+    commitSha: string;
+    status: string;
+  };
+  analysis: {
+    id: string;
+    scanId: string;
+    repositoryId: string;
+    commitSha: string;
+    status: string;
+  };
+};
+
+export function hasValidCurrentContextProvenance(
+  context: CurrentContextProvenance | null,
+  repositoryId: string,
+  commitSha: string | null
+): boolean {
+  return Boolean(
+    commitSha &&
+    context &&
+    context.repositoryId === repositoryId &&
+    context.commitSha === commitSha &&
+    context.scanId === context.scan.id &&
+    context.analysisId === context.analysis.id &&
+    context.analysis.scanId === context.scan.id &&
+    context.scan.repositoryId === repositoryId &&
+    context.analysis.repositoryId === repositoryId &&
+    context.scan.commitSha === commitSha &&
+    context.analysis.commitSha === commitSha &&
+    context.scan.status === "COMPLETED" &&
+    context.analysis.status === "COMPLETED"
+  );
 }
 
 function toRepositoryStateSnapshot(state: RepositoryStateModel): RepositoryStateSnapshot {
