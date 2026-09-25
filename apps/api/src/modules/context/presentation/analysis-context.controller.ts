@@ -7,10 +7,12 @@ import {
   ApiParam,
   ApiTags
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 
 import { Auth } from "../../auth/decorators/auth.decorator.js";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
+import { EXPENSIVE_OPERATION_RATE_LIMIT } from "../../config/rate-limit.config.js";
 import { GenerateAndPersistProjectContextService } from "../application/generate-and-persist-project-context.service.js";
 import { GetAnalysisProjectContextsService } from "../application/get-analysis-project-contexts.service.js";
 // ValidationPipe needs this DTO as a runtime value.
@@ -80,6 +82,7 @@ export class AnalysisContextController {
   }
 
   @Post("generate")
+  @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
   @HttpCode(HttpStatus.CREATED)
   @ApiParam({ name: "analysisId", type: "string" })
   @ApiCreatedResponse({

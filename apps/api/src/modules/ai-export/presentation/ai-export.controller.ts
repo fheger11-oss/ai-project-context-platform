@@ -20,10 +20,12 @@ import {
   ApiQuery,
   ApiTags
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 
 import { Auth } from "../../auth/decorators/auth.decorator.js";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
+import { EXPENSIVE_OPERATION_RATE_LIMIT } from "../../config/rate-limit.config.js";
 import { ProjectContextNotFoundForAiExportError } from "../application/errors/project-context-not-found-for-ai-export.error.js";
 import { GenerateAiExportUseCase } from "../application/generate-ai-export.use-case.js";
 import { InvalidAiExportFormatError } from "../domain/errors/invalid-ai-export-format.error.js";
@@ -52,6 +54,7 @@ export class AiExportController {
   ) {}
 
   @Get(":contextId/export")
+  @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
   @Header("Cache-Control", "private, no-store")
   @ApiParam({ name: "contextId", type: "string" })
   @ApiQuery({ name: "format", enum: ["AI_CONTEXT", "MARKDOWN", "TEXT"], required: true })

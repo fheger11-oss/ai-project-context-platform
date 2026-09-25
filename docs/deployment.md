@@ -70,33 +70,36 @@ Frontend API base URL
 
 ### Environment Variables
 
-| Variable                        | Service                   | Required | Purpose                                                                                      | Safe placeholder                                     |
-| ------------------------------- | ------------------------- | -------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `VITE_API_URL`                  | Vercel/Web                | Yes      | HTTPS API base URL used by the Vite bundle. Must include `/api/v1`.                          | `https://api.ctxaro.com/api/v1`                      |
-| `APP_ENV`                       | Railway/API               | Yes      | Production environment mode. Must match `NODE_ENV=production` in production.                 | `production`                                         |
-| `NODE_ENV`                      | Railway/API               | Yes      | Node production mode. Disables Swagger when production.                                      | `production`                                         |
-| `API_HOST`                      | Railway/API               | Yes      | Bind host for NestJS.                                                                        | `0.0.0.0`                                            |
-| `PORT`                          | Railway/API               | Yes      | Platform-provided bind port on Railway. The API maps this to `API_PORT` when unset.          | Railway-provided                                     |
-| `API_PORT`                      | Railway/API               | No       | Explicit API port override for non-Railway or diagnostic runs.                               | `3000`                                               |
-| `API_TRUST_PROXY`               | Railway/API               | Yes      | Enables trusted proxy IP handling behind Railway.                                            | `true`                                               |
-| `API_PREFIX`                    | Railway/API               | No       | API route prefix.                                                                            | `api`                                                |
-| `API_VERSION`                   | Railway/API               | No       | URI version segment.                                                                         | `1`                                                  |
-| `SWAGGER_PATH`                  | Railway/API               | No       | Swagger path outside production. Ignored in production because Swagger is disabled.          | `docs`                                               |
-| `CORS_ORIGINS`                  | Railway/API               | Yes      | Comma-separated allowed frontend HTTPS origins. Must include the production frontend origin. | `https://ctxaro.com`                                 |
-| `DATABASE_URL`                  | Railway/API, Prisma       | Yes      | Supabase PostgreSQL connection string read by Prisma.                                        | `<supabase-postgresql-url>`                          |
-| `JWT_ACCESS_SECRET`             | Railway/API               | Yes      | Access-token signing secret. Must differ from refresh secret.                                | `<generate-access-secret>`                           |
-| `JWT_REFRESH_SECRET`            | Railway/API               | Yes      | Refresh-token signing secret. Must differ from access secret.                                | `<generate-refresh-secret>`                          |
-| `JWT_ACCESS_TOKEN_TTL_SECONDS`  | Railway/API               | No       | Access-token lifetime.                                                                       | `7200`                                               |
-| `JWT_REFRESH_TOKEN_TTL_SECONDS` | Railway/API               | No       | Refresh-token lifetime.                                                                      | `2592000`                                            |
-| `GITHUB_CLIENT_ID`              | Railway/API               | Yes      | Production GitHub OAuth app client ID.                                                       | `<github-oauth-client-id>`                           |
-| `GITHUB_CLIENT_SECRET`          | Railway/API               | Yes      | Production GitHub OAuth app client secret.                                                   | `<github-oauth-client-secret>`                       |
-| `GITHUB_CALLBACK_URL`           | Railway/API, GitHub OAuth | Yes      | API callback URL registered with GitHub.                                                     | `https://api.ctxaro.com/api/v1/auth/github/callback` |
-| `WEB_AUTH_CALLBACK_URL`         | Railway/API, Vercel/Web   | Yes      | Frontend callback route receiving API-issued tokens.                                         | `https://ctxaro.com/auth/callback`                   |
-| `PROVIDER_TOKEN_ENCRYPTION_KEY` | Railway/API               | Yes      | Server-side encryption key for GitHub provider tokens.                                       | `<generate-encryption-key>`                          |
-| `RATE_LIMIT_GLOBAL_TTL_SECONDS` | Railway/API               | No       | Global in-memory throttle window.                                                            | `60`                                                 |
-| `RATE_LIMIT_GLOBAL_MAX`         | Railway/API               | No       | Global in-memory throttle max requests/window.                                               | `300`                                                |
-| `RATE_LIMIT_AUTH_TTL_SECONDS`   | Railway/API               | No       | Auth endpoint throttle window.                                                               | `60`                                                 |
-| `RATE_LIMIT_AUTH_MAX`           | Railway/API               | No       | Auth endpoint throttle max requests/window.                                                  | `10`                                                 |
+| Variable                           | Service                   | Required | Purpose                                                                                      | Safe placeholder                                     |
+| ---------------------------------- | ------------------------- | -------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `VITE_API_URL`                     | Vercel/Web                | Yes      | HTTPS API base URL used by the Vite bundle. Must include `/api/v1`.                          | `https://api.ctxaro.com/api/v1`                      |
+| `APP_ENV`                          | Railway/API               | Yes      | Production environment mode. Must match `NODE_ENV=production` in production.                 | `production`                                         |
+| `NODE_ENV`                         | Railway/API               | Yes      | Node production mode. Disables Swagger when production.                                      | `production`                                         |
+| `API_HOST`                         | Railway/API               | Yes      | Bind host for NestJS.                                                                        | `0.0.0.0`                                            |
+| `PORT`                             | Railway/API               | Yes      | Platform-provided bind port on Railway. The API maps this to `API_PORT` when unset.          | Railway-provided                                     |
+| `API_PORT`                         | Railway/API               | No       | Explicit API port override for non-Railway or diagnostic runs.                               | `3000`                                               |
+| `API_TRUST_PROXY`                  | Railway/API               | Yes      | Enables trusted proxy IP handling behind Railway.                                            | `true`                                               |
+| `API_PREFIX`                       | Railway/API               | No       | API route prefix.                                                                            | `api`                                                |
+| `API_VERSION`                      | Railway/API               | No       | URI version segment.                                                                         | `1`                                                  |
+| `SWAGGER_PATH`                     | Railway/API               | No       | Swagger path outside production. Ignored in production because Swagger is disabled.          | `docs`                                               |
+| `CORS_ORIGINS`                     | Railway/API               | Yes      | Comma-separated allowed frontend HTTPS origins. Must include the production frontend origin. | `https://ctxaro.com`                                 |
+| `REQUEST_BODY_LIMIT_BYTES`         | Railway/API               | No       | Maximum JSON or URL-encoded request body size.                                               | `32768`                                              |
+| `DATABASE_URL`                     | Railway/API, Prisma       | Yes      | Supabase PostgreSQL connection string read by Prisma.                                        | `<supabase-postgresql-url>`                          |
+| `JWT_ACCESS_SECRET`                | Railway/API               | Yes      | Access-token signing secret. Must differ from refresh secret.                                | `<generate-access-secret>`                           |
+| `JWT_REFRESH_SECRET`               | Railway/API               | Yes      | Refresh-token signing secret. Must differ from access secret.                                | `<generate-refresh-secret>`                          |
+| `JWT_ACCESS_TOKEN_TTL_SECONDS`     | Railway/API               | No       | Access-token lifetime.                                                                       | `7200`                                               |
+| `JWT_REFRESH_TOKEN_TTL_SECONDS`    | Railway/API               | No       | Refresh-token lifetime.                                                                      | `2592000`                                            |
+| `GITHUB_CLIENT_ID`                 | Railway/API               | Yes      | Production GitHub OAuth app client ID.                                                       | `<github-oauth-client-id>`                           |
+| `GITHUB_CLIENT_SECRET`             | Railway/API               | Yes      | Production GitHub OAuth app client secret.                                                   | `<github-oauth-client-secret>`                       |
+| `GITHUB_CALLBACK_URL`              | Railway/API, GitHub OAuth | Yes      | API callback URL registered with GitHub.                                                     | `https://api.ctxaro.com/api/v1/auth/github/callback` |
+| `WEB_AUTH_CALLBACK_URL`            | Railway/API, Vercel/Web   | Yes      | Frontend callback route receiving API-issued tokens.                                         | `https://ctxaro.com/auth/callback`                   |
+| `PROVIDER_TOKEN_ENCRYPTION_KEY`    | Railway/API               | Yes      | Server-side encryption key for GitHub provider tokens.                                       | `<generate-encryption-key>`                          |
+| `RATE_LIMIT_GLOBAL_TTL_SECONDS`    | Railway/API               | No       | Global in-memory throttle window.                                                            | `60`                                                 |
+| `RATE_LIMIT_GLOBAL_MAX`            | Railway/API               | No       | Global in-memory throttle max requests/window.                                               | `300`                                                |
+| `RATE_LIMIT_AUTH_TTL_SECONDS`      | Railway/API               | No       | Auth endpoint throttle window.                                                               | `60`                                                 |
+| `RATE_LIMIT_AUTH_MAX`              | Railway/API               | No       | Auth endpoint throttle max requests/window.                                                  | `10`                                                 |
+| `RATE_LIMIT_EXPENSIVE_TTL_SECONDS` | Railway/API               | No       | Expensive synchronous operation throttle window.                                             | `60`                                                 |
+| `RATE_LIMIT_EXPENSIVE_MAX`         | Railway/API               | No       | Expensive synchronous operation max requests/window.                                         | `5`                                                  |
 
 Values that must align:
 
@@ -110,6 +113,9 @@ Keep it explicit when the deployment needs a different conditional stale-update 
 - Railway `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `PROVIDER_TOKEN_ENCRYPTION_KEY` must be generated secrets and must never be exposed to Vercel.
 
 Set `API_TRUST_PROXY=true` only when the API runs behind Railway's trusted proxy/load balancer.
+The proxy must remove client-supplied forwarding headers and provide the authoritative client IP;
+otherwise IP-based throttling and session metadata can be spoofed. Leave proxy trust disabled for
+direct deployments.
 Production CORS must use explicit HTTPS origins; do not use `CORS_ORIGINS=*`.
 
 ## Build
@@ -168,9 +174,17 @@ The API uses:
 - production-safe CORS validation
 - global rate limiting
 - stricter auth rate limiting
+- a stricter rate limit for GitHub listing, repository connection/sync/update, scan, analysis,
+  context/document generation, and export generation
+- a 32 KiB default limit for JSON and URL-encoded request bodies
 - graceful shutdown hooks
 - `GET /api/health`
 - disabled Swagger when `APP_ENV=production` and `NODE_ENV=production`
+
+Rate limiting uses process-local memory. It protects one API process only, resets on restart, and
+is not a distributed quota. Multiple API replicas require an infrastructure-level shared limiter
+or gateway in a later deployment phase. Infrastructure must also provide volumetric DDoS
+protection; the application limiter is not a WAF.
 
 Health URL with default prefix/version settings:
 

@@ -10,10 +10,12 @@ import {
   Query
 } from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 
 import { Auth } from "../../auth/decorators/auth.decorator.js";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
+import { EXPENSIVE_OPERATION_RATE_LIMIT } from "../../config/rate-limit.config.js";
 // ValidationPipe needs this DTO as a runtime value.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { RepositoryParamsDto } from "../../repositories/dto/repository-params.dto.js";
@@ -94,6 +96,7 @@ export class RepositoryUpdatesController {
   }
 
   @Post()
+  @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: RepositoryUpdateResponseDto })
   async runManualUpdate(

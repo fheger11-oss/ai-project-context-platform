@@ -10,10 +10,12 @@ import {
   Post
 } from "@nestjs/common";
 import { ApiCreatedResponse, ApiOkResponse, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 
 import { Auth } from "../auth/decorators/auth.decorator.js";
 import { CurrentUser } from "../auth/decorators/current-user.decorator.js";
 import type { AuthenticatedUser } from "../auth/types/authenticated-user.js";
+import { EXPENSIVE_OPERATION_RATE_LIMIT } from "../config/rate-limit.config.js";
 import { AvailableGitHubRepositoryListResponseDto } from "./dto/available-github-repository-response.dto.js";
 // Swagger and ValidationPipe need these DTOs as runtime values.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
@@ -50,6 +52,7 @@ export class RepositoriesController {
   ) {}
 
   @Get("github/list")
+  @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: AvailableGitHubRepositoryListResponseDto })
   async listAvailableGitHubRepositories(@CurrentUser() user: AuthenticatedUser) {
@@ -59,6 +62,7 @@ export class RepositoriesController {
   }
 
   @Post("connect")
+  @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
   @ApiCreatedResponse({ type: RepositoryResponseDto })
   connect(@CurrentUser() user: AuthenticatedUser, @Body() dto: ConnectRepositoryDto) {
     return this.repositoriesService.connect(user, dto.githubId);
@@ -84,6 +88,7 @@ export class RepositoriesController {
   }
 
   @Post(":id/state/refresh")
+  @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: RepositoryStateResponseDto })
   async refreshState(
@@ -119,6 +124,7 @@ export class RepositoriesController {
   }
 
   @Post(":id/sync")
+  @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: RepositoryResponseDto })
   sync(@CurrentUser() user: AuthenticatedUser, @Param() params: RepositoryParamsDto) {

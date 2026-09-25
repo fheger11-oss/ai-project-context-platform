@@ -16,6 +16,9 @@ const productionEnvironment = {
   RATE_LIMIT_GLOBAL_MAX: "300",
   RATE_LIMIT_AUTH_TTL_SECONDS: "60",
   RATE_LIMIT_AUTH_MAX: "10",
+  RATE_LIMIT_EXPENSIVE_TTL_SECONDS: "60",
+  RATE_LIMIT_EXPENSIVE_MAX: "5",
+  REQUEST_BODY_LIMIT_BYTES: "32768",
   DATABASE_URL: "postgresql://user:password@db.example.com:5432/app",
   JWT_ACCESS_SECRET: "production-access-secret-at-least-32-characters",
   JWT_REFRESH_SECRET: "production-refresh-secret-at-least-32-characters",
@@ -37,9 +40,12 @@ describe("validateEnvironment", () => {
       NODE_ENV: "production",
       RATE_LIMIT_AUTH_MAX: 10,
       RATE_LIMIT_AUTH_TTL_SECONDS: 60,
+      RATE_LIMIT_EXPENSIVE_MAX: 5,
+      RATE_LIMIT_EXPENSIVE_TTL_SECONDS: 60,
       RATE_LIMIT_GLOBAL_MAX: 300,
       RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
       REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600,
+      REQUEST_BODY_LIMIT_BYTES: 32_768,
       GITHUB_CALLBACK_URL: "https://api.ctxaro.com/api/v1/auth/github/callback",
       WEB_AUTH_CALLBACK_URL: "https://ctxaro.com/auth/callback"
     });
@@ -96,10 +102,22 @@ describe("validateEnvironment", () => {
       API_TRUST_PROXY: false,
       RATE_LIMIT_AUTH_MAX: 10,
       RATE_LIMIT_AUTH_TTL_SECONDS: 60,
+      RATE_LIMIT_EXPENSIVE_MAX: 5,
+      RATE_LIMIT_EXPENSIVE_TTL_SECONDS: 60,
       RATE_LIMIT_GLOBAL_MAX: 300,
       RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
-      REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600
+      REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600,
+      REQUEST_BODY_LIMIT_BYTES: 32_768
     });
+  });
+
+  it("rejects request body limits above the supported application ceiling", () => {
+    expect(() =>
+      validateEnvironment({
+        ...productionEnvironment,
+        REQUEST_BODY_LIMIT_BYTES: "1048577"
+      })
+    ).toThrow(/REQUEST_BODY_LIMIT_BYTES/);
   });
 
   it("rejects wildcard CORS in production", () => {

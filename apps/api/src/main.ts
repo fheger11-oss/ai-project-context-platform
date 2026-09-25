@@ -3,14 +3,16 @@ import "reflect-metadata";
 import { Logger, ValidationPipe, VersioningType } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import helmet from "helmet";
 
 import { AppModule } from "./modules/app/app.module.js";
 import { AppConfigService } from "./modules/config/app-config.service.js";
 import { GlobalExceptionFilter } from "./shared/filters/global-exception.filter.js";
+import { createRequestBodyParsers } from "./shared/http/request-body-parsers.js";
+import { createSecurityHeadersMiddleware } from "./shared/http/security-headers.js";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
+    bodyParser: false,
     bufferLogs: true
   });
 
@@ -18,8 +20,9 @@ async function bootstrap() {
   const config = app.get(AppConfigService);
 
   app.useLogger(["error", "warn", "log", "debug", "verbose"]);
+  app.use(...createRequestBodyParsers(config.requestBodyLimitBytes));
   app.getHttpAdapter().getInstance().set("trust proxy", config.trustProxy);
-  app.use(helmet());
+  app.use(createSecurityHeadersMiddleware());
   app.enableCors({
     origin: config.corsOrigins,
     credentials: true

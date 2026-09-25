@@ -97,6 +97,10 @@ export class AppConfigService {
     return origins.split(",").map((origin) => origin.trim());
   }
 
+  get requestBodyLimitBytes() {
+    return this.config.get("REQUEST_BODY_LIMIT_BYTES", { infer: true });
+  }
+
   get rateLimitGlobalTtlMilliseconds() {
     return this.config.get("RATE_LIMIT_GLOBAL_TTL_SECONDS", { infer: true }) * 1000;
   }
