@@ -18,6 +18,7 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { StatePanel } from "@/components/shared/state-panel";
+import { ErrorNotice } from "@/components/shared/error-notice";
 import { StatusDot } from "@/components/shared/status-dot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ import { ScanHistory } from "@/features/scans/components/scan-history";
 import { limitReasonLabel } from "@/features/scans/utils/scan-usage";
 import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
 import { analytics } from "@/lib/analytics";
+import { userFacingError } from "@/lib/api-error";
 import { productPipelineStages, type ProductPipelineStageKey } from "@/lib/product-pipeline";
 import type {
   DashboardProjectSummary,
@@ -303,9 +305,9 @@ export function RepositoryDetailsView() {
             projectSummary={projectSummary}
             isRefreshing={refreshStateMutation.isPending}
             isUpdating={repositoryUpdateMutation.isPending}
-            refreshError={refreshStateMutation.isError}
+            refreshError={refreshStateMutation.error}
             refreshSucceeded={refreshStateMutation.isSuccess}
-            updateError={repositoryUpdateMutation.isError}
+            updateError={repositoryUpdateMutation.error}
             updateResult={repositoryUpdateMutation.data ?? null}
             onRefresh={() => refreshStateMutation.mutate()}
             onUpdate={() => repositoryUpdateMutation.mutate()}
@@ -814,9 +816,9 @@ function CurrentState({
   onRefresh: () => void;
   onUpdate: () => void;
   projectSummary: DashboardProjectSummary | null;
-  refreshError: boolean;
+  refreshError: unknown;
   refreshSucceeded: boolean;
-  updateError: boolean;
+  updateError: unknown;
   updateResult: RepositoryUpdateResponse | null;
   repository: RepositorySummary;
 }) {
@@ -920,15 +922,9 @@ function CurrentState({
                   : "Repository context updated."}
               </p>
             ) : null}
-            {refreshError ? (
-              <p className="text-xs text-destructive" role="alert">
-                Freshness refresh failed.
-              </p>
-            ) : null}
+            {refreshError ? <ErrorNotice error={userFacingError(refreshError)} /> : null}
             {updateError ? (
-              <p className="text-xs text-destructive" role="alert">
-                Repository update failed.
-              </p>
+              <ErrorNotice error={userFacingError(updateError, "repositoryUpdate")} />
             ) : null}
           </div>
         </div>

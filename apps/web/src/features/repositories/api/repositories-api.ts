@@ -11,6 +11,7 @@ import type {
 } from "@ai-context/contracts";
 
 import { authenticatedFetch } from "@/lib/authenticated-fetch";
+import { ApiRequestError, apiRequestErrorFromResponse } from "@/lib/api-error";
 
 type RequestOptions = {
   accessToken: string;
@@ -18,14 +19,7 @@ type RequestOptions = {
   method?: "DELETE" | "GET" | "POST";
 };
 
-export class ApiRequestError extends Error {
-  constructor(
-    message: string,
-    readonly status: number
-  ) {
-    super(message);
-  }
-}
+export { ApiRequestError };
 
 async function request<T>(path: string, options: RequestOptions): Promise<T> {
   const init: RequestInit = {
@@ -43,9 +37,7 @@ async function request<T>(path: string, options: RequestOptions): Promise<T> {
   const response = await authenticatedFetch(path, init);
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-
-    throw new ApiRequestError(payload?.message ?? "Request failed", response.status);
+    throw await apiRequestErrorFromResponse(response, "Request failed");
   }
 
   if (response.status === 204) {

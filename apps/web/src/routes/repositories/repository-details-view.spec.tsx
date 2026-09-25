@@ -15,6 +15,7 @@ import {
   getCurrentRepositoryUpdate,
   getRepository,
   getRepositoryUpdateHistory,
+  ApiRequestError,
   refreshRepositoryState,
   runRepositoryUpdate
 } from "@/features/repositories/api/repositories-api";
@@ -49,6 +50,7 @@ let dashboardQuery: QueryResult = {};
 let updateHistoryQuery: QueryResult = {};
 let currentUpdateQuery: QueryResult = {};
 const mutationOptions: MutationOptions[] = [];
+const mutationErrors: Array<unknown> = [];
 const invalidateQueries = vi.fn();
 
 const repository: RepositorySummary = {
@@ -176,10 +178,12 @@ function dashboardResponse(projects: DashboardProjectSummary[]): DashboardProjec
 
 vi.mock("@tanstack/react-query", () => ({
   useMutation: (options: MutationOptions) => {
+    const error = mutationErrors[mutationOptions.length];
     mutationOptions.push(options);
 
     return {
-      isError: false,
+      error,
+      isError: Boolean(error),
       isPending: false,
       isSuccess: false,
       mutate: vi.fn()
@@ -345,6 +349,7 @@ describe("RepositoryDetailsView", () => {
       } satisfies RepositoryCurrentUpdateResponse
     };
     mutationOptions.length = 0;
+    mutationErrors.length = 0;
     invalidateQueries.mockClear();
     vi.mocked(getCurrentRepositoryUpdate).mockReset();
     vi.mocked(getRepository).mockReset();
@@ -681,5 +686,27 @@ describe("RepositoryDetailsView", () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["repositories", "repository_1", "updates"]
     });
+  });
+
+  it("shows the structured monthly analysis quota reason for a failed repository update", () => {
+    mutationErrors[2] = new ApiRequestError("You have reached your monthly analysis limit.", 429, {
+      statusCode: 429,
+      error: "Quota Exceeded",
+      message: "You have reached your monthly analysis limit.",
+      quota: {
+        resource: "analyses",
+        limit: 3,
+        currentUsage: 3,
+        resetAt: "2026-10-01T00:00:00.000Z"
+      }
+    });
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Monthly analysis limit reached");
+    expect(markup).toContain("Your allowance will reset on October 1.");
+    expect(markup).not.toContain("Repository update failed.");
+    expect(markup).toContain("Update repository");
+    expect(markup).not.toContain("Updating");
   });
 });
