@@ -1,12 +1,13 @@
 import "reflect-metadata";
 
-import { Logger, ValidationPipe, VersioningType } from "@nestjs/common";
+import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 
 import { AppModule } from "./modules/app/app.module.js";
 import { AppConfigService } from "./modules/config/app-config.service.js";
 import { GlobalExceptionFilter } from "./shared/filters/global-exception.filter.js";
+import { configureApiRouting, githubWebhookPath } from "./shared/http/api-routing.js";
 import {
   createRequestBodyParsers,
   createWebhookRawBodyParser
@@ -23,8 +24,9 @@ async function bootstrap() {
   const config = app.get(AppConfigService);
 
   app.useLogger(["error", "warn", "log", "debug", "verbose"]);
+  configureApiRouting(app, config);
   app.use(
-    `/${config.apiPrefix}/v${config.apiVersion}/webhooks/github`,
+    githubWebhookPath(config),
     createWebhookRawBodyParser(config.githubWebhookBodyLimitBytes)
   );
   app.use(...createRequestBodyParsers(config.requestBodyLimitBytes));
@@ -35,11 +37,6 @@ async function bootstrap() {
     credentials: true
   });
   app.enableShutdownHooks();
-  app.setGlobalPrefix(config.apiPrefix);
-  app.enableVersioning({
-    type: VersioningType.URI,
-    defaultVersion: config.apiVersion
-  });
   app.useGlobalPipes(
     new ValidationPipe({
       forbidNonWhitelisted: true,
