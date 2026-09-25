@@ -24,6 +24,7 @@ import type { RepositoryUpdateSnapshot } from "../domain/contracts/repository-up
 import type { RepositoryUpdateService } from "./repository-update.service.js";
 import type { RepositoryUpdateFinalizationService } from "./repository-update-finalization.service.js";
 import { RunRepositoryUpdateService } from "./run-repository-update.service.js";
+import { RepositoryUpdateTargetSupersededError } from "./errors/repository-update-target-superseded.error.js";
 import { RepositoryProcessingStrategySelector } from "./repository-processing-strategy.selector.js";
 import {
   IncrementalFallbackReason,
@@ -393,6 +394,31 @@ function createHarness(
 }
 
 describe("RunRepositoryUpdateService", () => {
+  it("records webhook-triggered updates through the existing lifecycle", async () => {
+    const h = createHarness({
+      initialState: createState(),
+      refreshedState: createState({ remoteHeadCommitSha: "commit_b" })
+    });
+
+    await h.service.runWebhookUpdate("repository_1", "user_1", "commit_b");
+
+    expect(h.withRepositoryUpdateLock).toHaveBeenCalledTimes(1);
+    expect(h.createPendingUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ triggerType: RepositoryUpdateTriggerType.WEBHOOK })
+    );
+  });
+
+  it("rejects a superseded webhook target before comparison or processing", async () => {
+    const h = createHarness();
+
+    await expect(
+      h.service.runWebhookUpdate("repository_1", "user_1", "older_commit")
+    ).rejects.toBeInstanceOf(RepositoryUpdateTargetSupersededError);
+    expect(h.compare).not.toHaveBeenCalled();
+    expect(h.createPendingUpdate).not.toHaveBeenCalled();
+    expect(h.startScan).not.toHaveBeenCalled();
+  });
+
   it("promotes completed incremental artifacts without executing full processing", async () => {
     const h = createHarness();
     h.processIncrementally.mockImplementation(async () => {

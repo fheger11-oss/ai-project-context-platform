@@ -15,6 +15,7 @@ import { RepositoryProcessingStrategySelector } from "./application/repository-p
 import { RepositoryUpdateService } from "./application/repository-update.service.js";
 import { RepositoryUpdateFinalizationService } from "./application/repository-update-finalization.service.js";
 import { RepositoryUpdateRecoveryService } from "./application/repository-update-recovery.service.js";
+import { RepositoryChangeTriggerService } from "./application/repository-change-trigger.service.js";
 import { REPOSITORY_INCREMENTAL_PROCESSOR } from "./application/contracts/repository-incremental-processor.contract.js";
 import { REPOSITORY_PROCESSING_RESULT_CONSUMER } from "./application/contracts/repository-processing-result-consumer.contract.js";
 import { LoggingRepositoryProcessingResultConsumer } from "./application/logging-repository-processing-result.consumer.js";
@@ -24,7 +25,9 @@ import { RepositoryProcessingObservationMapper } from "./application/repository-
 import { IncrementalAnalysisDecisionService } from "./application/incremental-analysis-decision.service.js";
 import { IncrementalAnalysisExecutionService } from "./application/incremental-analysis-execution.service.js";
 import { REPOSITORY_UPDATE_REPOSITORY } from "./domain/contracts/repository-update-repository.contract.js";
+import { REPOSITORY_CHANGE_TRIGGER_REPOSITORY } from "./domain/contracts/repository-change-trigger-repository.contract.js";
 import { PrismaRepositoryUpdateRepository } from "./infrastructure/prisma-repository-update.repository.js";
+import { PrismaRepositoryChangeTriggerRepository } from "./infrastructure/prisma-repository-change-trigger.repository.js";
 import { RepositoryUpdatesController } from "./presentation/repository-updates.controller.js";
 
 @Module({
@@ -49,6 +52,7 @@ import { RepositoryUpdatesController } from "./presentation/repository-updates.c
     RepositoryUpdateService,
     RepositoryUpdateFinalizationService,
     RepositoryUpdateRecoveryService,
+    RepositoryChangeTriggerService,
     {
       provide: REPOSITORY_INCREMENTAL_PROCESSOR,
       useClass: RepositoryIncrementalProcessorService
@@ -64,12 +68,17 @@ import { RepositoryUpdatesController } from "./presentation/repository-updates.c
     {
       provide: REPOSITORY_UPDATE_REPOSITORY,
       useClass: PrismaRepositoryUpdateRepository
+    },
+    {
+      provide: REPOSITORY_CHANGE_TRIGGER_REPOSITORY,
+      useClass: PrismaRepositoryChangeTriggerRepository
     }
   ],
   exports: [
     RunRepositoryUpdateService,
     RepositoryUpdateService,
     RepositoryUpdateRecoveryService,
+    RepositoryChangeTriggerService,
     REPOSITORY_UPDATE_REPOSITORY
   ]
 })

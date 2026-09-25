@@ -38,6 +38,7 @@ import { RepositoryProcessingStrategy } from "./repository-processing-strategy.j
 import { RepositoryProcessingStrategySelector } from "./repository-processing-strategy.selector.js";
 import { RepositoryUpdateFinalizationService } from "./repository-update-finalization.service.js";
 import { RepositoryUpdateService } from "./repository-update.service.js";
+import { RepositoryUpdateTargetSupersededError } from "./errors/repository-update-target-superseded.error.js";
 
 export type RepositoryUpdateFailureReason =
   | "CHANGESET_COMPARISON_FAILED"
@@ -94,6 +95,28 @@ export class RunRepositoryUpdateService {
   ) {}
 
   async runManualUpdate(repositoryId: string, userId: string): Promise<RunRepositoryUpdateResult> {
+    return this.runUpdate(repositoryId, userId, RepositoryUpdateTriggerType.MANUAL);
+  }
+
+  async runWebhookUpdate(
+    repositoryId: string,
+    userId: string,
+    expectedTargetCommitSha: string
+  ): Promise<RunRepositoryUpdateResult> {
+    return this.runUpdate(
+      repositoryId,
+      userId,
+      RepositoryUpdateTriggerType.WEBHOOK,
+      expectedTargetCommitSha
+    );
+  }
+
+  private async runUpdate(
+    repositoryId: string,
+    userId: string,
+    triggerType: RepositoryUpdateTriggerType,
+    expectedTargetCommitSha?: string
+  ): Promise<RunRepositoryUpdateResult> {
     return this.repositoryUpdateService.withRepositoryUpdateLock(repositoryId, userId, async () => {
       const initialState = await this.repositoryStateService.getOrInitialize(repositoryId, userId);
       const refreshedState = await this.repositoryStateService.refreshRemoteHead(
@@ -102,6 +125,13 @@ export class RunRepositoryUpdateService {
       );
       const targetCommitSha = this.requireRemoteHead(refreshedState);
       const baseCommitSha = initialState.currentContextCommitSha;
+
+      if (
+        expectedTargetCommitSha &&
+        targetCommitSha.toLowerCase() !== expectedTargetCommitSha.toLowerCase()
+      ) {
+        throw new RepositoryUpdateTargetSupersededError();
+      }
 
       if (targetCommitSha === baseCommitSha) {
         return {
@@ -131,7 +161,7 @@ export class RunRepositoryUpdateService {
           const pendingUpdate = await this.repositoryUpdateService.createPendingUpdate({
             repositoryId,
             userId,
-            triggerType: RepositoryUpdateTriggerType.MANUAL,
+            triggerType,
             baseCommitSha,
             targetCommitSha
           });
@@ -163,7 +193,8 @@ export class RunRepositoryUpdateService {
         targetCommitSha,
         changeSet,
         incrementalProcessingDecision,
-        processingStrategy
+        processingStrategy,
+        triggerType
       });
       let update = execution.update;
       let scan: ScanSnapshot | null = null;
@@ -305,11 +336,12 @@ export class RunRepositoryUpdateService {
     changeSet: ChangeSet | null;
     incrementalProcessingDecision: IncrementalProcessingDecision;
     processingStrategy: RepositoryProcessingStrategy;
+    triggerType: RepositoryUpdateTriggerType;
   }): Promise<RepositoryUpdateExecutionContext> {
     const pendingUpdate = await this.repositoryUpdateService.createPendingUpdate({
       repositoryId: input.repositoryId,
       userId: input.userId,
-      triggerType: RepositoryUpdateTriggerType.MANUAL,
+      triggerType: input.triggerType,
       baseCommitSha: input.baseCommitSha,
       targetCommitSha: input.targetCommitSha
     });
