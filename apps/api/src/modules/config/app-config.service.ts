@@ -139,6 +139,10 @@ export class AppConfigService {
     return this.config.get("RATE_LIMIT_AUTH_MAX", { infer: true });
   }
 
+  get analysisMonthlyLimit() {
+    return this.config.get("ANALYSIS_MONTHLY_LIMIT", { infer: true });
+  }
+
   get repositoryUpdateStaleThresholdMilliseconds() {
     return this.config.get("REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS", { infer: true }) * 1000;
   }

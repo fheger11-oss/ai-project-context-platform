@@ -107,6 +107,7 @@ Frontend API base URL
 | `RATE_LIMIT_AUTH_MAX`                           | Railway/API               | No       | Auth endpoint throttle max requests/window.                                                  | `10`                                                 |
 | `RATE_LIMIT_EXPENSIVE_TTL_SECONDS`              | Railway/API               | No       | Expensive synchronous operation throttle window.                                             | `60`                                                 |
 | `RATE_LIMIT_EXPENSIVE_MAX`                      | Railway/API               | No       | Expensive synchronous operation max requests/window.                                         | `5`                                                  |
+| `ANALYSIS_MONTHLY_LIMIT`                        | Railway/API               | No       | Per-user monthly analysis quota; defaults to the current production limit.                   | `3`                                                  |
 
 Values that must align:
 

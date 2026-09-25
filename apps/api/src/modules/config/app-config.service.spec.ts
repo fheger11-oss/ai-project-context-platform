@@ -69,4 +69,14 @@ describe("AppConfigService", () => {
 
     expect(config.repositoryUpdateStaleThresholdMilliseconds).toBe(21_600_000);
   });
+
+  it("exposes the validated monthly analysis limit", () => {
+    const config = createConfigService({
+      APP_ENV: "staging",
+      NODE_ENV: "development",
+      ANALYSIS_MONTHLY_LIMIT: 100
+    });
+
+    expect(config.analysisMonthlyLimit).toBe(100);
+  });
 });

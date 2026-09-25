@@ -209,7 +209,8 @@ async function harness(
     { assertMonthlyQuota: vi.fn() } as unknown as UsageService,
     {
       withRenewingLocks: async (_locks: unknown, operation: () => Promise<unknown>) => operation()
-    } as unknown as OperationLockService
+    } as unknown as OperationLockService,
+    { analysisMonthlyLimit: 3 } as never
   );
   const runIncremental = vi.spyOn(analyzer, "runWithSourceStructureReuse");
   const generator = new DeterministicContextGenerator();

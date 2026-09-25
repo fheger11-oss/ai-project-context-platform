@@ -25,9 +25,10 @@ import { AuthModule } from "../auth/auth.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { ScanModule } from "../scan/scan.module.js";
 import { UsageModule } from "../usage/usage.module.js";
+import { AppConfigModule } from "../config/app-config.module.js";
 
 @Module({
-  imports: [AuthModule, PrismaModule, ScanModule, UsageModule],
+  imports: [AppConfigModule, AuthModule, PrismaModule, ScanModule, UsageModule],
   controllers: [AnalysisController, ScanAnalysisHistoryController],
   providers: [
     AnalysisInputService,

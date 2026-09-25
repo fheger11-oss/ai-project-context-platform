@@ -45,6 +45,7 @@ describe("validateEnvironment", () => {
       RATE_LIMIT_EXPENSIVE_TTL_SECONDS: 60,
       RATE_LIMIT_GLOBAL_MAX: 300,
       RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
+      ANALYSIS_MONTHLY_LIMIT: 3,
       REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600,
       REQUEST_BODY_LIMIT_BYTES: 32_768,
       GITHUB_CALLBACK_URL: "https://api.ctxaro.com/api/v1/auth/github/callback",
@@ -107,6 +108,7 @@ describe("validateEnvironment", () => {
       RATE_LIMIT_EXPENSIVE_TTL_SECONDS: 60,
       RATE_LIMIT_GLOBAL_MAX: 300,
       RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
+      ANALYSIS_MONTHLY_LIMIT: 3,
       REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600,
       REQUEST_BODY_LIMIT_BYTES: 32_768
     });
@@ -120,6 +122,26 @@ describe("validateEnvironment", () => {
       })
     ).toThrow(/REQUEST_BODY_LIMIT_BYTES/);
   });
+
+  it("accepts an environment-specific monthly analysis limit", () => {
+    expect(
+      validateEnvironment({
+        ...productionEnvironment,
+        APP_ENV: "staging",
+        NODE_ENV: "development",
+        ANALYSIS_MONTHLY_LIMIT: "100"
+      }).ANALYSIS_MONTHLY_LIMIT
+    ).toBe(100);
+  });
+
+  it.each(["0", "-1", "1000001", "not-a-number"])(
+    "rejects invalid monthly analysis limit %s",
+    (limit) => {
+      expect(() =>
+        validateEnvironment({ ...productionEnvironment, ANALYSIS_MONTHLY_LIMIT: limit })
+      ).toThrow(/ANALYSIS_MONTHLY_LIMIT/);
+    }
+  );
 
   it("rejects wildcard CORS in production", () => {
     expect(() =>
