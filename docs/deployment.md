@@ -100,6 +100,9 @@ Frontend API base URL
 
 Values that must align:
 
+`REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS` is optional and defaults to `21600` (six hours).
+Keep it explicit when the deployment needs a different conditional stale-update recovery window.
+
 - Vercel `VITE_API_URL` must point to `https://api.ctxaro.com/api/v1`.
 - Railway `CORS_ORIGINS` must include `https://ctxaro.com`.
 - Railway `GITHUB_CALLBACK_URL` must exactly match the GitHub OAuth app callback URL.
@@ -314,18 +317,16 @@ https://ctxaro.com/auth/callback
 
 ## Deployment Order
 
-1. Provision the production database.
-2. Configure production API environment variables.
-3. Configure production frontend build environment variables.
-4. Install dependencies with `pnpm install --frozen-lockfile`.
-5. Build with `pnpm build`.
-6. Run migrations with `pnpm db:migrate:deploy`.
-7. Start the API with `pnpm --filter @ai-context/api start`.
-8. Deploy `apps/web/dist` to static hosting.
-9. Configure HTTPS/domains.
-10. Configure the GitHub OAuth production callback URL.
-11. Verify CORS from the frontend domain to the API domain.
-12. Run the production smoke test.
+1. Provision the production database and configure all production API/frontend variables.
+2. Install dependencies with `pnpm install --frozen-lockfile`.
+3. Generate Prisma Client with `pnpm db:generate`.
+4. Apply forward migrations with `pnpm db:migrate:deploy`.
+5. Build the API with `pnpm --filter @ai-context/api build`.
+6. Build the web app with `pnpm --filter @ai-context/web build`.
+7. Start the compiled API with `pnpm --filter @ai-context/api start`.
+8. Serve `apps/web/dist` from static hosting.
+9. Verify `GET /api/health`, CORS allow/deny behavior, and that `/docs` is unavailable.
+10. Verify the registered GitHub OAuth callback and end-to-end login redirect.
 
 ## Smoke Test
 

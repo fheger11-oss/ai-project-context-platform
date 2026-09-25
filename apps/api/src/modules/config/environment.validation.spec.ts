@@ -111,6 +111,24 @@ describe("validateEnvironment", () => {
     ).toThrow(/Wildcard CORS is not allowed in production/);
   });
 
+  it("accepts multiple exact production CORS origins", () => {
+    expect(
+      validateEnvironment({
+        ...productionEnvironment,
+        CORS_ORIGINS: "https://ctxaro.com,https://www.ctxaro.com"
+      }).CORS_ORIGINS
+    ).toBe("https://ctxaro.com,https://www.ctxaro.com");
+  });
+
+  it("rejects production CORS entries that are URLs rather than exact origins", () => {
+    expect(() =>
+      validateEnvironment({
+        ...productionEnvironment,
+        CORS_ORIGINS: "https://ctxaro.com/app"
+      })
+    ).toThrow(/must be exact origins/);
+  });
+
   it("rejects localhost defaults in production", () => {
     expect(() =>
       validateEnvironment({
@@ -147,5 +165,28 @@ describe("validateEnvironment", () => {
         JWT_REFRESH_SECRET: productionEnvironment.JWT_ACCESS_SECRET
       })
     ).toThrow(/JWT refresh secret must be different from JWT access secret/);
+  });
+
+  it.each([
+    "JWT_ACCESS_SECRET",
+    "JWT_REFRESH_SECRET",
+    "GITHUB_CLIENT_ID",
+    "GITHUB_CLIENT_SECRET",
+    "PROVIDER_TOKEN_ENCRYPTION_KEY"
+  ] as const)("rejects the documented %s placeholder in production without echoing it", (field) => {
+    const placeholder = `replace_with_${field.toLowerCase()}_value`;
+
+    expect(() =>
+      validateEnvironment({
+        ...productionEnvironment,
+        [field]: placeholder
+      })
+    ).toThrow(new RegExp(`${field} must not use the documented placeholder`));
+
+    try {
+      validateEnvironment({ ...productionEnvironment, [field]: placeholder });
+    } catch (error) {
+      expect(String(error)).not.toContain(placeholder);
+    }
   });
 });

@@ -40,7 +40,11 @@ export class AppConfigService {
   }
 
   get swaggerEnabled() {
-    return this.nodeEnv !== "production" && this.appEnv !== "production";
+    return !this.isProduction;
+  }
+
+  get isProduction() {
+    return this.nodeEnv === "production" || this.appEnv === "production";
   }
 
   get databaseUrl() {

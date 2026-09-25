@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const LOCALHOST_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
+const PRODUCTION_PLACEHOLDER_PREFIX = "replace_with_";
 
 const environmentSchema = z
   .object({
@@ -69,6 +70,22 @@ const environmentSchema = z
         path: ["CORS_ORIGINS"],
         message: "Wildcard CORS is not allowed in production"
       });
+    }
+
+    for (const field of [
+      "JWT_ACCESS_SECRET",
+      "JWT_REFRESH_SECRET",
+      "GITHUB_CLIENT_ID",
+      "GITHUB_CLIENT_SECRET",
+      "PROVIDER_TOKEN_ENCRYPTION_KEY"
+    ] as const) {
+      if (config[field].toLowerCase().startsWith(PRODUCTION_PLACEHOLDER_PREFIX)) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: `${field} must not use the documented placeholder in production`
+        });
+      }
     }
 
     for (const origin of config.CORS_ORIGINS.split(",").map((value) => value.trim())) {
@@ -146,6 +163,18 @@ function assertProductionUrl(
       code: "custom",
       path: [field],
       message: `${field} cannot use localhost in production`
+    });
+  }
+
+  if (
+    field === "CORS_ORIGINS" &&
+    (url.origin !== value || url.username !== "" || url.password !== "")
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: [field],
+      message:
+        "CORS_ORIGINS entries must be exact origins without paths, credentials, queries, or fragments"
     });
   }
 }

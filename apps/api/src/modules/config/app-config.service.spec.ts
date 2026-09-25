@@ -24,6 +24,24 @@ describe("AppConfigService", () => {
     ).toBe(false);
   });
 
+  it("treats either production marker as production", () => {
+    const config = createConfigService({ APP_ENV: "production", NODE_ENV: "development" });
+
+    expect(config.isProduction).toBe(true);
+    expect(config.swaggerEnabled).toBe(false);
+  });
+
+  it("exposes only the explicitly configured CORS origins", () => {
+    const config = createConfigService({
+      APP_ENV: "production",
+      NODE_ENV: "production",
+      CORS_ORIGINS: "https://ctxaro.com,https://www.ctxaro.com"
+    });
+
+    expect(config.corsOrigins).toEqual(["https://ctxaro.com", "https://www.ctxaro.com"]);
+    expect(config.corsOrigins).not.toContain("https://untrusted.example.com");
+  });
+
   it("exposes rate limits in milliseconds for the throttler module", () => {
     const config = createConfigService({
       APP_ENV: "production",

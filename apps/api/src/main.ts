@@ -37,7 +37,7 @@ async function bootstrap() {
       whitelist: true
     })
   );
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalFilters(new GlobalExceptionFilter(config.isProduction));
 
   if (config.swaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()

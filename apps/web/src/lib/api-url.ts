@@ -36,7 +36,15 @@ export function resolveApiUrl(environment: ApiUrlEnvironment): string {
     throw new Error("VITE_API_URL cannot use a loopback host in production.");
   }
 
-  return apiUrl;
+  if (parsedUrl.username || parsedUrl.password || parsedUrl.search || parsedUrl.hash) {
+    throw new Error("VITE_API_URL must not contain credentials, a query, or a fragment.");
+  }
+
+  if (!parsedUrl.pathname.endsWith("/api/v1")) {
+    throw new Error("VITE_API_URL must end with /api/v1 in production.");
+  }
+
+  return apiUrl.replace(/\/$/, "");
 }
 
 export const API_URL = resolveApiUrl(import.meta.env);
