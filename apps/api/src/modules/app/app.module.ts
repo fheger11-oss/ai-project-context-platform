@@ -20,6 +20,7 @@ import { RepositoriesModule } from "../repositories/repositories.module.js";
 import { RepositoryUpdatesModule } from "../repository-updates/repository-updates.module.js";
 import { ScanModule } from "../scan/scan.module.js";
 import { UsersModule } from "../users/users.module.js";
+import { WebhooksModule } from "../webhooks/webhooks.module.js";
 
 @Module({
   imports: [
@@ -47,7 +48,8 @@ import { UsersModule } from "../users/users.module.js";
     DocumentGenerationModule,
     AiExportModule,
     FeedbackModule,
-    HealthModule
+    HealthModule,
+    WebhooksModule
   ],
   providers: [
     {

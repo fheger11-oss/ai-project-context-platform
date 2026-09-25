@@ -79,6 +79,28 @@ export class AppConfigService {
     return this.config.get("GITHUB_CALLBACK_URL", { infer: true });
   }
 
+  get githubWebhookSecret() {
+    return this.config.get("GITHUB_WEBHOOK_SECRET", { infer: true });
+  }
+  get githubWebhookBodyLimitBytes() {
+    return this.config.get("GITHUB_WEBHOOK_BODY_LIMIT_BYTES", { infer: true });
+  }
+  get repositoryUpdateWorkerEnabled() {
+    return this.config.get("REPOSITORY_UPDATE_WORKER_ENABLED", { infer: true });
+  }
+  get repositoryUpdateWorkerPollIntervalMilliseconds() {
+    return this.config.get("REPOSITORY_UPDATE_WORKER_POLL_INTERVAL_MS", { infer: true });
+  }
+  get repositoryUpdateWorkerLeaseMilliseconds() {
+    return this.config.get("REPOSITORY_UPDATE_WORKER_LEASE_SECONDS", { infer: true }) * 1000;
+  }
+  get repositoryUpdateWorkerMaxAttempts() {
+    return this.config.get("REPOSITORY_UPDATE_WORKER_MAX_ATTEMPTS", { infer: true });
+  }
+  get repositoryUpdateWorkerBackoffBaseMilliseconds() {
+    return this.config.get("REPOSITORY_UPDATE_WORKER_BACKOFF_BASE_SECONDS", { infer: true }) * 1000;
+  }
+
   get webAuthCallbackUrl() {
     return this.config.get("WEB_AUTH_CALLBACK_URL", { infer: true });
   }

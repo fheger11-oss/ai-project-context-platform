@@ -33,6 +33,26 @@ const environmentSchema = z
     GITHUB_CLIENT_ID: z.string().min(1),
     GITHUB_CLIENT_SECRET: z.string().min(1),
     GITHUB_CALLBACK_URL: z.string().url(),
+    GITHUB_WEBHOOK_SECRET: z.string().min(32).optional(),
+    GITHUB_WEBHOOK_BODY_LIMIT_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(1_048_576)
+      .default(262_144),
+    REPOSITORY_UPDATE_WORKER_ENABLED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+    REPOSITORY_UPDATE_WORKER_POLL_INTERVAL_MS: z.coerce.number().int().min(250).default(2_000),
+    REPOSITORY_UPDATE_WORKER_LEASE_SECONDS: z.coerce.number().int().min(30).default(900),
+    REPOSITORY_UPDATE_WORKER_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+    REPOSITORY_UPDATE_WORKER_BACKOFF_BASE_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(3600)
+      .default(30),
     WEB_AUTH_CALLBACK_URL: z.string().url().default("http://localhost:5173/auth/callback"),
     PROVIDER_TOKEN_ENCRYPTION_KEY: z.string().min(32)
   })
@@ -49,6 +69,14 @@ const environmentSchema = z
 
     if (!isProduction) {
       return;
+    }
+
+    if (!config.GITHUB_WEBHOOK_SECRET) {
+      context.addIssue({
+        code: "custom",
+        path: ["GITHUB_WEBHOOK_SECRET"],
+        message: "GITHUB_WEBHOOK_SECRET is required in production"
+      });
     }
 
     if (config.NODE_ENV !== "production") {
@@ -80,9 +108,10 @@ const environmentSchema = z
       "JWT_REFRESH_SECRET",
       "GITHUB_CLIENT_ID",
       "GITHUB_CLIENT_SECRET",
+      "GITHUB_WEBHOOK_SECRET",
       "PROVIDER_TOKEN_ENCRYPTION_KEY"
     ] as const) {
-      if (config[field].toLowerCase().startsWith(PRODUCTION_PLACEHOLDER_PREFIX)) {
+      if (config[field]?.toLowerCase().startsWith(PRODUCTION_PLACEHOLDER_PREFIX)) {
         context.addIssue({
           code: "custom",
           path: [field],

@@ -79,6 +79,18 @@ enum RepositoryUpdateTriggerType {
   SYSTEM
 }
 
+enum WebhookProvider {
+  GITHUB
+}
+
+enum RepositoryUpdateDispatchStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  IGNORED
+  FAILED
+}
+
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
@@ -158,13 +170,14 @@ model Repository {
   createdAt       DateTime             @default(now()) @map("created_at")
   updatedAt       DateTime             @updatedAt @map("updated_at")
 
-  user            User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  scans           Scan[]
-  analyses        Analysis[]
-  projectContexts ProjectContext[]
-  state           RepositoryState?
-  updates         RepositoryUpdate[]
-  contextHistory  RepositoryContextHistory[]
+  user             User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scans            Scan[]
+  analyses         Analysis[]
+  projectContexts  ProjectContext[]
+  state            RepositoryState?
+  updates          RepositoryUpdate[]
+  contextHistory   RepositoryContextHistory[]
+  updateDispatches RepositoryUpdateDispatch[]
 
   @@unique([userId, githubId])
   @@index([userId])
@@ -214,16 +227,61 @@ model RepositoryUpdate {
   createdAt        DateTime                    @default(now()) @map("created_at")
   updatedAt        DateTime                    @updatedAt @map("updated_at")
 
-  repository     Repository      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  scan           Scan?           @relation("RepositoryUpdateScan", fields: [scanId], references: [id], onDelete: SetNull)
-  analysis       Analysis?       @relation("RepositoryUpdateAnalysis", fields: [analysisId], references: [id], onDelete: SetNull)
-  projectContext ProjectContext? @relation("RepositoryUpdateProjectContext", fields: [projectContextId], references: [id], onDelete: SetNull)
+  repository     Repository                 @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  scan           Scan?                      @relation("RepositoryUpdateScan", fields: [scanId], references: [id], onDelete: SetNull)
+  analysis       Analysis?                  @relation("RepositoryUpdateAnalysis", fields: [analysisId], references: [id], onDelete: SetNull)
+  projectContext ProjectContext?            @relation("RepositoryUpdateProjectContext", fields: [projectContextId], references: [id], onDelete: SetNull)
+  dispatches     RepositoryUpdateDispatch[]
 
   @@index([repositoryId])
   @@index([repositoryId, status])
   @@index([repositoryId, targetCommitSha])
   @@index([createdAt])
   @@map("repository_updates")
+}
+
+model RepositoryWebhookDelivery {
+  id                   String                     @id @default(cuid())
+  provider             WebhookProvider
+  deliveryId           String                     @map("delivery_id")
+  eventType            String                     @map("event_type")
+  providerRepositoryId String                     @map("provider_repository_id")
+  repositoryFullName   String                     @map("repository_full_name")
+  branch               String
+  targetCommitSha      String                     @map("target_commit_sha")
+  occurredAt           DateTime?                  @map("occurred_at")
+  receivedAt           DateTime                   @default(now()) @map("received_at")
+  dispatches           RepositoryUpdateDispatch[]
+
+  @@unique([provider, deliveryId])
+  @@map("repository_webhook_deliveries")
+}
+
+model RepositoryUpdateDispatch {
+  id                  String                         @id @default(cuid())
+  webhookDeliveryId   String                         @map("webhook_delivery_id")
+  repositoryId        String                         @map("repository_id")
+  status              RepositoryUpdateDispatchStatus @default(PENDING)
+  attemptCount        Int                            @default(0) @map("attempt_count")
+  nextAttemptAt       DateTime                       @default(now()) @map("next_attempt_at")
+  claimedBy           String?                        @map("claimed_by")
+  leaseUntil          DateTime?                      @map("lease_until")
+  startedAt           DateTime?                      @map("started_at")
+  completedAt         DateTime?                      @map("completed_at")
+  lastFailureCategory String?                        @map("last_failure_category")
+  repositoryUpdateId  String?                        @map("repository_update_id")
+  createdAt           DateTime                       @default(now()) @map("created_at")
+  updatedAt           DateTime                       @updatedAt @map("updated_at")
+
+  webhookDelivery  RepositoryWebhookDelivery @relation(fields: [webhookDeliveryId], references: [id], onDelete: Cascade)
+  repository       Repository                @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  repositoryUpdate RepositoryUpdate?         @relation(fields: [repositoryUpdateId], references: [id], onDelete: SetNull)
+
+  @@unique([webhookDeliveryId, repositoryId])
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseUntil])
+  @@index([repositoryId])
+  @@map("repository_update_dispatches")
 }
 
 model Scan {

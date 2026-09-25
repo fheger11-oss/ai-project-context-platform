@@ -7,7 +7,10 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./modules/app/app.module.js";
 import { AppConfigService } from "./modules/config/app-config.service.js";
 import { GlobalExceptionFilter } from "./shared/filters/global-exception.filter.js";
-import { createRequestBodyParsers } from "./shared/http/request-body-parsers.js";
+import {
+  createRequestBodyParsers,
+  createWebhookRawBodyParser
+} from "./shared/http/request-body-parsers.js";
 import { createSecurityHeadersMiddleware } from "./shared/http/security-headers.js";
 
 async function bootstrap() {
@@ -20,6 +23,10 @@ async function bootstrap() {
   const config = app.get(AppConfigService);
 
   app.useLogger(["error", "warn", "log", "debug", "verbose"]);
+  app.use(
+    `/${config.apiPrefix}/v${config.apiVersion}/webhooks/github`,
+    createWebhookRawBodyParser(config.githubWebhookBodyLimitBytes)
+  );
   app.use(...createRequestBodyParsers(config.requestBodyLimitBytes));
   app.getHttpAdapter().getInstance().set("trust proxy", config.trustProxy);
   app.use(createSecurityHeadersMiddleware());

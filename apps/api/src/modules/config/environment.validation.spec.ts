@@ -26,6 +26,7 @@ const productionEnvironment = {
   JWT_REFRESH_TOKEN_TTL_SECONDS: "2592000",
   GITHUB_CLIENT_ID: "github-client-id",
   GITHUB_CLIENT_SECRET: "github-client-secret",
+  GITHUB_WEBHOOK_SECRET: "production-webhook-secret-at-least-32-characters",
   GITHUB_CALLBACK_URL: "https://api.ctxaro.com/api/v1/auth/github/callback",
   WEB_AUTH_CALLBACK_URL: "https://ctxaro.com/auth/callback",
   PROVIDER_TOKEN_ENCRYPTION_KEY: "provider-token-key-at-least-32-characters"
