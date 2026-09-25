@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm db:generate && nest start --watch",
     "start": "node dist/main.js",
-    "build": "pnpm --filter @ai-context/contracts build && pnpm db:generate && tsc -p tsconfig.json",
+    "build": "pnpm --filter @ai-context/contracts build && pnpm db:generate && rm -rf dist && tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "format": "prettier . --write",
     "typecheck": "pnpm db:generate && tsc -p tsconfig.json --noEmit",
