@@ -10,6 +10,8 @@ import type {
   GeneratedDocumentResponse,
   GenerateDocumentRequest,
   RepositoryCurrentUpdateResponse,
+  ConnectRepositoryResponse,
+  RepositoryAutomationStatus,
   RepositoryStateSummary,
   RepositoryUpdateDetail,
   RepositoryUpdateHistoryResponse,
@@ -73,6 +75,24 @@ describe("contracts package exports", () => {
       lastUpdateStatus: string | null;
     }>();
     expectTypeOf<RepositoryStateSummary>().not.toHaveProperty("id");
+  });
+
+  it("exports repository automatic-update capability contracts", () => {
+    expectTypeOf<RepositoryAutomationStatus>().toMatchTypeOf<{
+      automaticUpdates: {
+        capability:
+          | "CAN_MANAGE_WEBHOOK"
+          | "CANNOT_MANAGE_WEBHOOK"
+          | "PROVIDER_ACCESS_DENIED"
+          | "PROVIDER_REPOSITORY_NOT_FOUND"
+          | "PROVIDER_AUTHORIZATION_REQUIRED"
+          | "PROVIDER_UNAVAILABLE";
+        configuration: "NOT_CONFIGURED";
+        enabled: false;
+      };
+    }>();
+    expectTypeOf<ConnectRepositoryResponse>().toHaveProperty("id").toEqualTypeOf<string>();
+    expectTypeOf<ConnectRepositoryResponse>().toHaveProperty("automaticUpdates");
   });
 
   it("exports RepositoryUpdateResponse from the public entrypoint", () => {

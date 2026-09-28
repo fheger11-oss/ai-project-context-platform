@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 
 import { RepositoryVisibility } from "../../../generated/prisma/enums.js";
+import type { RepositoryAutomationCapability } from "../domain/repository-automation-status.js";
 
 export type GitHubRepositoryMetadata = {
   githubId: string;
@@ -49,6 +50,28 @@ const githubRepositorySchema = z.object({
   updated_at: z.string().datetime()
 });
 
+const githubRepositoryCapabilitySchema = z.object({
+  id: z.number().int().positive(),
+  permissions: z.object({
+    admin: z.boolean(),
+    maintain: z.boolean().optional(),
+    pull: z.boolean().optional(),
+    push: z.boolean().optional(),
+    triage: z.boolean().optional()
+  })
+});
+
+export type GitHubRepositoryCapabilityResult = {
+  capability: RepositoryAutomationCapability;
+  permissions: {
+    admin: boolean;
+    maintain: boolean | null;
+    pull: boolean | null;
+    push: boolean | null;
+    triage: boolean | null;
+  } | null;
+};
+
 type GitHubRepositoryApiResponse = z.infer<typeof githubRepositorySchema>;
 
 @Injectable()
@@ -89,20 +112,81 @@ export class GitHubRepositoryProvider {
     return repositories.find((repository) => repository.githubId === githubId) ?? null;
   }
 
+  async checkWebhookManagementCapability(
+    accessToken: string,
+    repository: { githubId: string; name: string; owner: string }
+  ): Promise<GitHubRepositoryCapabilityResult> {
+    const url = `https://api.github.com/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GITHUB_REQUEST_TIMEOUT_MS);
+    let response: Response;
+
+    try {
+      response = await this.fetch(url, accessToken, controller.signal);
+    } catch {
+      return { capability: "PROVIDER_UNAVAILABLE", permissions: null };
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (response.status === 401) {
+      return { capability: "PROVIDER_ACCESS_DENIED", permissions: null };
+    }
+
+    if (response.status === 404) {
+      return { capability: "PROVIDER_REPOSITORY_NOT_FOUND", permissions: null };
+    }
+
+    if (response.status === 403) {
+      if (response.headers.get("x-ratelimit-remaining") === "0") {
+        return { capability: "PROVIDER_UNAVAILABLE", permissions: null };
+      }
+
+      return { capability: "PROVIDER_AUTHORIZATION_REQUIRED", permissions: null };
+    }
+
+    if (!response.ok) {
+      return { capability: "PROVIDER_UNAVAILABLE", permissions: null };
+    }
+
+    let payload: unknown;
+
+    try {
+      payload = await response.json();
+    } catch {
+      return { capability: "PROVIDER_UNAVAILABLE", permissions: null };
+    }
+
+    const parsed = githubRepositoryCapabilitySchema.safeParse(payload);
+
+    if (!parsed.success) {
+      return { capability: "PROVIDER_UNAVAILABLE", permissions: null };
+    }
+
+    if (String(parsed.data.id) !== repository.githubId) {
+      return { capability: "PROVIDER_REPOSITORY_NOT_FOUND", permissions: null };
+    }
+
+    const permissions = {
+      admin: parsed.data.permissions.admin,
+      maintain: parsed.data.permissions.maintain ?? null,
+      pull: parsed.data.permissions.pull ?? null,
+      push: parsed.data.permissions.push ?? null,
+      triage: parsed.data.permissions.triage ?? null
+    };
+
+    return {
+      capability: permissions.admin ? "CAN_MANAGE_WEBHOOK" : "CANNOT_MANAGE_WEBHOOK",
+      permissions
+    };
+  }
+
   private async request(url: string, accessToken: string) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), GITHUB_REQUEST_TIMEOUT_MS);
 
     try {
-      const response = await fetch(url, {
-        headers: {
-          Accept: "application/vnd.github+json",
-          Authorization: `Bearer ${accessToken}`,
-          "User-Agent": "ai-project-context-platform",
-          "X-GitHub-Api-Version": "2022-11-28"
-        },
-        signal: controller.signal
-      });
+      const response = await this.fetch(url, accessToken, controller.signal);
 
       if (response.status === 401 || response.status === 403) {
         if (response.headers.get("x-ratelimit-remaining") === "0") {
@@ -126,6 +210,18 @@ export class GitHubRepositoryProvider {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  private fetch(url: string, accessToken: string, signal?: AbortSignal) {
+    return fetch(url, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${accessToken}`,
+        "User-Agent": "ai-project-context-platform",
+        "X-GitHub-Api-Version": "2022-11-28"
+      },
+      ...(signal ? { signal } : {})
+    });
   }
 
   private getNextPageUrl(linkHeader: string | null) {

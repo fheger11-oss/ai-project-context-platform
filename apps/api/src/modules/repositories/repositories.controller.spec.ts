@@ -16,6 +16,31 @@ const user: AuthenticatedUser = {
 };
 
 describe("RepositoriesController RepositoryState endpoints", () => {
+  it("returns the repository automation capability without exposing provider credentials", async () => {
+    const getAutomationStatus = vi.fn(async () => ({
+      automaticUpdates: {
+        capability: "CANNOT_MANAGE_WEBHOOK" as const,
+        configuration: "NOT_CONFIGURED" as const,
+        enabled: false as const
+      }
+    }));
+    const controller = createController({}, { getAutomationStatus });
+
+    const response = await controller.getAutomationStatus(user, { id: "repository_1" });
+
+    expect(getAutomationStatus).toHaveBeenCalledWith(user, "repository_1");
+    expect(response).toEqual({
+      automaticUpdates: {
+        capability: "CANNOT_MANAGE_WEBHOOK",
+        configuration: "NOT_CONFIGURED",
+        enabled: false
+      }
+    });
+    expect(JSON.stringify(response)).not.toMatch(
+      /accessToken|authorization|webhookSecret|provider-token/i
+    );
+  });
+
   it("returns an ownership-safe RepositoryState summary", async () => {
     const getOrInitialize = vi.fn(async () => ({
       id: "state_1",
@@ -128,10 +153,11 @@ describe("RepositoriesController RepositoryState endpoints", () => {
 });
 
 function createController(
-  repositoryStateService: Partial<RepositoryStateService>
+  repositoryStateService: Partial<RepositoryStateService>,
+  repositoriesService: Partial<RepositoriesService> = {}
 ): RepositoriesController {
   return new RepositoriesController(
-    {} as RepositoriesService,
+    repositoriesService as RepositoriesService,
     repositoryStateService as RepositoryStateService
   );
 }

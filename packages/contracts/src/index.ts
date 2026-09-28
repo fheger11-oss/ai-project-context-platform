@@ -81,6 +81,22 @@ export type {
 
 export type RepositoryVisibility = "PUBLIC" | "PRIVATE" | "INTERNAL";
 
+export type RepositoryAutomationCapability =
+  | "CAN_MANAGE_WEBHOOK"
+  | "CANNOT_MANAGE_WEBHOOK"
+  | "PROVIDER_ACCESS_DENIED"
+  | "PROVIDER_REPOSITORY_NOT_FOUND"
+  | "PROVIDER_AUTHORIZATION_REQUIRED"
+  | "PROVIDER_UNAVAILABLE";
+
+export type RepositoryAutomationStatus = {
+  automaticUpdates: {
+    capability: RepositoryAutomationCapability;
+    configuration: "NOT_CONFIGURED";
+    enabled: false;
+  };
+};
+
 export type RepositoryFreshnessStatus = "UNKNOWN" | "FRESH" | "STALE" | "UPDATE_FAILED";
 
 export type RepositoryUpdateStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
@@ -166,6 +182,8 @@ export type RepositorySummary = {
   githubUpdatedAt: string;
   lastSyncedAt: string;
 };
+
+export type ConnectRepositoryResponse = RepositorySummary & RepositoryAutomationStatus;
 
 export type AvailableGitHubRepository = Omit<RepositorySummary, "id" | "lastSyncedAt"> & {
   connectedRepositoryId: string | null;

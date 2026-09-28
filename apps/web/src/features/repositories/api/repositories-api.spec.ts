@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   ProjectContextResponse,
+  RepositoryAutomationStatus,
   RepositoryCurrentUpdateResponse,
   RepositoryStateSummary,
   RepositoryUpdateHistoryResponse,
@@ -11,6 +12,7 @@ import {
   ApiRequestError,
   getCurrentRepositoryUpdate,
   getCurrentProjectContext,
+  getRepositoryAutomationStatus,
   getRepositoryState,
   getRepositoryUpdateHistory,
   refreshRepositoryState,
@@ -108,6 +110,32 @@ describe("repositories-api RepositoryState endpoints", () => {
       }
     );
     expect(result).toEqual(state);
+  });
+
+  it("loads the repository automatic-update capability through the backend", async () => {
+    const status: RepositoryAutomationStatus = {
+      automaticUpdates: {
+        capability: "CAN_MANAGE_WEBHOOK",
+        configuration: "NOT_CONFIGURED",
+        enabled: false
+      }
+    };
+    const fetchMock = mockFetch(status);
+
+    const result = await getRepositoryAutomationStatus("access_token", "repository_1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/v1/repositories/repository_1/automation-status",
+      {
+        method: "GET",
+        headers: {
+          Authorization: "Bearer access_token",
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    expect(result).toEqual(status);
+    expect(result.automaticUpdates.enabled).toBe(false);
   });
 
   it("loads the current ProjectContext through the repository current-context API", async () => {

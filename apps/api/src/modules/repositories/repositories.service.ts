@@ -1,4 +1,10 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException
+} from "@nestjs/common";
 
 import type { RepositoryModel } from "../../generated/prisma/models.js";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -10,6 +16,10 @@ import type { AuthenticatedUser } from "../auth/types/authenticated-user.js";
 import type { RepositoryResponseDto } from "./dto/repository-response.dto.js";
 import { GitHubRepositoryProvider } from "./providers/github-repository.provider.js";
 import type { GitHubRepositoryMetadata } from "./providers/github-repository.provider.js";
+import {
+  repositoryAutomationStatus,
+  type RepositoryAutomationStatus
+} from "./domain/repository-automation-status.js";
 
 export type RepositoryScanAccessMetadata = {
   id: string;
@@ -67,7 +77,13 @@ export class RepositoriesService {
         githubId: repository.githubId
       });
 
-      return this.upsertRepository(user.id, repository);
+      const storedRepository = await this.upsertRepository(user.id, repository);
+      const automationStatus = await this.resolveAutomationStatus(user.id, repository, accessToken);
+
+      return {
+        ...storedRepository,
+        ...automationStatus
+      };
     });
   }
 
@@ -93,6 +109,29 @@ export class RepositoriesService {
     }
 
     return this.toResponse(repository);
+  }
+
+  async getAutomationStatus(
+    user: AuthenticatedUser,
+    id: string
+  ): Promise<RepositoryAutomationStatus> {
+    const repository = await this.prisma.repository.findFirst({
+      where: {
+        id,
+        userId: user.id
+      },
+      select: {
+        githubId: true,
+        name: true,
+        owner: true
+      }
+    });
+
+    if (!repository) {
+      throw new NotFoundException("Repository was not found");
+    }
+
+    return this.resolveAutomationStatus(user.id, repository);
   }
 
   async getScanAccessMetadataForUser(
@@ -194,6 +233,31 @@ export class RepositoriesService {
     });
 
     return this.toResponse(storedRepository);
+  }
+
+  private async resolveAutomationStatus(
+    userId: string,
+    repository: { githubId: string; name: string; owner: string },
+    existingAccessToken?: string
+  ): Promise<RepositoryAutomationStatus> {
+    let accessToken = existingAccessToken;
+
+    if (!accessToken) {
+      try {
+        accessToken = await this.githubAccountService.getAccessTokenForUser(userId);
+      } catch (error) {
+        return repositoryAutomationStatus(
+          error instanceof UnauthorizedException ? "PROVIDER_ACCESS_DENIED" : "PROVIDER_UNAVAILABLE"
+        );
+      }
+    }
+
+    const result = await this.githubRepositoryProvider.checkWebhookManagementCapability(
+      accessToken,
+      repository
+    );
+
+    return repositoryAutomationStatus(result.capability);
   }
 
   private toResponse(repository: RepositoryModel): RepositoryResponseDto {

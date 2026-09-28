@@ -23,7 +23,12 @@ import { ConnectRepositoryDto } from "./dto/connect-repository.dto.js";
 // ValidationPipe needs this DTO as a runtime value.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { RepositoryParamsDto } from "./dto/repository-params.dto.js";
-import { RepositoryListResponseDto, RepositoryResponseDto } from "./dto/repository-response.dto.js";
+import {
+  ConnectRepositoryResponseDto,
+  RepositoryListResponseDto,
+  RepositoryResponseDto
+} from "./dto/repository-response.dto.js";
+import { RepositoryAutomationStatusResponseDto } from "./dto/repository-automation-status-response.dto.js";
 import {
   RepositoryStateResponseDto,
   toRepositoryStateSummary,
@@ -63,7 +68,7 @@ export class RepositoriesController {
 
   @Post("connect")
   @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
-  @ApiCreatedResponse({ type: RepositoryResponseDto })
+  @ApiCreatedResponse({ type: ConnectRepositoryResponseDto })
   connect(@CurrentUser() user: AuthenticatedUser, @Body() dto: ConnectRepositoryDto) {
     return this.repositoriesService.connect(user, dto.githubId);
   }
@@ -85,6 +90,15 @@ export class RepositoriesController {
     const state = await this.repositoryStateService.getOrInitialize(params.id, user.id);
 
     return toRepositoryStateSummary(state);
+  }
+
+  @Get(":id/automation-status")
+  @ApiOkResponse({ type: RepositoryAutomationStatusResponseDto })
+  getAutomationStatus(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: RepositoryParamsDto
+  ) {
+    return this.repositoriesService.getAutomationStatus(user, params.id);
   }
 
   @Post(":id/state/refresh")

@@ -53,6 +53,113 @@ function createService(repository: {
 }
 
 describe("RepositoriesService", () => {
+  describe("automation capability", () => {
+    it("returns the provider capability for an owned connected repository", async () => {
+      const findFirst = vi.fn().mockResolvedValue({
+        githubId: "123",
+        owner: "owner",
+        name: "repository"
+      });
+      const getAccessTokenForUser = vi.fn().mockResolvedValue("provider-token");
+      const checkWebhookManagementCapability = vi.fn().mockResolvedValue({
+        capability: "CAN_MANAGE_WEBHOOK",
+        permissions: { admin: true }
+      });
+      const service = new RepositoriesService(
+        { repository: { findFirst } } as unknown as PrismaService,
+        { getAccessTokenForUser } as unknown as GitHubAccountService,
+        { checkWebhookManagementCapability } as unknown as GitHubRepositoryProvider,
+        {} as UsageService,
+        {} as OperationLockService
+      );
+
+      await expect(service.getAutomationStatus(user, "repository_1")).resolves.toEqual({
+        automaticUpdates: {
+          capability: "CAN_MANAGE_WEBHOOK",
+          configuration: "NOT_CONFIGURED",
+          enabled: false
+        }
+      });
+      expect(findFirst).toHaveBeenCalledWith({
+        where: { id: "repository_1", userId: "user_1" },
+        select: { githubId: true, name: true, owner: true }
+      });
+      expect(checkWebhookManagementCapability).toHaveBeenCalledWith("provider-token", {
+        githubId: "123",
+        owner: "owner",
+        name: "repository"
+      });
+    });
+
+    it("preserves ownership-safe not-found behavior", async () => {
+      const service = new RepositoriesService(
+        { repository: { findFirst: vi.fn().mockResolvedValue(null) } } as unknown as PrismaService,
+        {} as GitHubAccountService,
+        {} as GitHubRepositoryProvider,
+        {} as UsageService,
+        {} as OperationLockService
+      );
+
+      await expect(service.getAutomationStatus(user, "repository_2")).rejects.toBeInstanceOf(
+        NotFoundException
+      );
+    });
+
+    it("keeps a successful repository connection when capability detection is unavailable", async () => {
+      const repository = {
+        githubId: "123",
+        name: "repository",
+        fullName: "owner/repository",
+        owner: "owner",
+        description: null,
+        defaultBranch: "main",
+        visibility: "PRIVATE",
+        language: "TypeScript",
+        stars: 0,
+        forks: 0,
+        isArchived: false,
+        cloneUrl: "https://github.com/owner/repository.git",
+        htmlUrl: "https://github.com/owner/repository",
+        githubUpdatedAt: new Date("2026-09-28T10:00:00.000Z")
+      };
+      const storedRepository = {
+        id: "repository_1",
+        userId: "user_1",
+        ...repository,
+        lastSyncedAt: new Date("2026-09-28T10:01:00.000Z"),
+        createdAt: new Date("2026-09-28T10:01:00.000Z"),
+        updatedAt: new Date("2026-09-28T10:01:00.000Z")
+      };
+      const getAccessTokenForUser = vi.fn().mockResolvedValue("provider-token");
+      const service = new RepositoriesService(
+        {
+          repository: { upsert: vi.fn().mockResolvedValue(storedRepository) }
+        } as unknown as PrismaService,
+        { getAccessTokenForUser } as unknown as GitHubAccountService,
+        {
+          getRepositoryById: vi.fn().mockResolvedValue(repository),
+          checkWebhookManagementCapability: vi.fn().mockResolvedValue({
+            capability: "PROVIDER_UNAVAILABLE",
+            permissions: null
+          })
+        } as unknown as GitHubRepositoryProvider,
+        { assertRepositoryQuota: vi.fn().mockResolvedValue(undefined) } as unknown as UsageService,
+        {
+          withLocks: vi.fn(async (_locks, operation: () => Promise<unknown>) => operation())
+        } as unknown as OperationLockService
+      );
+
+      await expect(service.connect(user, "123")).resolves.toMatchObject({
+        id: "repository_1",
+        automaticUpdates: {
+          capability: "PROVIDER_UNAVAILABLE",
+          configuration: "NOT_CONFIGURED",
+          enabled: false
+        }
+      });
+    });
+  });
+
   describe("getScanAccessMetadataForUser", () => {
     it("returns repository metadata required by scan infrastructure", async () => {
       const findFirst = vi.fn().mockResolvedValue({

@@ -1,8 +1,10 @@
 import type {
   AvailableGitHubRepository,
+  ConnectRepositoryResponse,
   ListAvailableGitHubRepositoriesResponse,
   ListRepositoriesResponse,
   ProjectContextResponse,
+  RepositoryAutomationStatus,
   RepositoryCurrentUpdateResponse,
   RepositoryUpdateHistoryResponse,
   RepositoryUpdateResponse,
@@ -106,12 +108,18 @@ export function listAvailableGitHubRepositories(accessToken: string) {
 }
 
 export function connectRepository(accessToken: string, githubId: string) {
-  return request<RepositorySummary>("/repositories/connect", {
+  return request<ConnectRepositoryResponse>("/repositories/connect", {
     accessToken,
     method: "POST",
     body: {
       githubId
     }
+  });
+}
+
+export function getRepositoryAutomationStatus(accessToken: string, id: string) {
+  return request<RepositoryAutomationStatus>(`/repositories/${id}/automation-status`, {
+    accessToken
   });
 }
 
@@ -131,7 +139,9 @@ export function syncRepository(accessToken: string, repositoryId: string) {
 
 export type {
   AvailableGitHubRepository,
+  ConnectRepositoryResponse,
   ProjectContextResponse,
+  RepositoryAutomationStatus,
   RepositoryCurrentUpdateResponse,
   RepositoryUpdateHistoryResponse,
   RepositoryUpdateResponse,
