@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 
 import { AuthModule } from "../auth/auth.module.js";
+import { AppConfigModule } from "../config/app-config.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { UsageModule } from "../usage/usage.module.js";
 import { GitHubRepositoryHeadProvider } from "./providers/github-repository-head.provider.js";
@@ -13,7 +14,7 @@ import { REPOSITORY_WEBHOOK_PROVIDER } from "./application/contracts/repository-
 import { RepositoryWebhookProvisioningService } from "./application/repository-webhook-provisioning.service.js";
 
 @Module({
-  imports: [AuthModule, PrismaModule, UsageModule],
+  imports: [AppConfigModule, AuthModule, PrismaModule, UsageModule],
   controllers: [RepositoriesController],
   providers: [
     GitHubRepositoryHeadProvider,
