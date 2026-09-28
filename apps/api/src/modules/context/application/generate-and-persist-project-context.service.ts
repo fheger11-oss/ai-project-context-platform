@@ -12,6 +12,7 @@ import { OperationLockService } from "../../usage/operation-lock.service.js";
 import { userHeavyOperationLock } from "../../usage/operation-locks.js";
 import { UsageService } from "../../usage/usage.service.js";
 import { V1_USAGE_LIMITS } from "../../usage/v1-usage-limits.js";
+import { AppConfigService } from "../../config/app-config.service.js";
 
 export type GenerateAndPersistProjectContextCommand = GenerateProjectContextCommand;
 
@@ -27,7 +28,9 @@ export class GenerateAndPersistProjectContextService {
     @Inject(UsageService)
     private readonly usageService: UsageService,
     @Inject(OperationLockService)
-    private readonly operationLockService: OperationLockService
+    private readonly operationLockService: OperationLockService,
+    @Inject(AppConfigService)
+    private readonly config: AppConfigService
   ) {}
 
   async generate(
@@ -38,7 +41,7 @@ export class GenerateAndPersistProjectContextService {
     await this.usageService.assertMonthlyQuota({
       userId: command.userId,
       resource: "contexts",
-      limit: V1_USAGE_LIMITS.contextsPerMonth
+      limit: this.config.contextMonthlyLimit
     });
 
     return this.operationLockService.withRenewingLocks(

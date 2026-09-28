@@ -109,8 +109,22 @@ Frontend API base URL
 | `RATE_LIMIT_EXPENSIVE_MAX`                      | Railway/API               | No       | Expensive synchronous operation max requests/window.                                         | `5`                                                  |
 | `SCAN_MONTHLY_LIMIT`                            | Railway/API               | No       | Per-user monthly scan quota; defaults to the current production limit.                       | `3`                                                  |
 | `ANALYSIS_MONTHLY_LIMIT`                        | Railway/API               | No       | Per-user monthly analysis quota; defaults to the current production limit.                   | `3`                                                  |
+| `CONTEXT_MONTHLY_LIMIT`                         | Railway/API               | No       | Per-user monthly project context quota; defaults to the current production limit.            | `3`                                                  |
+| `DOCUMENT_MONTHLY_LIMIT`                        | Railway/API               | No       | Per-user monthly generated document quota; defaults to the current production limit.         | `5`                                                  |
+| `AI_EXPORT_MONTHLY_LIMIT`                       | Railway/API               | No       | Per-user monthly AI export quota; defaults to the current production limit.                  | `10`                                                 |
 
 Values that must align:
+
+Monthly quota variables may be omitted in production; their validated defaults preserve the
+current limits. For staging end-to-end RepositoryUpdate and downstream context testing, use:
+
+```dotenv
+ANALYSIS_MONTHLY_LIMIT=100
+SCAN_MONTHLY_LIMIT=100
+CONTEXT_MONTHLY_LIMIT=100
+DOCUMENT_MONTHLY_LIMIT=100
+AI_EXPORT_MONTHLY_LIMIT=100
+```
 
 `REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS` is optional and defaults to `21600` (six hours).
 Keep it explicit when the deployment needs a different conditional stale-update recovery window.

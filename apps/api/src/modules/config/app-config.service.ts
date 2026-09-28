@@ -147,6 +147,18 @@ export class AppConfigService {
     return this.config.get("ANALYSIS_MONTHLY_LIMIT", { infer: true });
   }
 
+  get contextMonthlyLimit() {
+    return this.config.get("CONTEXT_MONTHLY_LIMIT", { infer: true });
+  }
+
+  get documentMonthlyLimit() {
+    return this.config.get("DOCUMENT_MONTHLY_LIMIT", { infer: true });
+  }
+
+  get aiExportMonthlyLimit() {
+    return this.config.get("AI_EXPORT_MONTHLY_LIMIT", { infer: true });
+  }
+
   get repositoryUpdateStaleThresholdMilliseconds() {
     return this.config.get("REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS", { infer: true }) * 1000;
   }

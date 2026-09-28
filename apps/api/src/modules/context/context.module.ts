@@ -19,9 +19,10 @@ import { AnalysisModule } from "../analysis/analysis.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { ScanModule } from "../scan/scan.module.js";
 import { UsageModule } from "../usage/usage.module.js";
+import { AppConfigModule } from "../config/app-config.module.js";
 
 @Module({
-  imports: [AnalysisModule, PrismaModule, ScanModule, UsageModule],
+  imports: [AnalysisModule, AppConfigModule, PrismaModule, ScanModule, UsageModule],
   controllers: [AnalysisContextController, ProjectContextController],
   providers: [
     GenerateAndPersistProjectContextService,

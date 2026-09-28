@@ -89,4 +89,18 @@ describe("AppConfigService", () => {
 
     expect(config.scanMonthlyLimit).toBe(100);
   });
+
+  it("exposes all downstream monthly quota limits", () => {
+    const config = createConfigService({
+      APP_ENV: "staging",
+      NODE_ENV: "development",
+      CONTEXT_MONTHLY_LIMIT: 100,
+      DOCUMENT_MONTHLY_LIMIT: 100,
+      AI_EXPORT_MONTHLY_LIMIT: 100
+    });
+
+    expect(config.contextMonthlyLimit).toBe(100);
+    expect(config.documentMonthlyLimit).toBe(100);
+    expect(config.aiExportMonthlyLimit).toBe(100);
+  });
 });

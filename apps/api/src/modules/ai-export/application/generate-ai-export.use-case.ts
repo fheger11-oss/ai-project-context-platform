@@ -2,7 +2,7 @@ import type { ProjectContextReader } from "../../context/domain/contracts/projec
 import type { OperationLockService } from "../../usage/operation-lock.service.js";
 import { aiExportQuotaLock } from "../../usage/operation-locks.js";
 import type { UsageService } from "../../usage/usage.service.js";
-import { V1_USAGE_LIMITS } from "../../usage/v1-usage-limits.js";
+import type { AppConfigService } from "../../config/app-config.service.js";
 import type { AiExportFormat } from "../domain/ai-export-format.js";
 import type { AiExportResult } from "../domain/ai-export-result.js";
 import type { CanonicalAiExport } from "../domain/canonical-ai-export.js";
@@ -30,7 +30,8 @@ export class GenerateAiExportUseCase {
     private readonly aiExportProjector: AiExportProjector,
     private readonly serializerRouter: AiExportSerializerRouter,
     private readonly usageService: UsageService,
-    private readonly operationLockService: OperationLockService
+    private readonly operationLockService: OperationLockService,
+    private readonly config: AppConfigService
   ) {}
 
   async execute(command: GenerateAiExportCommand): Promise<GeneratedAiExport> {
@@ -47,7 +48,7 @@ export class GenerateAiExportUseCase {
       await this.usageService.assertMonthlyQuota({
         userId: command.userId,
         resource: "aiExports",
-        limit: V1_USAGE_LIMITS.aiExportsPerMonth
+        limit: this.config.aiExportMonthlyLimit
       });
 
       const canonical = this.aiExportProjector.project(context.projectContext);

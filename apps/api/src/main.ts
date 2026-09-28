@@ -74,6 +74,9 @@ async function bootstrap() {
 
   logger.log(`Configuration: scanMonthlyLimit=${config.scanMonthlyLimit}`);
   logger.log(`Configuration: analysisMonthlyLimit=${config.analysisMonthlyLimit}`);
+  logger.log(`Configuration: contextMonthlyLimit=${config.contextMonthlyLimit}`);
+  logger.log(`Configuration: documentMonthlyLimit=${config.documentMonthlyLimit}`);
+  logger.log(`Configuration: aiExportMonthlyLimit=${config.aiExportMonthlyLimit}`);
   logger.log(
     `API listening on http://${config.host}:${config.port}/${config.apiPrefix}/v${config.apiVersion}`
   );

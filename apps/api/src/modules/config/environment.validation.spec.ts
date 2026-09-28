@@ -47,6 +47,9 @@ describe("validateEnvironment", () => {
       RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
       SCAN_MONTHLY_LIMIT: 3,
       ANALYSIS_MONTHLY_LIMIT: 3,
+      CONTEXT_MONTHLY_LIMIT: 3,
+      DOCUMENT_MONTHLY_LIMIT: 5,
+      AI_EXPORT_MONTHLY_LIMIT: 10,
       REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600,
       REQUEST_BODY_LIMIT_BYTES: 32_768,
       GITHUB_CALLBACK_URL: "https://api.ctxaro.com/api/v1/auth/github/callback",
@@ -111,6 +114,9 @@ describe("validateEnvironment", () => {
       RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
       SCAN_MONTHLY_LIMIT: 3,
       ANALYSIS_MONTHLY_LIMIT: 3,
+      CONTEXT_MONTHLY_LIMIT: 3,
+      DOCUMENT_MONTHLY_LIMIT: 5,
+      AI_EXPORT_MONTHLY_LIMIT: 10,
       REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600,
       REQUEST_BODY_LIMIT_BYTES: 32_768
     });
@@ -162,6 +168,26 @@ describe("validateEnvironment", () => {
       expect(() =>
         validateEnvironment({ ...productionEnvironment, ANALYSIS_MONTHLY_LIMIT: limit })
       ).toThrow(/ANALYSIS_MONTHLY_LIMIT/);
+    }
+  );
+
+  it.each(["CONTEXT_MONTHLY_LIMIT", "DOCUMENT_MONTHLY_LIMIT", "AI_EXPORT_MONTHLY_LIMIT"] as const)(
+    "accepts 100 for %s",
+    (variable) => {
+      expect(validateEnvironment({ ...productionEnvironment, [variable]: "100" })[variable]).toBe(
+        100
+      );
+    }
+  );
+
+  it.each(["CONTEXT_MONTHLY_LIMIT", "DOCUMENT_MONTHLY_LIMIT", "AI_EXPORT_MONTHLY_LIMIT"] as const)(
+    "rejects invalid values for %s",
+    (variable) => {
+      for (const value of ["0", "-1", "1000001", "not-a-number"]) {
+        expect(() => validateEnvironment({ ...productionEnvironment, [variable]: value })).toThrow(
+          new RegExp(variable)
+        );
+      }
     }
   );
 

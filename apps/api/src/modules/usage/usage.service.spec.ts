@@ -60,6 +60,37 @@ describe("UsageService", () => {
     } satisfies Partial<QuotaExceededError>);
   });
 
+  it.each(["contexts", "documents", "aiExports"] as const)(
+    "preserves quota exhaustion behavior for %s",
+    async (resource) => {
+      const count = vi.fn().mockResolvedValue(100);
+      const prisma =
+        resource === "contexts"
+          ? { projectContext: { count } }
+          : resource === "documents"
+            ? { document: { count } }
+            : { usageEvent: { count } };
+      const service = createService(prisma as unknown as PrismaService);
+
+      await expect(
+        service.assertMonthlyQuota({
+          userId: "user_1",
+          resource,
+          limit: 100,
+          now: new Date("2026-09-16T14:30:00.000Z")
+        })
+      ).rejects.toMatchObject({
+        name: "QuotaExceededError",
+        details: {
+          resource,
+          limit: 100,
+          currentUsage: 100,
+          resetAt: new Date("2026-10-01T00:00:00.000Z")
+        }
+      } satisfies Partial<QuotaExceededError>);
+    }
+  );
+
   it("does not count reconnecting an existing GitHub repository against repository quota", async () => {
     const count = vi.fn();
     const service = createService({

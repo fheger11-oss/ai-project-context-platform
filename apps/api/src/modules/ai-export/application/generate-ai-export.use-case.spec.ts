@@ -51,6 +51,7 @@ function createUseCase(
     readResult?: Awaited<ReturnType<ProjectContextReader["readProjectContext"]>>;
     readError?: Error;
     serializeError?: Error;
+    aiExportMonthlyLimit?: number;
   } = {}
 ) {
   const projectContextReader: ProjectContextReader = {
@@ -103,12 +104,29 @@ function createUseCase(
       aiExportProjector,
       serializerRouter,
       usageService,
-      operationLockService
+      operationLockService,
+      { aiExportMonthlyLimit: options.aiExportMonthlyLimit ?? 10 } as never
     )
   };
 }
 
 describe("GenerateAiExportUseCase", () => {
+  it("enforces the configured monthly AI export limit", async () => {
+    const { useCase, usageService } = createUseCase({ aiExportMonthlyLimit: 100 });
+
+    await useCase.execute({
+      userId: "user_1",
+      contextId: "project_context_1",
+      format: "AI_CONTEXT"
+    });
+
+    expect(usageService.assertMonthlyQuota).toHaveBeenCalledWith({
+      userId: "user_1",
+      resource: "aiExports",
+      limit: 100
+    });
+  });
+
   it("authorizes through ProjectContextReader before projecting and serializing", async () => {
     const { useCase, projectContextReader, aiExportProjector, serializerRouter } = createUseCase();
 
