@@ -72,6 +72,7 @@ async function bootstrap() {
 
   await app.listen(config.port, config.host);
 
+  logger.log(`Configuration: analysisMonthlyLimit=${config.analysisMonthlyLimit}`);
   logger.log(
     `API listening on http://${config.host}:${config.port}/${config.apiPrefix}/v${config.apiVersion}`
   );
