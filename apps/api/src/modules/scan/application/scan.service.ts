@@ -29,6 +29,7 @@ import {
 } from "../../usage/operation-locks.js";
 import { UsageService } from "../../usage/usage.service.js";
 import { V1_USAGE_LIMITS } from "../../usage/v1-usage-limits.js";
+import { AppConfigService } from "../../config/app-config.service.js";
 
 export type StartScanInput = {
   repositoryId: string;
@@ -77,7 +78,9 @@ export class ScanService {
     @Inject(UsageService)
     private readonly usageService: UsageService,
     @Inject(OperationLockService)
-    private readonly operationLockService: OperationLockService
+    private readonly operationLockService: OperationLockService,
+    @Inject(AppConfigService)
+    private readonly config: AppConfigService
   ) {}
 
   /**
@@ -137,7 +140,7 @@ export class ScanService {
     await this.usageService.assertMonthlyQuota({
       userId,
       resource: "scans",
-      limit: V1_USAGE_LIMITS.scansPerMonth
+      limit: this.config.scanMonthlyLimit
     });
 
     const scan = await this.scanRepository.createScan({

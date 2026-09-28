@@ -22,6 +22,7 @@ import { SCAN_LIMITS } from "../domain/scan-limits.js";
 import { ScanService } from "./scan.service.js";
 import { OperationLockService } from "../../usage/operation-lock.service.js";
 import { UsageService } from "../../usage/usage.service.js";
+import { AppConfigService } from "../../config/app-config.service.js";
 
 const createdAt = new Date("2026-08-07T10:00:00.000Z");
 const updatedAt = new Date("2026-08-07T10:00:01.000Z");
@@ -105,6 +106,7 @@ function createService(overrides?: {
   scanRepository?: Partial<ScanRepository>;
   usageService?: Partial<UsageService>;
   operationLockService?: Partial<OperationLockService>;
+  scanMonthlyLimit?: number;
 }) {
   const repositoryAccessResolver = {
     resolveRepositoryAccess: vi.fn().mockResolvedValue(access),
@@ -176,7 +178,8 @@ function createService(overrides?: {
       {
         withRenewingLocks: vi.fn(async (_locks, operation: () => Promise<unknown>) => operation()),
         ...overrides?.operationLockService
-      } as unknown as OperationLockService
+      } as unknown as OperationLockService,
+      { scanMonthlyLimit: overrides?.scanMonthlyLimit ?? 3 } as AppConfigService
     )
   };
 }
@@ -200,8 +203,32 @@ describe("ScanService", () => {
       expect.any(Symbol),
       expect.any(Symbol),
       UsageService,
-      OperationLockService
+      OperationLockService,
+      AppConfigService
     ]);
+  });
+
+  it("enforces the configured monthly scan limit", async () => {
+    const assertMonthlyQuota = vi.fn(async () => ({
+      startsAt: new Date("2026-08-01T00:00:00.000Z"),
+      resetAt: new Date("2026-09-01T00:00:00.000Z")
+    }));
+    const { service } = createService({
+      scanMonthlyLimit: 100,
+      usageService: { assertMonthlyQuota }
+    });
+
+    await service.startScan({
+      repositoryId: "repository_1",
+      reference: "main",
+      userId: "user_1"
+    });
+
+    expect(assertMonthlyQuota).toHaveBeenCalledWith({
+      userId: "user_1",
+      resource: "scans",
+      limit: 100
+    });
   });
 
   it("returns paginated scan history for an owned repository", async () => {

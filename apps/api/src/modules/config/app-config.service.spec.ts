@@ -79,4 +79,14 @@ describe("AppConfigService", () => {
 
     expect(config.analysisMonthlyLimit).toBe(100);
   });
+
+  it("exposes the validated monthly scan limit", () => {
+    const config = createConfigService({
+      APP_ENV: "staging",
+      NODE_ENV: "development",
+      SCAN_MONTHLY_LIMIT: 100
+    });
+
+    expect(config.scanMonthlyLimit).toBe(100);
+  });
 });

@@ -45,6 +45,7 @@ describe("validateEnvironment", () => {
       RATE_LIMIT_EXPENSIVE_TTL_SECONDS: 60,
       RATE_LIMIT_GLOBAL_MAX: 300,
       RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
+      SCAN_MONTHLY_LIMIT: 3,
       ANALYSIS_MONTHLY_LIMIT: 3,
       REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600,
       REQUEST_BODY_LIMIT_BYTES: 32_768,
@@ -108,6 +109,7 @@ describe("validateEnvironment", () => {
       RATE_LIMIT_EXPENSIVE_TTL_SECONDS: 60,
       RATE_LIMIT_GLOBAL_MAX: 300,
       RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
+      SCAN_MONTHLY_LIMIT: 3,
       ANALYSIS_MONTHLY_LIMIT: 3,
       REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600,
       REQUEST_BODY_LIMIT_BYTES: 32_768
@@ -133,6 +135,26 @@ describe("validateEnvironment", () => {
       }).ANALYSIS_MONTHLY_LIMIT
     ).toBe(100);
   });
+
+  it("accepts an environment-specific monthly scan limit", () => {
+    expect(
+      validateEnvironment({
+        ...productionEnvironment,
+        APP_ENV: "staging",
+        NODE_ENV: "development",
+        SCAN_MONTHLY_LIMIT: "100"
+      }).SCAN_MONTHLY_LIMIT
+    ).toBe(100);
+  });
+
+  it.each(["0", "-1", "1000001", "not-a-number"])(
+    "rejects invalid monthly scan limit %s",
+    (limit) => {
+      expect(() =>
+        validateEnvironment({ ...productionEnvironment, SCAN_MONTHLY_LIMIT: limit })
+      ).toThrow(/SCAN_MONTHLY_LIMIT/);
+    }
+  );
 
   it.each(["0", "-1", "1000001", "not-a-number"])(
     "rejects invalid monthly analysis limit %s",

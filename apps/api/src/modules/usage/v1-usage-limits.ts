@@ -1,6 +1,5 @@
 export const V1_USAGE_LIMITS = {
   repositories: 1,
-  scansPerMonth: 3,
   contextsPerMonth: 3,
   documentsPerMonth: 5,
   aiExportsPerMonth: 10,
