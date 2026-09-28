@@ -101,6 +101,17 @@ export class RepositoriesController {
     return this.repositoriesService.getAutomationStatus(user, params.id);
   }
 
+  @Post(":id/automation/reconcile")
+  @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: RepositoryAutomationStatusResponseDto })
+  reconcileAutomation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: RepositoryParamsDto
+  ) {
+    return this.repositoriesService.reconcileAutomation(user, params.id);
+  }
+
   @Post(":id/state/refresh")
   @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)

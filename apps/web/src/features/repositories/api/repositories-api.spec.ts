@@ -13,6 +13,7 @@ import {
   getCurrentRepositoryUpdate,
   getCurrentProjectContext,
   getRepositoryAutomationStatus,
+  reconcileRepositoryAutomation,
   getRepositoryState,
   getRepositoryUpdateHistory,
   refreshRepositoryState,
@@ -117,7 +118,9 @@ describe("repositories-api RepositoryState endpoints", () => {
       automaticUpdates: {
         capability: "CAN_MANAGE_WEBHOOK",
         configuration: "NOT_CONFIGURED",
-        enabled: false
+        enabled: false,
+        lastOutcome: null,
+        lastVerifiedAt: null
       }
     };
     const fetchMock = mockFetch(status);
@@ -136,6 +139,27 @@ describe("repositories-api RepositoryState endpoints", () => {
     );
     expect(result).toEqual(status);
     expect(result.automaticUpdates.enabled).toBe(false);
+  });
+
+  it("reconciles repository automation through the backend", async () => {
+    const status: RepositoryAutomationStatus = {
+      automaticUpdates: {
+        capability: "CAN_MANAGE_WEBHOOK",
+        configuration: "ENABLED",
+        enabled: true,
+        lastOutcome: "WEBHOOK_ALREADY_CONFIGURED",
+        lastVerifiedAt: "2026-09-28T14:00:00.000Z"
+      }
+    };
+    const fetchMock = mockFetch(status);
+
+    await expect(reconcileRepositoryAutomation("access_token", "repository_1")).resolves.toEqual(
+      status
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/v1/repositories/repository_1/automation/reconcile",
+      expect.objectContaining({ method: "POST" })
+    );
   });
 
   it("loads the current ProjectContext through the repository current-context API", async () => {

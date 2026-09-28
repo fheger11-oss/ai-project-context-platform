@@ -92,8 +92,30 @@ export type RepositoryAutomationCapability =
 export type RepositoryAutomationStatus = {
   automaticUpdates: {
     capability: RepositoryAutomationCapability;
-    configuration: "NOT_CONFIGURED";
-    enabled: false;
+    configuration:
+      | "NOT_CONFIGURED"
+      | "PROVISIONING"
+      | "ENABLED"
+      | "REQUIRES_ADMIN"
+      | "REQUIRES_AUTHORIZATION"
+      | "UNAVAILABLE"
+      | "FAILED"
+      | "CLEANUP_PENDING";
+    enabled: boolean;
+    lastOutcome:
+      | "WEBHOOK_CREATED"
+      | "WEBHOOK_ALREADY_CONFIGURED"
+      | "WEBHOOK_UPDATED"
+      | "WEBHOOK_NOT_AUTHORIZED"
+      | "WEBHOOK_PROVIDER_UNAVAILABLE"
+      | "WEBHOOK_CONFIGURATION_INVALID"
+      | "WEBHOOK_NOT_FOUND"
+      | "WEBHOOK_UNKNOWN_FAILURE"
+      | "WEBHOOK_DELETED"
+      | "WEBHOOK_ALREADY_DELETED"
+      | "WEBHOOK_CLEANUP_PENDING"
+      | null;
+    lastVerifiedAt: string | null;
   };
 };
 

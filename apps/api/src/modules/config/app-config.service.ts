@@ -82,6 +82,9 @@ export class AppConfigService {
   get githubWebhookSecret() {
     return this.config.get("GITHUB_WEBHOOK_SECRET", { infer: true });
   }
+  get githubWebhookCallbackUrl() {
+    return this.config.get("GITHUB_WEBHOOK_CALLBACK_URL", { infer: true });
+  }
   get githubWebhookBodyLimitBytes() {
     return this.config.get("GITHUB_WEBHOOK_BODY_LIMIT_BYTES", { infer: true });
   }

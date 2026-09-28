@@ -123,6 +123,13 @@ export function getRepositoryAutomationStatus(accessToken: string, id: string) {
   });
 }
 
+export function reconcileRepositoryAutomation(accessToken: string, id: string) {
+  return request<RepositoryAutomationStatus>(`/repositories/${id}/automation/reconcile`, {
+    accessToken,
+    method: "POST"
+  });
+}
+
 export function disconnectRepository(accessToken: string, repositoryId: string) {
   return request<void>(`/repositories/${repositoryId}`, {
     accessToken,

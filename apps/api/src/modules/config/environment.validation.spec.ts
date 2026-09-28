@@ -27,6 +27,7 @@ const productionEnvironment = {
   GITHUB_CLIENT_ID: "github-client-id",
   GITHUB_CLIENT_SECRET: "github-client-secret",
   GITHUB_WEBHOOK_SECRET: "production-webhook-secret-at-least-32-characters",
+  GITHUB_WEBHOOK_CALLBACK_URL: "https://api.ctxaro.com/api/v1/webhooks/github",
   GITHUB_CALLBACK_URL: "https://api.ctxaro.com/api/v1/auth/github/callback",
   WEB_AUTH_CALLBACK_URL: "https://ctxaro.com/auth/callback",
   PROVIDER_TOKEN_ENCRYPTION_KEY: "provider-token-key-at-least-32-characters"
@@ -53,6 +54,7 @@ describe("validateEnvironment", () => {
       REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600,
       REQUEST_BODY_LIMIT_BYTES: 32_768,
       GITHUB_CALLBACK_URL: "https://api.ctxaro.com/api/v1/auth/github/callback",
+      GITHUB_WEBHOOK_CALLBACK_URL: "https://api.ctxaro.com/api/v1/webhooks/github",
       WEB_AUTH_CALLBACK_URL: "https://ctxaro.com/auth/callback"
     });
   });
@@ -227,6 +229,26 @@ describe("validateEnvironment", () => {
         WEB_AUTH_CALLBACK_URL: "http://localhost:5173/auth/callback"
       })
     ).toThrow(/localhost in production/);
+  });
+
+  it("requires a canonical GitHub webhook callback in production", () => {
+    const {
+      GITHUB_WEBHOOK_CALLBACK_URL: _githubWebhookCallbackUrl,
+      ...environmentWithoutWebhookCallback
+    } = productionEnvironment;
+
+    expect(() => validateEnvironment(environmentWithoutWebhookCallback)).toThrow(
+      /GITHUB_WEBHOOK_CALLBACK_URL is required in production/
+    );
+  });
+
+  it("rejects a localhost GitHub webhook callback in production", () => {
+    expect(() =>
+      validateEnvironment({
+        ...productionEnvironment,
+        GITHUB_WEBHOOK_CALLBACK_URL: "http://localhost:3000/api/v1/webhooks/github"
+      })
+    ).toThrow(/GITHUB_WEBHOOK_CALLBACK_URL.*localhost in production/);
   });
 
   it("rejects non-HTTPS public URLs in production", () => {

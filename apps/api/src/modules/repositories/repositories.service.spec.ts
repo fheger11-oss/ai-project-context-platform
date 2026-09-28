@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PrismaService } from "../prisma/prisma.service.js";
@@ -8,6 +8,7 @@ import type { GitHubAccountService } from "../auth/providers/github-account.serv
 import type { AuthenticatedUser } from "../auth/types/authenticated-user.js";
 import type { GitHubRepositoryProvider } from "./providers/github-repository.provider.js";
 import { RepositoriesService } from "./repositories.service.js";
+import type { RepositoryWebhookProvisioningService } from "./application/repository-webhook-provisioning.service.js";
 
 const user: AuthenticatedUser = {
   email: "owner@example.com",
@@ -16,7 +17,14 @@ const user: AuthenticatedUser = {
   tenantId: null
 };
 
-function serviceFor(prisma: PrismaService) {
+function serviceFor(
+  prisma: PrismaService,
+  webhookProvisioning = {
+    cleanup: vi.fn().mockResolvedValue(true),
+    getStatus: vi.fn(),
+    reconcile: vi.fn()
+  } as unknown as RepositoryWebhookProvisioningService
+) {
   return new RepositoriesService(
     prisma,
     {} as GitHubAccountService,
@@ -26,7 +34,8 @@ function serviceFor(prisma: PrismaService) {
     } as unknown as UsageService,
     {
       withLocks: vi.fn(async (_locks, operation: () => Promise<unknown>) => operation())
-    } as unknown as OperationLockService
+    } as unknown as OperationLockService,
+    webhookProvisioning
   );
 }
 
@@ -34,6 +43,7 @@ function createService(repository: {
   delete?: ReturnType<typeof vi.fn>;
   deleteHistory?: ReturnType<typeof vi.fn>;
   findUnique?: ReturnType<typeof vi.fn>;
+  cleanup?: ReturnType<typeof vi.fn>;
 }) {
   const prisma = {
     repository: {
@@ -48,47 +58,43 @@ function createService(repository: {
 
   return {
     prisma,
-    service: serviceFor(prisma)
+    service: serviceFor(prisma, {
+      cleanup: repository.cleanup ?? vi.fn().mockResolvedValue(true)
+    } as unknown as RepositoryWebhookProvisioningService)
   };
 }
 
 describe("RepositoriesService", () => {
   describe("automation capability", () => {
     it("returns the provider capability for an owned connected repository", async () => {
-      const findFirst = vi.fn().mockResolvedValue({
-        githubId: "123",
-        owner: "owner",
-        name: "repository"
-      });
-      const getAccessTokenForUser = vi.fn().mockResolvedValue("provider-token");
-      const checkWebhookManagementCapability = vi.fn().mockResolvedValue({
-        capability: "CAN_MANAGE_WEBHOOK",
-        permissions: { admin: true }
+      const getStatus = vi.fn().mockResolvedValue({
+        automaticUpdates: {
+          capability: "CAN_MANAGE_WEBHOOK",
+          configuration: "NOT_CONFIGURED",
+          enabled: false,
+          lastOutcome: null,
+          lastVerifiedAt: null
+        }
       });
       const service = new RepositoriesService(
-        { repository: { findFirst } } as unknown as PrismaService,
-        { getAccessTokenForUser } as unknown as GitHubAccountService,
-        { checkWebhookManagementCapability } as unknown as GitHubRepositoryProvider,
+        {} as PrismaService,
+        {} as GitHubAccountService,
+        {} as GitHubRepositoryProvider,
         {} as UsageService,
-        {} as OperationLockService
+        {} as OperationLockService,
+        { getStatus } as unknown as RepositoryWebhookProvisioningService
       );
 
       await expect(service.getAutomationStatus(user, "repository_1")).resolves.toEqual({
         automaticUpdates: {
           capability: "CAN_MANAGE_WEBHOOK",
           configuration: "NOT_CONFIGURED",
-          enabled: false
+          enabled: false,
+          lastOutcome: null,
+          lastVerifiedAt: null
         }
       });
-      expect(findFirst).toHaveBeenCalledWith({
-        where: { id: "repository_1", userId: "user_1" },
-        select: { githubId: true, name: true, owner: true }
-      });
-      expect(checkWebhookManagementCapability).toHaveBeenCalledWith("provider-token", {
-        githubId: "123",
-        owner: "owner",
-        name: "repository"
-      });
+      expect(getStatus).toHaveBeenCalledWith(user, "repository_1");
     });
 
     it("preserves ownership-safe not-found behavior", async () => {
@@ -97,7 +103,10 @@ describe("RepositoriesService", () => {
         {} as GitHubAccountService,
         {} as GitHubRepositoryProvider,
         {} as UsageService,
-        {} as OperationLockService
+        {} as OperationLockService,
+        {
+          getStatus: vi.fn().mockRejectedValue(new NotFoundException())
+        } as unknown as RepositoryWebhookProvisioningService
       );
 
       await expect(service.getAutomationStatus(user, "repository_2")).rejects.toBeInstanceOf(
@@ -138,23 +147,33 @@ describe("RepositoriesService", () => {
         { getAccessTokenForUser } as unknown as GitHubAccountService,
         {
           getRepositoryById: vi.fn().mockResolvedValue(repository),
-          checkWebhookManagementCapability: vi.fn().mockResolvedValue({
-            capability: "PROVIDER_UNAVAILABLE",
-            permissions: null
-          })
+          checkWebhookManagementCapability: vi.fn()
         } as unknown as GitHubRepositoryProvider,
         { assertRepositoryQuota: vi.fn().mockResolvedValue(undefined) } as unknown as UsageService,
         {
           withLocks: vi.fn(async (_locks, operation: () => Promise<unknown>) => operation())
-        } as unknown as OperationLockService
+        } as unknown as OperationLockService,
+        {
+          reconcile: vi.fn().mockResolvedValue({
+            automaticUpdates: {
+              capability: "PROVIDER_UNAVAILABLE",
+              configuration: "UNAVAILABLE",
+              enabled: false,
+              lastOutcome: "WEBHOOK_PROVIDER_UNAVAILABLE",
+              lastVerifiedAt: null
+            }
+          })
+        } as unknown as RepositoryWebhookProvisioningService
       );
 
       await expect(service.connect(user, "123")).resolves.toMatchObject({
         id: "repository_1",
         automaticUpdates: {
           capability: "PROVIDER_UNAVAILABLE",
-          configuration: "NOT_CONFIGURED",
-          enabled: false
+          configuration: "UNAVAILABLE",
+          enabled: false,
+          lastOutcome: "WEBHOOK_PROVIDER_UNAVAILABLE",
+          lastVerifiedAt: null
         }
       });
     });
@@ -290,6 +309,22 @@ describe("RepositoriesService", () => {
       await expect(service.disconnect(user, "repository_2")).rejects.toBeInstanceOf(
         ForbiddenException
       );
+      expect(deleteRepository).not.toHaveBeenCalled();
+    });
+
+    it("keeps the repository connected when remote webhook cleanup is pending", async () => {
+      const deleteRepository = vi.fn();
+      const cleanup = vi.fn().mockResolvedValue(false);
+      const { service } = createService({
+        cleanup,
+        delete: deleteRepository,
+        findUnique: vi.fn().mockResolvedValue({ id: "repository_1", userId: user.id })
+      });
+
+      await expect(service.disconnect(user, "repository_1")).rejects.toBeInstanceOf(
+        ServiceUnavailableException
+      );
+      expect(cleanup).toHaveBeenCalledWith(user, "repository_1");
       expect(deleteRepository).not.toHaveBeenCalled();
     });
   });

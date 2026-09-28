@@ -21,7 +21,9 @@ describe("RepositoriesController RepositoryState endpoints", () => {
       automaticUpdates: {
         capability: "CANNOT_MANAGE_WEBHOOK" as const,
         configuration: "NOT_CONFIGURED" as const,
-        enabled: false as const
+        enabled: false,
+        lastOutcome: null,
+        lastVerifiedAt: null
       }
     }));
     const controller = createController({}, { getAutomationStatus });
@@ -33,11 +35,34 @@ describe("RepositoriesController RepositoryState endpoints", () => {
       automaticUpdates: {
         capability: "CANNOT_MANAGE_WEBHOOK",
         configuration: "NOT_CONFIGURED",
-        enabled: false
+        enabled: false,
+        lastOutcome: null,
+        lastVerifiedAt: null
       }
     });
     expect(JSON.stringify(response)).not.toMatch(
       /accessToken|authorization|webhookSecret|provider-token/i
+    );
+  });
+
+  it("delegates idempotent automation reconciliation without exposing secrets", async () => {
+    const reconcileAutomation = vi.fn().mockResolvedValue({
+      automaticUpdates: {
+        capability: "CAN_MANAGE_WEBHOOK",
+        configuration: "ENABLED",
+        enabled: true,
+        lastOutcome: "WEBHOOK_ALREADY_CONFIGURED",
+        lastVerifiedAt: new Date("2026-09-28T14:00:00.000Z")
+      }
+    });
+    const controller = createController({}, { reconcileAutomation });
+
+    const response = await controller.reconcileAutomation(user, { id: "repository_1" });
+
+    expect(reconcileAutomation).toHaveBeenCalledWith(user, "repository_1");
+    expect(response.automaticUpdates.enabled).toBe(true);
+    expect(JSON.stringify(response)).not.toMatch(
+      /accessToken|authorization|secret|provider-token/i
     );
   });
 

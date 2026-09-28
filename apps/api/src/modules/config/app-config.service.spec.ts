@@ -70,6 +70,16 @@ describe("AppConfigService", () => {
     expect(config.repositoryUpdateStaleThresholdMilliseconds).toBe(21_600_000);
   });
 
+  it("exposes the canonical GitHub webhook callback URL", () => {
+    const config = createConfigService({
+      APP_ENV: "production",
+      NODE_ENV: "production",
+      GITHUB_WEBHOOK_CALLBACK_URL: "https://api.ctxaro.com/api/v1/webhooks/github"
+    });
+
+    expect(config.githubWebhookCallbackUrl).toBe("https://api.ctxaro.com/api/v1/webhooks/github");
+  });
+
   it("exposes the validated monthly analysis limit", () => {
     const config = createConfigService({
       APP_ENV: "staging",

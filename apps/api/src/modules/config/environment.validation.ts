@@ -39,6 +39,7 @@ const environmentSchema = z
     GITHUB_CLIENT_SECRET: z.string().min(1),
     GITHUB_CALLBACK_URL: z.string().url(),
     GITHUB_WEBHOOK_SECRET: z.string().min(32).optional(),
+    GITHUB_WEBHOOK_CALLBACK_URL: z.string().url().optional(),
     GITHUB_WEBHOOK_BODY_LIMIT_BYTES: z.coerce
       .number()
       .int()
@@ -81,6 +82,14 @@ const environmentSchema = z
         code: "custom",
         path: ["GITHUB_WEBHOOK_SECRET"],
         message: "GITHUB_WEBHOOK_SECRET is required in production"
+      });
+    }
+
+    if (!config.GITHUB_WEBHOOK_CALLBACK_URL) {
+      context.addIssue({
+        code: "custom",
+        path: ["GITHUB_WEBHOOK_CALLBACK_URL"],
+        message: "GITHUB_WEBHOOK_CALLBACK_URL is required in production"
       });
     }
 
@@ -130,6 +139,13 @@ const environmentSchema = z
     }
 
     assertProductionUrl(context, "GITHUB_CALLBACK_URL", config.GITHUB_CALLBACK_URL);
+    if (config.GITHUB_WEBHOOK_CALLBACK_URL) {
+      assertProductionUrl(
+        context,
+        "GITHUB_WEBHOOK_CALLBACK_URL",
+        config.GITHUB_WEBHOOK_CALLBACK_URL
+      );
+    }
     assertProductionUrl(context, "WEB_AUTH_CALLBACK_URL", config.WEB_AUTH_CALLBACK_URL);
     assertProductionUrl(context, "DATABASE_URL", config.DATABASE_URL);
   });
@@ -163,7 +179,12 @@ function normalizePlatformPort(config: Record<string, unknown>) {
 
 function assertProductionUrl(
   context: z.RefinementCtx,
-  field: "CORS_ORIGINS" | "DATABASE_URL" | "GITHUB_CALLBACK_URL" | "WEB_AUTH_CALLBACK_URL",
+  field:
+    | "CORS_ORIGINS"
+    | "DATABASE_URL"
+    | "GITHUB_CALLBACK_URL"
+    | "GITHUB_WEBHOOK_CALLBACK_URL"
+    | "WEB_AUTH_CALLBACK_URL",
   value: string
 ) {
   let url: URL;

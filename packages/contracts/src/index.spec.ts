@@ -87,8 +87,18 @@ describe("contracts package exports", () => {
           | "PROVIDER_REPOSITORY_NOT_FOUND"
           | "PROVIDER_AUTHORIZATION_REQUIRED"
           | "PROVIDER_UNAVAILABLE";
-        configuration: "NOT_CONFIGURED";
-        enabled: false;
+        configuration:
+          | "NOT_CONFIGURED"
+          | "PROVISIONING"
+          | "ENABLED"
+          | "REQUIRES_ADMIN"
+          | "REQUIRES_AUTHORIZATION"
+          | "UNAVAILABLE"
+          | "FAILED"
+          | "CLEANUP_PENDING";
+        enabled: boolean;
+        lastOutcome: string | null;
+        lastVerifiedAt: string | null;
       };
     }>();
     expectTypeOf<ConnectRepositoryResponse>().toHaveProperty("id").toEqualTypeOf<string>();

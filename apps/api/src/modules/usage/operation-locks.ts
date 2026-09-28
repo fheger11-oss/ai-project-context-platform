@@ -57,6 +57,14 @@ export function repositoryConnectLock(userId: string): OperationLockSpec {
   };
 }
 
+export function repositoryAutomationLock(repositoryId: string): OperationLockSpec {
+  return {
+    key: `repository:${repositoryId}:automation`,
+    operationType: "repository.automation",
+    leaseMs: V1_USAGE_LIMITS.lockLeaseMs.repositoryConnect
+  };
+}
+
 export function aiExportQuotaLock(userId: string): OperationLockSpec {
   return {
     key: `user:${userId}:ai-export-quota`,

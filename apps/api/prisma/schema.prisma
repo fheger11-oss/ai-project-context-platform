@@ -91,6 +91,31 @@ enum RepositoryUpdateDispatchStatus {
   FAILED
 }
 
+enum RepositoryWebhookProvisioningStatus {
+  NOT_CONFIGURED
+  PROVISIONING
+  ENABLED
+  REQUIRES_ADMIN
+  REQUIRES_AUTHORIZATION
+  UNAVAILABLE
+  FAILED
+  CLEANUP_PENDING
+}
+
+enum RepositoryWebhookProvisioningOutcome {
+  WEBHOOK_CREATED
+  WEBHOOK_ALREADY_CONFIGURED
+  WEBHOOK_UPDATED
+  WEBHOOK_NOT_AUTHORIZED
+  WEBHOOK_PROVIDER_UNAVAILABLE
+  WEBHOOK_CONFIGURATION_INVALID
+  WEBHOOK_NOT_FOUND
+  WEBHOOK_UNKNOWN_FAILURE
+  WEBHOOK_DELETED
+  WEBHOOK_ALREADY_DELETED
+  WEBHOOK_CLEANUP_PENDING
+}
+
 model User {
   id            String         @id @default(cuid())
   email         String         @unique
@@ -178,11 +203,35 @@ model Repository {
   updates          RepositoryUpdate[]
   contextHistory   RepositoryContextHistory[]
   updateDispatches RepositoryUpdateDispatch[]
+  webhook          RepositoryWebhook?
 
   @@unique([userId, githubId])
   @@index([userId])
   @@index([fullName])
   @@map("repositories")
+}
+
+model RepositoryWebhook {
+  id                        String                                @id @default(cuid())
+  repositoryId              String                                @unique @map("repository_id")
+  provider                  WebhookProvider
+  providerWebhookId         String?                               @map("provider_webhook_id")
+  provisioningStatus        RepositoryWebhookProvisioningStatus   @default(NOT_CONFIGURED) @map("provisioning_status")
+  active                    Boolean                               @default(false)
+  callbackUrl               String                                @map("callback_url")
+  subscribedEvents          Json                                  @map("subscribed_events")
+  secretFingerprint         String?                               @map("secret_fingerprint")
+  lastOutcome               RepositoryWebhookProvisioningOutcome? @map("last_outcome")
+  lastProvisioningAttemptAt DateTime?                             @map("last_provisioning_attempt_at")
+  lastVerifiedAt            DateTime?                             @map("last_verified_at")
+  createdAt                 DateTime                              @default(now()) @map("created_at")
+  updatedAt                 DateTime                              @updatedAt @map("updated_at")
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerWebhookId])
+  @@index([provisioningStatus])
+  @@map("repository_webhooks")
 }
 
 model RepositoryState {

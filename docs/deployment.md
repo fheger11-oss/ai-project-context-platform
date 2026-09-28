@@ -93,6 +93,7 @@ Frontend API base URL
 | `GITHUB_CLIENT_SECRET`                          | Railway/API               | Yes      | Production GitHub OAuth app client secret.                                                   | `<github-oauth-client-secret>`                       |
 | `GITHUB_CALLBACK_URL`                           | Railway/API, GitHub OAuth | Yes      | API callback URL registered with GitHub.                                                     | `https://api.ctxaro.com/api/v1/auth/github/callback` |
 | `GITHUB_WEBHOOK_SECRET`                         | Railway/API, GitHub       | Yes      | Independent HMAC secret for `POST /api/v1/webhooks/github`.                                  | `<generate-webhook-secret>`                          |
+| `GITHUB_WEBHOOK_CALLBACK_URL`                   | Railway/API, GitHub       | Yes      | Canonical HTTPS callback used when provisioning repository webhooks.                         | `https://api.ctxaro.com/api/v1/webhooks/github`      |
 | `GITHUB_WEBHOOK_BODY_LIMIT_BYTES`               | Railway/API               | No       | Raw GitHub webhook payload limit; defaults to 256 KiB and cannot exceed 1 MiB.               | `262144`                                             |
 | `REPOSITORY_UPDATE_WORKER_ENABLED`              | Railway/API               | Yes      | Runs the durable dispatch worker in this API process.                                        | `true`                                               |
 | `REPOSITORY_UPDATE_WORKER_POLL_INTERVAL_MS`     | Railway/API               | No       | Delay between database dispatch polls.                                                       | `2000`                                               |
@@ -206,14 +207,21 @@ The API uses:
 
 ## GitHub Webhook and Dispatch Worker
 
-Configure a GitHub `push` webhook at:
+Set the canonical automatic-provisioning callback to:
 
 ```text
 https://api.ctxaro.com/api/v1/webhooks/github
 ```
 
-Use JSON payloads, enable only `push`, and set the same independently generated secret in GitHub
-and `GITHUB_WEBHOOK_SECRET`. The endpoint verifies `X-Hub-Signature-256` against the exact raw
+Set that value as `GITHUB_WEBHOOK_CALLBACK_URL`. When an authenticated repository administrator
+connects a repository, the API reconciles one active JSON `push` webhook to this callback. The
+current transitional implementation uses the same independently generated
+`GITHUB_WEBHOOK_SECRET` for automatically provisioned hooks and signature verification. It stores
+only a SHA-256 fingerprint of that secret with the hook record; the secret itself remains backend
+configuration and is never returned by repository APIs. Existing manually configured webhooks
+remain supported.
+
+The endpoint verifies `X-Hub-Signature-256` against the exact raw
 bytes, validates `X-GitHub-Delivery`, resolves connected repositories solely from verified GitHub
 repository identity, and accepts only default-branch pushes. It does not scan or analyze during
 the HTTP request.

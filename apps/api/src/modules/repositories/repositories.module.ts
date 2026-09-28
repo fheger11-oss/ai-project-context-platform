@@ -8,6 +8,9 @@ import { GitHubRepositoryProvider } from "./providers/github-repository.provider
 import { RepositoriesController } from "./repositories.controller.js";
 import { RepositoriesService } from "./repositories.service.js";
 import { RepositoryStateService } from "./repository-state.service.js";
+import { GitHubRepositoryWebhookProvider } from "./providers/github-repository-webhook.provider.js";
+import { REPOSITORY_WEBHOOK_PROVIDER } from "./application/contracts/repository-webhook-provider.contract.js";
+import { RepositoryWebhookProvisioningService } from "./application/repository-webhook-provisioning.service.js";
 
 @Module({
   imports: [AuthModule, PrismaModule, UsageModule],
@@ -15,6 +18,12 @@ import { RepositoryStateService } from "./repository-state.service.js";
   providers: [
     GitHubRepositoryHeadProvider,
     GitHubRepositoryProvider,
+    GitHubRepositoryWebhookProvider,
+    {
+      provide: REPOSITORY_WEBHOOK_PROVIDER,
+      useExisting: GitHubRepositoryWebhookProvider
+    },
+    RepositoryWebhookProvisioningService,
     RepositoriesService,
     RepositoryStateService
   ],

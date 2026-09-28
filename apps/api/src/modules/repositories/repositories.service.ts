@@ -3,7 +3,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
-  UnauthorizedException
+  ServiceUnavailableException
 } from "@nestjs/common";
 
 import type { RepositoryModel } from "../../generated/prisma/models.js";
@@ -20,6 +20,7 @@ import {
   repositoryAutomationStatus,
   type RepositoryAutomationStatus
 } from "./domain/repository-automation-status.js";
+import { RepositoryWebhookProvisioningService } from "./application/repository-webhook-provisioning.service.js";
 
 export type RepositoryScanAccessMetadata = {
   id: string;
@@ -40,7 +41,9 @@ export class RepositoriesService {
     @Inject(UsageService)
     private readonly usageService: UsageService,
     @Inject(OperationLockService)
-    private readonly operationLockService: OperationLockService
+    private readonly operationLockService: OperationLockService,
+    @Inject(RepositoryWebhookProvisioningService)
+    private readonly webhookProvisioning: RepositoryWebhookProvisioningService
   ) {}
 
   async listAvailableGitHubRepositories(user: AuthenticatedUser) {
@@ -78,7 +81,21 @@ export class RepositoriesService {
       });
 
       const storedRepository = await this.upsertRepository(user.id, repository);
-      const automationStatus = await this.resolveAutomationStatus(user.id, repository, accessToken);
+      let automationStatus: RepositoryAutomationStatus;
+
+      try {
+        automationStatus = await this.webhookProvisioning.reconcile(
+          user,
+          storedRepository.id,
+          accessToken
+        );
+      } catch {
+        // Repository access and automatic-update provisioning are intentionally independent.
+        automationStatus = repositoryAutomationStatus("PROVIDER_UNAVAILABLE", "UNAVAILABLE", {
+          lastOutcome: "WEBHOOK_UNKNOWN_FAILURE",
+          lastVerifiedAt: null
+        });
+      }
 
       return {
         ...storedRepository,
@@ -115,23 +132,11 @@ export class RepositoriesService {
     user: AuthenticatedUser,
     id: string
   ): Promise<RepositoryAutomationStatus> {
-    const repository = await this.prisma.repository.findFirst({
-      where: {
-        id,
-        userId: user.id
-      },
-      select: {
-        githubId: true,
-        name: true,
-        owner: true
-      }
-    });
+    return this.webhookProvisioning.getStatus(user, id);
+  }
 
-    if (!repository) {
-      throw new NotFoundException("Repository was not found");
-    }
-
-    return this.resolveAutomationStatus(user.id, repository);
+  reconcileAutomation(user: AuthenticatedUser, id: string): Promise<RepositoryAutomationStatus> {
+    return this.webhookProvisioning.reconcile(user, id);
   }
 
   async getScanAccessMetadataForUser(
@@ -174,6 +179,14 @@ export class RepositoriesService {
 
     if (repository.userId !== user.id) {
       throw new ForbiddenException("Repository belongs to another user");
+    }
+
+    const cleanupCompleted = await this.webhookProvisioning.cleanup(user, repository.id);
+
+    if (!cleanupCompleted) {
+      throw new ServiceUnavailableException(
+        "Automatic-update cleanup is pending; try disconnecting again"
+      );
     }
 
     // RepositoryContextHistory protects ProjectContext rows with RESTRICT. Remove only this
@@ -233,31 +246,6 @@ export class RepositoriesService {
     });
 
     return this.toResponse(storedRepository);
-  }
-
-  private async resolveAutomationStatus(
-    userId: string,
-    repository: { githubId: string; name: string; owner: string },
-    existingAccessToken?: string
-  ): Promise<RepositoryAutomationStatus> {
-    let accessToken = existingAccessToken;
-
-    if (!accessToken) {
-      try {
-        accessToken = await this.githubAccountService.getAccessTokenForUser(userId);
-      } catch (error) {
-        return repositoryAutomationStatus(
-          error instanceof UnauthorizedException ? "PROVIDER_ACCESS_DENIED" : "PROVIDER_UNAVAILABLE"
-        );
-      }
-    }
-
-    const result = await this.githubRepositoryProvider.checkWebhookManagementCapability(
-      accessToken,
-      repository
-    );
-
-    return repositoryAutomationStatus(result.capability);
   }
 
   private toResponse(repository: RepositoryModel): RepositoryResponseDto {
