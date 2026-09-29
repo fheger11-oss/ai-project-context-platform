@@ -74,13 +74,13 @@ function primaryAction(project: DashboardProjectSummary): { href: string; label:
 
   if (!project.latestContext) {
     return {
-      href: analysisHref,
+      href: `${analysisHref}#project-context`,
       label: "Generate Context"
     };
   }
 
   return {
-    href: analysisHref,
+    href: `${analysisHref}#project-context`,
     label: "Open Project Context"
   };
 }

@@ -563,7 +563,7 @@ describe("RepositoryDetailsView", () => {
     expect(markup).toContain("Analysis");
     expect(markup).toContain("Completed analysis available");
     expect(markup).toContain("Open analysis");
-    expect(markup).toContain("/analyses/analysis_1");
+    expect(markup).toContain('href="/analyses/analysis_1"');
     expect(markup).not.toContain("Analyze latest scan for scan_1");
   });
 
@@ -706,7 +706,8 @@ describe("RepositoryDetailsView", () => {
     expect(markup).toContain("Project Context");
     expect(markup).toContain("Generated from analysis");
     expect(markup).toContain("Open Context workflow");
-    expect(markup).toContain("/analyses/analysis_1");
+    expect(markup).toContain('href="/analyses/analysis_1#project-context"');
+    expect(markup).not.toContain("/analyses/undefined");
   });
 
   it("shows Documents and AI Export access when Context exists", () => {
@@ -741,7 +742,10 @@ describe("RepositoryDetailsView", () => {
     expect(markup).toContain("AI Export");
     expect(markup).toContain("Available from Project Context");
     expect(markup).toContain("Open AI Export");
-    expect(markup).toContain("/analyses/analysis_1");
+    expect(markup).toContain('href="/analyses/analysis_1#project-context"');
+    expect(markup).toContain('href="/analyses/analysis_1#documents"');
+    expect(markup).toContain('href="/analyses/analysis_1#ai-export"');
+    expect(markup).not.toContain("/analyses/undefined");
   });
 
   it("uses the dedicated automation-status query with the existing workspace queries", async () => {

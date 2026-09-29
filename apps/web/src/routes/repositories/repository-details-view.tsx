@@ -812,6 +812,9 @@ function WorkflowAccess({
   const analysisHref = projectSummary?.latestAnalysis
     ? `/analyses/${encodeURIComponent(projectSummary.latestAnalysis.analysisId)}`
     : null;
+  const contextHref = analysisHref ? `${analysisHref}#project-context` : null;
+  const documentsHref = analysisHref ? `${analysisHref}#documents` : null;
+  const aiExportHref = analysisHref ? `${analysisHref}#ai-export` : null;
   return (
     <Card>
       <CardHeader>
@@ -863,7 +866,7 @@ function WorkflowAccess({
                   ? "Generated from analysis"
                   : "Waiting for analysis")
               }
-              href={analysisHref}
+              href={contextHref}
               actionLabel={projectSummary?.latestContext ? "Open Context" : "Open Context workflow"}
             />
             <WorkflowRow
@@ -871,7 +874,7 @@ function WorkflowAccess({
               icon={FileText}
               label="Documents"
               value={`${projectSummary?.documents.count ?? 0} generated`}
-              href={projectSummary?.latestContext ? analysisHref : null}
+              href={projectSummary?.latestContext ? documentsHref : null}
               actionLabel="Open Documents"
             />
             <WorkflowRow
@@ -883,7 +886,7 @@ function WorkflowAccess({
                   ? "Available from Project Context"
                   : "Available after Context exists"
               }
-              href={projectSummary?.latestContext ? analysisHref : null}
+              href={projectSummary?.latestContext ? aiExportHref : null}
               actionLabel="Open AI Export"
             />
           </>

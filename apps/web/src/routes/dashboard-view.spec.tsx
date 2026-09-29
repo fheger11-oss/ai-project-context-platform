@@ -456,13 +456,13 @@ describe("DashboardView", () => {
       "with analysis but no context",
       project({ latestAnalysis, latestScan }),
       "Generate Context",
-      "/analyses/analysis_1"
+      "/analyses/analysis_1#project-context"
     ],
     [
       "with context",
       project({ latestAnalysis, latestContext, latestScan }),
       "Open Project Context",
-      "/analyses/analysis_1"
+      "/analyses/analysis_1#project-context"
     ]
   ])("sets primary next action for %s", (_label, summary, actionLabel, href) => {
     queryState = { data: { projects: [summary] }, isSuccess: true };
