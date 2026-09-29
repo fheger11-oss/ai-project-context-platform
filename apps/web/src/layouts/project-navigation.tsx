@@ -3,6 +3,11 @@ import { Link, useLocation } from "react-router-dom";
 
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
+import {
+  getCurrentRepositoryUpdate,
+  getRepositoryState
+} from "@/features/repositories/api/repositories-api";
+import { ProjectContextStatus } from "@/features/repositories/components/project-context-status";
 import type { ShellContext } from "@/layouts/shell-context";
 import { repositoryDisplayName, repositoryOwner } from "@/layouts/shell-context";
 import { activeProjectSection, type ProjectSection } from "@/layouts/project-navigation-state";
@@ -23,6 +28,16 @@ export function ProjectNavigation({ shellContext }: { shellContext: ShellContext
   const dashboardQuery = useQuery({
     queryKey: ["dashboard", "projects"],
     queryFn: () => listDashboardProjects(accessToken),
+    enabled: Boolean(accessToken && shellContext.repositoryId)
+  });
+  const stateQuery = useQuery({
+    queryKey: ["repositories", shellContext.repositoryId, "state"],
+    queryFn: () => getRepositoryState(accessToken, shellContext.repositoryId ?? ""),
+    enabled: Boolean(accessToken && shellContext.repositoryId)
+  });
+  const currentUpdateQuery = useQuery({
+    queryKey: ["repositories", shellContext.repositoryId, "updates", "current"],
+    queryFn: () => getCurrentRepositoryUpdate(accessToken, shellContext.repositoryId ?? ""),
     enabled: Boolean(accessToken && shellContext.repositoryId)
   });
 
@@ -53,6 +68,14 @@ export function ProjectNavigation({ shellContext }: { shellContext: ShellContext
         </p>
         <p className="truncate text-sm text-muted-foreground">{repositoryOwner(repository)}</p>
       </div>
+      <ProjectContextStatus
+        contextGeneratedAt={project?.latestContext?.generatedAt ?? null}
+        currentUpdate={currentUpdateQuery.data?.update ?? null}
+        isLoading={stateQuery.isLoading || currentUpdateQuery.isLoading}
+        projectStateHref={`${shellContext.projectHref}#project-state`}
+        state={stateQuery.data ?? null}
+        updatesHref={`${shellContext.projectHref}#updates`}
+      />
       <nav className="mt-4 overflow-x-auto" aria-label="Project sections">
         <ul className="flex min-w-max gap-1">
           {sections.map((section) => {

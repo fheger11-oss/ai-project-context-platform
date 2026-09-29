@@ -42,16 +42,41 @@ const shellContext: ShellContext = {
 };
 
 vi.mock("@tanstack/react-query", () => ({
-  useQuery: () => ({
-    data: {
-      projects: [
-        {
-          repository: { id: "repository_1" },
-          latestAnalysis: { analysisId: "analysis_24" }
-        }
-      ]
+  useQuery: ({ queryKey }: { queryKey: unknown[] }) => {
+    if (queryKey[0] === "dashboard") {
+      return {
+        data: {
+          projects: [
+            {
+              repository: { id: "repository_1" },
+              latestAnalysis: { analysisId: "analysis_24" },
+              latestContext: null
+            }
+          ]
+        },
+        isLoading: false
+      };
     }
-  })
+
+    if (queryKey[2] === "state") {
+      return {
+        data: {
+          repositoryId: "repository_1",
+          freshnessStatus: "FRESH",
+          currentContextCommitSha: "abcdef1234567890",
+          currentProjectContextId: "context_1",
+          lastAnalyzedCommitSha: "abcdef1234567890",
+          lastScannedCommitSha: "abcdef1234567890",
+          lastUpdateStatus: "COMPLETED",
+          remoteHeadCheckedAt: "2026-09-29T10:00:00.000Z",
+          remoteHeadCommitSha: "abcdef1234567890"
+        },
+        isLoading: false
+      };
+    }
+
+    return { data: { update: null }, isLoading: false };
+  }
 }));
 
 vi.mock("@/features/auth/stores/auth-session-store", () => ({

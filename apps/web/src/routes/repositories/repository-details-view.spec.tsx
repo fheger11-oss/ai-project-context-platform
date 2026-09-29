@@ -455,7 +455,7 @@ describe("RepositoryDetailsView", () => {
     expect(markup).toContain("bcdef1234567");
   });
 
-  it("renders failed update history with failure reason", () => {
+  it("renders failed update history without exposing the internal failure reason", () => {
     updateHistoryQuery = {
       data: {
         items: [
@@ -481,7 +481,8 @@ describe("RepositoryDetailsView", () => {
     const markup = renderToStaticMarkup(<RepositoryDetailsView />);
 
     expect(markup).toContain("Failed");
-    expect(markup).toContain("CONTEXT_GENERATION_FAILED");
+    expect(markup).toContain("Any previously valid Project Context was not replaced.");
+    expect(markup).not.toContain("CONTEXT_GENERATION_FAILED");
   });
 
   it("renders empty update history", () => {

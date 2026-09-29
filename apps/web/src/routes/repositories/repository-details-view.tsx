@@ -529,9 +529,9 @@ function RepositoryUpdatesPanel({
                 <p className="mt-2 text-xs text-muted-foreground">
                   {repositoryUpdateTimestamp(update)}
                 </p>
-                {update.status === "FAILED" && update.failureReason ? (
-                  <p className="mt-1 break-words text-xs text-destructive">
-                    {update.failureReason}
+                {update.status === "FAILED" ? (
+                  <p className="mt-1 text-xs text-destructive">
+                    Update did not complete. Any previously valid Project Context was not replaced.
                   </p>
                 ) : null}
               </li>
@@ -865,7 +865,7 @@ function CurrentState({
   const repositoryState = projectSummary?.state ?? null;
 
   return (
-    <Card>
+    <Card id="project-state" className="scroll-mt-40">
       <CardHeader>
         <CardTitle>Current state</CardTitle>
         <CardDescription>Based on stored repository state and scan history.</CardDescription>
