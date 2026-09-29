@@ -14,6 +14,7 @@ import {
   Star
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -178,6 +179,7 @@ export function RepositoryDetailsView() {
   const latestScan = latestScanQuery.data?.items[0] ?? null;
   const projectSummary =
     dashboardProjectsQuery.data?.projects.find((project) => project.repository.id === id) ?? null;
+  const currentUpdate = currentUpdateQuery.data?.update ?? null;
 
   function handleSyncRepository() {
     if (syncMutation.isPending) {
@@ -256,6 +258,18 @@ export function RepositoryDetailsView() {
   return (
     <section id="overview" className="grid scroll-mt-40 gap-5">
       <ProjectHeader repository={repository} />
+      <ProjectWorkflowRecommendation
+        accessToken={apiAccessToken}
+        currentUpdate={currentUpdate}
+        isLoading={
+          latestScanQuery.isLoading ||
+          dashboardProjectsQuery.isLoading ||
+          currentUpdateQuery.isLoading
+        }
+        latestScan={latestScan}
+        projectSummary={projectSummary}
+        repositoryId={repository.id}
+      />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="grid gap-4">
@@ -265,7 +279,7 @@ export function RepositoryDetailsView() {
             repositoryLoaded
           />
           <RepositoryUpdatesPanel
-            currentUpdate={currentUpdateQuery.data?.update ?? null}
+            currentUpdate={currentUpdate}
             history={updateHistoryQuery.data?.items ?? []}
             isError={updateHistoryQuery.isError || currentUpdateQuery.isError}
             isLoading={updateHistoryQuery.isLoading || currentUpdateQuery.isLoading}
@@ -275,7 +289,13 @@ export function RepositoryDetailsView() {
         </div>
 
         <aside className="grid content-start gap-3" aria-label="Project actions">
-          <RepositoryScanAction accessToken={apiAccessToken} repositoryId={repository.id} />
+          {latestScan?.status === "COMPLETED" ? (
+            <RepositoryScanAction
+              accessToken={apiAccessToken}
+              buttonVariant="outline"
+              repositoryId={repository.id}
+            />
+          ) : null}
           <AutomaticUpdatesPanel
             disableError={disableAutomationMutation.error}
             error={automationStatusQuery.error}
@@ -292,10 +312,8 @@ export function RepositoryDetailsView() {
           <WorkflowAccess
             isLoading={dashboardProjectsQuery.isLoading}
             isError={dashboardProjectsQuery.isError}
-            latestScan={latestScan}
             projectSummary={projectSummary}
             repositoryId={repository.id}
-            accessToken={apiAccessToken}
           />
           <Card>
             <CardHeader>
@@ -397,6 +415,114 @@ function ProjectHeader({ repository }: { repository: RepositorySummary }) {
         </div>
       </div>
     </header>
+  );
+}
+
+function ProjectWorkflowRecommendation({
+  accessToken,
+  currentUpdate,
+  isLoading,
+  latestScan,
+  projectSummary,
+  repositoryId
+}: {
+  accessToken: string;
+  currentUpdate: RepositoryUpdateSummary | null;
+  isLoading: boolean;
+  latestScan: ScanSnapshot | null;
+  projectSummary: DashboardProjectSummary | null;
+  repositoryId: string;
+}) {
+  const analysisHref = projectSummary?.latestAnalysis
+    ? `/analyses/${encodeURIComponent(projectSummary.latestAnalysis.analysisId)}`
+    : null;
+  const updateIsActive = currentUpdate?.status === "PENDING" || currentUpdate?.status === "RUNNING";
+  const updateFailed =
+    currentUpdate?.status === "FAILED" ||
+    projectSummary?.state?.freshnessStatus === "UPDATE_FAILED";
+  const scanIsActive = latestScan?.status === "PENDING" || latestScan?.status === "RUNNING";
+  const scanIsComplete = latestScan?.status === "COMPLETED";
+
+  let title = "Loading next step";
+  let description = "Checking the current project workflow state.";
+  let action: ReactNode = null;
+  let secondaryAction: ReactNode = null;
+
+  if (!isLoading && updateIsActive) {
+    title = "Updating Project Context";
+    description = projectSummary?.latestContext
+      ? "Ctxaro is processing repository changes. Your current Project Context remains available while the update completes."
+      : "Ctxaro is processing repository changes. You can leave this page and return later.";
+  } else if (!isLoading && updateFailed) {
+    title = "Project update needs attention";
+    description = projectSummary?.latestContext
+      ? "The latest update did not complete. Your previous Project Context remains available."
+      : "The latest update did not complete. Review the existing recovery options before continuing.";
+    action = (
+      <Button asChild>
+        <Link to="#project-state">Review recovery options</Link>
+      </Button>
+    );
+  } else if (!isLoading && scanIsActive) {
+    title = "Scanning repository";
+    description =
+      "Ctxaro is capturing the project for analysis. You can leave this page and return later.";
+  } else if (!isLoading && !scanIsComplete) {
+    title = "Start with a repository scan";
+    description = "Capture the repository so Ctxaro can understand its structure and dependencies.";
+    action = <RepositoryScanAction accessToken={accessToken} repositoryId={repositoryId} />;
+  } else if (!isLoading && !projectSummary?.latestAnalysis && latestScan) {
+    title = "Understand this project";
+    description =
+      "The repository snapshot is ready. Analyze it to build structured project understanding.";
+    action = (
+      <StartAnalysisButton
+        accessToken={accessToken}
+        label="Analyze project"
+        pendingLabel="Understanding project"
+        scanId={latestScan.id}
+      />
+    );
+  } else if (!isLoading && analysisHref && !projectSummary?.latestContext) {
+    title = "Generate Project Context";
+    description =
+      "Analysis is complete. Turn the project understanding into reusable Project Context.";
+    action = (
+      <Button asChild>
+        <Link to={`${analysisHref}#project-context`}>Generate Project Context</Link>
+      </Button>
+    );
+  } else if (!isLoading && analysisHref && projectSummary?.latestContext) {
+    title = "Ready to use with AI";
+    description = "The Project Context is ready to package for your AI tools.";
+    action = (
+      <Button asChild>
+        <Link to={`${analysisHref}#ai-export`}>Open AI Export</Link>
+      </Button>
+    );
+    secondaryAction = (
+      <Button asChild variant="outline">
+        <Link to={`${analysisHref}#documents`}>Generate documents</Link>
+      </Button>
+    );
+  }
+
+  return (
+    <Card aria-label="Project next step" emphasis="primary">
+      <CardContent className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between md:p-5">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase text-primary">Next step</p>
+          <h2 className="mt-1 text-lg font-semibold text-foreground">{title}</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>
+        </div>
+        {action || secondaryAction ? (
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {action ? <div data-workflow-primary="true">{action}</div> : null}
+            {secondaryAction}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -673,27 +799,19 @@ function stageDescription(
 }
 
 function WorkflowAccess({
-  accessToken,
   isError,
   isLoading,
-  latestScan,
   projectSummary,
   repositoryId
 }: {
-  accessToken: string;
   isError: boolean;
   isLoading: boolean;
-  latestScan: ScanSnapshot | null;
   projectSummary: DashboardProjectSummary | null;
   repositoryId: string;
 }) {
   const analysisHref = projectSummary?.latestAnalysis
     ? `/analyses/${encodeURIComponent(projectSummary.latestAnalysis.analysisId)}`
     : null;
-  const canAnalyzeLatestScan = Boolean(
-    latestScan?.status === "COMPLETED" && !projectSummary?.latestAnalysis
-  );
-
   return (
     <Card>
       <CardHeader>
@@ -735,20 +853,6 @@ function WorkflowAccess({
               href={analysisHref}
               actionLabel="Open analysis"
             />
-            {canAnalyzeLatestScan && latestScan ? (
-              <div className="grid gap-2 rounded-md border border-dashed p-3">
-                <p className="text-sm font-medium text-foreground">Latest scan is ready</p>
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Analyze this completed scan to continue the project workflow.
-                </p>
-                <StartAnalysisButton
-                  accessToken={accessToken}
-                  label="Analyze latest scan"
-                  pendingLabel="Analyzing latest scan"
-                  scanId={latestScan.id}
-                />
-              </div>
-            ) : null}
             <WorkflowRow
               available={Boolean(projectSummary?.latestContext)}
               icon={Layers3}
@@ -944,6 +1048,7 @@ function CurrentState({
           </Button>
           <Button
             type="button"
+            variant="outline"
             disabled={isUpdating || isRefreshing}
             aria-busy={isUpdating}
             onClick={onUpdate}

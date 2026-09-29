@@ -15,6 +15,7 @@ import { analytics } from "@/lib/analytics";
 
 type RepositoryScanActionProps = {
   accessToken: string;
+  buttonVariant?: "default" | "outline";
   repositoryId: string;
 };
 
@@ -38,7 +39,11 @@ function scanErrorMessage(error: unknown): string {
   return "Network problem. Check your connection and try again.";
 }
 
-export function RepositoryScanAction({ accessToken, repositoryId }: RepositoryScanActionProps) {
+export function RepositoryScanAction({
+  accessToken,
+  buttonVariant = "default",
+  repositoryId
+}: RepositoryScanActionProps) {
   const queryClient = useQueryClient();
   const canStartScan = Boolean(accessToken);
   const limitsQuery = useQuery({
@@ -101,6 +106,7 @@ export function RepositoryScanAction({ accessToken, repositoryId }: RepositorySc
         <Button
           type="button"
           size="sm"
+          variant={buttonVariant}
           disabled={!canStartScan || scanMutation.isPending}
           aria-busy={scanMutation.isPending}
           aria-describedby={feedbackId}

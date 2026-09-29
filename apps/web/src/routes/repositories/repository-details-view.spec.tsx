@@ -58,6 +58,7 @@ const mutationOptions: MutationOptions[] = [];
 const mutationErrors: Array<unknown> = [];
 const invalidateQueries = vi.fn();
 const refetchAutomationStatus = vi.fn();
+let analysisActionPending = false;
 
 const repository: RepositorySummary = {
   id: "repository_1",
@@ -309,14 +310,26 @@ vi.mock("@/features/dashboard/api/dashboard-api", async (importOriginal) => {
 });
 
 vi.mock("@/features/scans/components/repository-scan-action", () => ({
-  RepositoryScanAction: ({ repositoryId }: { repositoryId: string }) => (
-    <section>Scan action for {repositoryId}</section>
+  RepositoryScanAction: ({
+    buttonVariant,
+    repositoryId
+  }: {
+    buttonVariant?: "default" | "outline";
+    repositoryId: string;
+  }) => (
+    <section>
+      Scan action for {repositoryId}
+      <button type="button" data-variant={buttonVariant ?? "default"}>
+        Start scan
+      </button>
+    </section>
   )
 }));
 
 vi.mock("@/features/analysis/components/start-analysis-button", () => ({
   StartAnalysisButton: ({
     label,
+    pendingLabel,
     scanId
   }: {
     accessToken: string;
@@ -324,8 +337,9 @@ vi.mock("@/features/analysis/components/start-analysis-button", () => ({
     pendingLabel?: string;
     scanId: string;
   }) => (
-    <button type="button">
-      {label ?? "Analyze scan"} for {scanId}
+    <button type="button" disabled={analysisActionPending}>
+      {analysisActionPending ? (pendingLabel ?? "Analyzing") : (label ?? "Analyze scan")} for{" "}
+      {scanId}
     </button>
   )
 }));
@@ -384,6 +398,7 @@ describe("RepositoryDetailsView", () => {
     mutationErrors.length = 0;
     invalidateQueries.mockClear();
     refetchAutomationStatus.mockClear();
+    analysisActionPending = false;
     vi.mocked(getCurrentRepositoryUpdate).mockReset();
     vi.mocked(disableRepositoryAutomation).mockReset();
     vi.mocked(getRepository).mockReset();
@@ -564,9 +579,125 @@ describe("RepositoryDetailsView", () => {
 
     const markup = renderToStaticMarkup(<RepositoryDetailsView />);
 
-    expect(markup).toContain("Latest scan is ready");
-    expect(markup).toContain("Analyze this completed scan to continue the project workflow.");
-    expect(markup).toContain("Analyze latest scan for scan_1");
+    expect(markup).toContain("Understand this project");
+    expect(markup).toContain("Analyze project for scan_1");
+  });
+
+  it("makes Start scan the one primary recommendation when no scan exists", () => {
+    latestScanQuery = {
+      data: {
+        items: [],
+        pagination: { page: 1, pageSize: 1, totalItems: 0, totalPages: 0 }
+      } satisfies ScanHistoryResponse
+    };
+    dashboardQuery = {
+      data: dashboardResponse([
+        { ...projectSummary, latestScan: null, latestAnalysis: null, latestContext: null }
+      ])
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Start with a repository scan");
+    expect(markup).toContain("Start scan");
+    expect(markup.match(/data-workflow-primary="true"/g)).toHaveLength(1);
+  });
+
+  it("shows authoritative scan activity without another Start scan action", () => {
+    latestScanQuery = {
+      data: {
+        items: [{ ...scan, status: "RUNNING", completedAt: null }],
+        pagination: { page: 1, pageSize: 1, totalItems: 1, totalPages: 1 }
+      } satisfies ScanHistoryResponse
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Scanning repository");
+    expect(markup).toContain("leave this page and return later");
+    expect(markup).not.toContain("Start scan");
+    expect(markup).not.toContain('data-workflow-primary="true"');
+  });
+
+  it("shows analysis as running without offering another Analyze project action", () => {
+    dashboardQuery = {
+      data: dashboardResponse([{ ...projectSummary, latestAnalysis: null }])
+    };
+    analysisActionPending = true;
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Understanding project for scan_1");
+    expect(markup).not.toContain("Analyze project for scan_1");
+    expect(markup.match(/data-workflow-primary="true"/g)).toHaveLength(1);
+  });
+
+  it("makes Generate Project Context primary after analysis completes", () => {
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Analysis is complete");
+    expect(markup).toContain('href="/analyses/analysis_1#project-context"');
+    expect(markup.match(/data-workflow-primary="true"/g)).toHaveLength(1);
+  });
+
+  it("makes AI Export primary and Documents secondary as soon as Context exists", () => {
+    dashboardQuery = {
+      data: dashboardResponse([
+        {
+          ...projectSummary,
+          latestContext: {
+            id: "project_context_1",
+            contextId: "context_1",
+            contextVersion: "context-engine@1",
+            generatedAt: "2026-08-26T10:04:00.000Z",
+            createdAt: "2026-08-26T10:04:01.000Z"
+          },
+          documents: { available: false, count: 0 },
+          aiExport: { available: true }
+        }
+      ])
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("The Project Context is ready to package for your AI tools.");
+    expect(markup).toContain('href="/analyses/analysis_1#ai-export"');
+    expect(markup).toContain("Open AI Export");
+    expect(markup).toContain('href="/analyses/analysis_1#documents"');
+    expect(markup).toContain("Generate documents");
+    expect(markup.match(/data-workflow-primary="true"/g)).toHaveLength(1);
+  });
+
+  it("prioritizes an active update without contradicting the persistent status", () => {
+    currentUpdateQuery = {
+      data: {
+        update: { ...completedUpdate, status: "RUNNING", completedAt: null }
+      } satisfies RepositoryCurrentUpdateResponse
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Updating Project Context");
+    expect(markup).not.toContain("Ready to use with AI");
+    expect(markup).not.toContain('data-workflow-primary="true"');
+  });
+
+  it("prioritizes safe update recovery without claiming the project is ready", () => {
+    dashboardQuery = {
+      data: dashboardResponse([
+        {
+          ...projectSummary,
+          state: { ...projectSummary.state!, freshnessStatus: "UPDATE_FAILED" }
+        }
+      ])
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Project update needs attention");
+    expect(markup).toContain("Review recovery options");
+    expect(markup).not.toContain("Ready to use with AI");
+    expect(markup.match(/data-workflow-primary="true"/g)).toHaveLength(1);
   });
 
   it("shows Context workflow access when analysis exists but Context is missing", () => {
