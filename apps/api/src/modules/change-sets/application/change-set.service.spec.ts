@@ -5,6 +5,7 @@ import type { GitHubAccountService } from "../../auth/providers/github-account.s
 import type { RepositoriesService } from "../../repositories/repositories.service.js";
 import type { RepositoryCompareProvider } from "../domain/contracts/repository-compare-provider.contract.js";
 import { ChangeSetCompleteness, ComparisonStatus, FileChangeType } from "../domain/change-set.js";
+import { RepositoryComparisonUnavailableError } from "../domain/errors/repository-comparison-unavailable.error.js";
 import { ChangeSetService } from "./change-set.service.js";
 import { ChangeSetComparisonUnavailableError } from "./errors/change-set-comparison-unavailable.error.js";
 
@@ -171,6 +172,20 @@ describe("ChangeSetService", () => {
         targetCommitSha: "target"
       })
     ).rejects.toBe(providerError);
+  });
+
+  it("maps an explicitly unavailable provider comparison to the application error", async () => {
+    const harness = createHarness();
+    harness.compare.mockRejectedValue(new RepositoryComparisonUnavailableError("PROVIDER_TIMEOUT"));
+
+    await expect(
+      harness.service.compare({
+        userId: "user_1",
+        repositoryId: "repository_1",
+        baseCommitSha: "base",
+        targetCommitSha: "target"
+      })
+    ).rejects.toEqual(new ChangeSetComparisonUnavailableError("PROVIDER_TIMEOUT"));
   });
 
   it("does not resolve credentials or call the provider when ownership fails", async () => {

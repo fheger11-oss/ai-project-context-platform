@@ -1,9 +1,10 @@
-import { BadGatewayException, Inject, Injectable } from "@nestjs/common";
+import { BadGatewayException, Inject, Injectable, Logger } from "@nestjs/common";
 
 import { RepositoryUpdateTriggerType } from "../../../generated/prisma/enums.js";
 import type { RepositoryFreshnessStatus } from "../../../generated/prisma/enums.js";
 import { RunAnalysisService } from "../../analysis/application/run-analysis.service.js";
 import { ChangeSetService } from "../../change-sets/application/change-set.service.js";
+import { isProviderComparisonUnavailableError } from "../../change-sets/application/errors/change-set-comparison-unavailable.error.js";
 import {
   IncrementalProcessingEligibilityService,
   type IncrementalProcessingDecision
@@ -69,6 +70,8 @@ export type RunRepositoryUpdateResult = {
 
 @Injectable()
 export class RunRepositoryUpdateService {
+  private readonly logger = new Logger(RunRepositoryUpdateService.name);
+
   constructor(
     @Inject(RepositoryUpdateService)
     private readonly repositoryUpdateService: RepositoryUpdateService,
@@ -158,24 +161,30 @@ export class RunRepositoryUpdateService {
             targetCommitSha
           });
         } catch (error) {
-          const pendingUpdate = await this.repositoryUpdateService.createPendingUpdate({
-            repositoryId,
-            userId,
-            triggerType,
-            baseCommitSha,
-            targetCommitSha
-          });
-          const failedUpdate = await this.repositoryUpdateService.startOwnedWithinLock(
-            pendingUpdate.id,
-            userId
-          );
-          await this.repositoryUpdateService.failOwnedWithinLock(
-            failedUpdate.id,
-            userId,
-            "CHANGESET_COMPARISON_FAILED"
-          );
+          if (isProviderComparisonUnavailableError(error)) {
+            this.logger.warn(
+              `repository.update comparisonUnavailable repositoryId=${repositoryId} targetCommitSha=${targetCommitSha} strategy=FULL reason=${error.reason}`
+            );
+          } else {
+            const pendingUpdate = await this.repositoryUpdateService.createPendingUpdate({
+              repositoryId,
+              userId,
+              triggerType,
+              baseCommitSha,
+              targetCommitSha
+            });
+            const failedUpdate = await this.repositoryUpdateService.startOwnedWithinLock(
+              pendingUpdate.id,
+              userId
+            );
+            await this.repositoryUpdateService.failOwnedWithinLock(
+              failedUpdate.id,
+              userId,
+              "CHANGESET_COMPARISON_FAILED"
+            );
 
-          return Promise.reject(error);
+            return Promise.reject(error);
+          }
         }
       }
 

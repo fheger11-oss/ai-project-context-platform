@@ -1,7 +1,6 @@
 import {
   BadGatewayException,
   HttpException,
-  HttpStatus,
   Injectable,
   UnauthorizedException
 } from "@nestjs/common";
@@ -18,6 +17,7 @@ import {
   FileChangeType,
   type ChangedFile
 } from "../domain/change-set.js";
+import { RepositoryComparisonUnavailableError } from "../domain/errors/repository-comparison-unavailable.error.js";
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
 const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
@@ -58,13 +58,13 @@ export class GitHubRepositoryCompareProvider implements RepositoryCompareProvide
     try {
       payload = await response.json();
     } catch {
-      throw new BadGatewayException("GitHub compare response could not be validated");
+      throw new RepositoryComparisonUnavailableError("PROVIDER_RESPONSE_INDETERMINATE");
     }
 
     const parsed = githubCompareSchema.safeParse(payload);
 
     if (!parsed.success) {
-      throw new BadGatewayException("GitHub compare response could not be validated");
+      throw new RepositoryComparisonUnavailableError("PROVIDER_RESPONSE_INDETERMINATE");
     }
 
     const files = parsed.data.files ?? [];
@@ -112,7 +112,7 @@ export class GitHubRepositoryCompareProvider implements RepositoryCompareProvide
 
       if (response.status === 401 || response.status === 403) {
         if (response.headers.get("x-ratelimit-remaining") === "0") {
-          throw new HttpException("GitHub rate limit exceeded", HttpStatus.TOO_MANY_REQUESTS);
+          throw new RepositoryComparisonUnavailableError("PROVIDER_RATE_LIMITED");
         }
 
         throw new UnauthorizedException("GitHub access was rejected");
@@ -122,17 +122,29 @@ export class GitHubRepositoryCompareProvider implements RepositoryCompareProvide
         throw new BadGatewayException("GitHub comparison could not be resolved");
       }
 
+      if (response.status === 429) {
+        throw new RepositoryComparisonUnavailableError("PROVIDER_RATE_LIMITED");
+      }
+
+      if (response.status >= 500) {
+        throw new RepositoryComparisonUnavailableError("PROVIDER_UNAVAILABLE");
+      }
+
       if (!response.ok) {
         throw new BadGatewayException("GitHub comparison could not be resolved");
       }
 
       return response;
     } catch (error) {
-      if (error instanceof HttpException) {
+      if (error instanceof RepositoryComparisonUnavailableError || error instanceof HttpException) {
         throw error;
       }
 
-      throw new BadGatewayException("GitHub comparison could not be resolved");
+      if (error instanceof DOMException && error.name === "AbortError") {
+        throw new RepositoryComparisonUnavailableError("PROVIDER_TIMEOUT");
+      }
+
+      throw new RepositoryComparisonUnavailableError("PROVIDER_UNAVAILABLE");
     } finally {
       clearTimeout(timeout);
     }

@@ -4,9 +4,11 @@ import { GitHubAccountService } from "../../auth/providers/github-account.servic
 import { RepositoriesService } from "../../repositories/repositories.service.js";
 import {
   REPOSITORY_COMPARE_PROVIDER,
-  type RepositoryCompareProvider
+  type RepositoryCompareProvider,
+  type RepositoryComparison
 } from "../domain/contracts/repository-compare-provider.contract.js";
 import { createChangeSet, createEmptyChangeSet, type ChangeSet } from "../domain/change-set.js";
+import { RepositoryComparisonUnavailableError } from "../domain/errors/repository-comparison-unavailable.error.js";
 import { ChangeSetComparisonUnavailableError } from "./errors/change-set-comparison-unavailable.error.js";
 
 export type CompareRepositoryChangesInput = {
@@ -47,15 +49,23 @@ export class ChangeSetService {
     }
 
     const accessToken = await this.githubAccountService.getAccessTokenForUser(input.userId);
-    const comparison = await this.repositoryCompareProvider.compare(
-      {
-        owner: repository.owner,
-        name: repository.name,
-        authorization: { bearerToken: accessToken }
-      },
-      baseCommitSha,
-      targetCommitSha
-    );
+    let comparison: RepositoryComparison;
+    try {
+      comparison = await this.repositoryCompareProvider.compare(
+        {
+          owner: repository.owner,
+          name: repository.name,
+          authorization: { bearerToken: accessToken }
+        },
+        baseCommitSha,
+        targetCommitSha
+      );
+    } catch (error) {
+      if (error instanceof RepositoryComparisonUnavailableError) {
+        throw new ChangeSetComparisonUnavailableError(error.reason);
+      }
+      throw error;
+    }
 
     return createChangeSet({
       baseCommitSha: comparison.baseCommitSha,

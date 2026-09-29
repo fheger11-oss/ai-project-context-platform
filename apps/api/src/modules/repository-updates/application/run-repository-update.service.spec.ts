@@ -1,4 +1,4 @@
-import { NotFoundException } from "@nestjs/common";
+import { NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -9,6 +9,7 @@ import {
 import type { RunAnalysisService } from "../../analysis/application/run-analysis.service.js";
 import type { AnalysisResult } from "../../analysis/domain/contracts/analysis-result.contract.js";
 import type { ChangeSetService } from "../../change-sets/application/change-set.service.js";
+import { ChangeSetComparisonUnavailableError } from "../../change-sets/application/errors/change-set-comparison-unavailable.error.js";
 import { IncrementalProcessingEligibilityService } from "../../change-sets/application/incremental-processing-eligibility.service.js";
 import { ChangeSetCompleteness, ComparisonStatus } from "../../change-sets/domain/change-set.js";
 import type { GenerateAndPersistProjectContextService } from "../../context/application/generate-and-persist-project-context.service.js";
@@ -693,6 +694,114 @@ describe("RunRepositoryUpdateService", () => {
     expect(harness.markCurrentProjectContext).not.toHaveBeenCalled();
     expect(harness.markRemoteHeadObserved).not.toHaveBeenCalled();
     expect(harness.consumeProcessingResult).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "PROVIDER_UNAVAILABLE",
+    "PROVIDER_TIMEOUT",
+    "PROVIDER_RATE_LIMITED",
+    "PROVIDER_RESPONSE_INDETERMINATE"
+  ] as const)(
+    "uses canonical full processing when comparison is unavailable: %s",
+    async (reason) => {
+      const harness = createHarness({
+        changeSetError: new ChangeSetComparisonUnavailableError(reason)
+      });
+
+      await expect(
+        harness.service.runManualUpdate("repository_1", "user_1")
+      ).resolves.toMatchObject({
+        update: expect.objectContaining({ status: RepositoryUpdateStatus.COMPLETED }),
+        scanId: "scan_b",
+        analysisId: "analysis_b",
+        projectContextId: "context_b",
+        freshnessStatus: RepositoryFreshnessStatus.FRESH,
+        processingResult: {
+          mode: RepositoryProcessingMode.FULL,
+          outcome: RepositoryProcessingOutcome.COMPLETED,
+          targetCommitSha: "commit_b"
+        }
+      });
+      expect(harness.evaluateEligibility).toHaveBeenCalledWith(null);
+      expect(harness.selectProcessingStrategy).toHaveReturnedWith("FULL");
+      expect(harness.processIncrementally).not.toHaveBeenCalled();
+      expect(harness.startScan).toHaveBeenCalledWith({
+        repositoryId: "repository_1",
+        userId: "user_1",
+        reference: "commit_b"
+      });
+      expect(harness.run).toHaveBeenCalledWith({ userId: "user_1", scanId: "scan_b" });
+      expect(harness.generate).toHaveBeenCalledWith({
+        userId: "user_1",
+        analysisId: "analysis_b"
+      });
+      expect(harness.finalize).toHaveBeenCalledWith({
+        repositoryId: "repository_1",
+        userId: "user_1",
+        updateId: "update_1",
+        projectContextId: "context_b",
+        targetCommitSha: "commit_b"
+      });
+      expect(harness.failOwnedWithinLock).not.toHaveBeenCalled();
+    }
+  );
+
+  it("does not fall back when comparison authentication fails", async () => {
+    const error = new UnauthorizedException("GitHub access was rejected");
+    const harness = createHarness({ changeSetError: error });
+
+    await expect(harness.service.runManualUpdate("repository_1", "user_1")).rejects.toBe(error);
+    expect(harness.startScan).not.toHaveBeenCalled();
+    expect(harness.failOwnedWithinLock).toHaveBeenCalledWith(
+      "update_1",
+      "user_1",
+      "CHANGESET_COMPARISON_FAILED"
+    );
+  });
+
+  it("does not treat non-provider comparison preconditions as provider fallback", async () => {
+    const error = new ChangeSetComparisonUnavailableError("MISSING_TARGET_COMMIT");
+    const harness = createHarness({ changeSetError: error });
+
+    await expect(harness.service.runManualUpdate("repository_1", "user_1")).rejects.toBe(error);
+    expect(harness.startScan).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back when comparison repository identity is not found", async () => {
+    const error = new NotFoundException("Repository not found");
+    const harness = createHarness({ changeSetError: error });
+
+    await expect(harness.service.runManualUpdate("repository_1", "user_1")).rejects.toBe(error);
+    expect(harness.startScan).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back when comparison persistence fails unexpectedly", async () => {
+    const error = new Error("database unavailable");
+    const harness = createHarness({ changeSetError: error });
+
+    await expect(harness.service.runManualUpdate("repository_1", "user_1")).rejects.toBe(error);
+    expect(harness.startScan).not.toHaveBeenCalled();
+  });
+
+  it("fails normally when analysis fails after comparison-unavailable fallback starts", async () => {
+    const analysisError = new Error("analysis failed");
+    const harness = createHarness({
+      changeSetError: new ChangeSetComparisonUnavailableError("PROVIDER_TIMEOUT"),
+      analysisError
+    });
+
+    await expect(harness.service.runManualUpdate("repository_1", "user_1")).rejects.toBe(
+      analysisError
+    );
+    expect(harness.startScan).toHaveBeenCalledTimes(1);
+    expect(harness.run).toHaveBeenCalledTimes(1);
+    expect(harness.generate).not.toHaveBeenCalled();
+    expect(harness.markCurrentProjectContext).not.toHaveBeenCalled();
+    expect(harness.failOwnedWithinLock).toHaveBeenCalledWith(
+      "update_1",
+      "user_1",
+      "ANALYSIS_FAILED"
+    );
   });
 
   it("continues the full update when the ChangeSet is incomplete", async () => {

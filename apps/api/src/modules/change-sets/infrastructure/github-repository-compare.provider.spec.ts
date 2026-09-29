@@ -1,7 +1,8 @@
-import { BadGatewayException, HttpStatus, UnauthorizedException } from "@nestjs/common";
+import { BadGatewayException, UnauthorizedException } from "@nestjs/common";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ChangeSetCompleteness, ComparisonStatus, FileChangeType } from "../domain/change-set.js";
+import { RepositoryComparisonUnavailableError } from "../domain/errors/repository-comparison-unavailable.error.js";
 import { GitHubRepositoryCompareProvider } from "./github-repository-compare.provider.js";
 
 const access = {
@@ -123,19 +124,31 @@ describe("GitHubRepositoryCompareProvider", () => {
 
     await expect(
       new GitHubRepositoryCompareProvider().compare(access, "base", "target")
-    ).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
+    ).rejects.toEqual(new RepositoryComparisonUnavailableError("PROVIDER_RATE_LIMITED"));
   });
 
-  it.each([404, 422, 500])(
-    "maps GitHub status %s without exposing its response",
+  it.each([404, 422])("maps GitHub status %s without exposing its response", async (status) => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ message: "sensitive provider response" }), { status })
+    );
+
+    await expect(
+      new GitHubRepositoryCompareProvider().compare(access, "base", "target")
+    ).rejects.toEqual(new BadGatewayException("GitHub comparison could not be resolved"));
+  });
+
+  it.each([429, 500, 502, 503])(
+    "maps temporary GitHub status %s as unavailable",
     async (status) => {
-      vi.spyOn(globalThis, "fetch").mockResolvedValue(
-        new Response(JSON.stringify({ message: "sensitive provider response" }), { status })
-      );
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status }));
 
       await expect(
         new GitHubRepositoryCompareProvider().compare(access, "base", "target")
-      ).rejects.toEqual(new BadGatewayException("GitHub comparison could not be resolved"));
+      ).rejects.toEqual(
+        new RepositoryComparisonUnavailableError(
+          status === 429 ? "PROVIDER_RATE_LIMITED" : "PROVIDER_UNAVAILABLE"
+        )
+      );
     }
   );
 
@@ -151,7 +164,7 @@ describe("GitHubRepositoryCompareProvider", () => {
 
     const comparison = new GitHubRepositoryCompareProvider().compare(access, "base", "target");
     const expectation = expect(comparison).rejects.toEqual(
-      new BadGatewayException("GitHub comparison could not be resolved")
+      new RepositoryComparisonUnavailableError("PROVIDER_TIMEOUT")
     );
     await vi.advanceTimersByTimeAsync(10_000);
 
@@ -166,7 +179,7 @@ describe("GitHubRepositoryCompareProvider", () => {
 
     await expect(
       new GitHubRepositoryCompareProvider().compare(access, "base", "target")
-    ).rejects.toEqual(new BadGatewayException("GitHub compare response could not be validated"));
+    ).rejects.toEqual(new RepositoryComparisonUnavailableError("PROVIDER_RESPONSE_INDETERMINATE"));
   });
 
   it("marks the conservative 300-file boundary incomplete without dropping returned files", async () => {
