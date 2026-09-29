@@ -10,6 +10,7 @@ import type {
 
 import {
   ApiRequestError,
+  disableRepositoryAutomation,
   getCurrentRepositoryUpdate,
   getCurrentProjectContext,
   getRepositoryAutomationStatus,
@@ -160,6 +161,34 @@ describe("repositories-api RepositoryState endpoints", () => {
       "http://localhost:3000/api/v1/repositories/repository_1/automation/reconcile",
       expect.objectContaining({ method: "POST" })
     );
+  });
+
+  it("disables repository automation through the backend without sending a webhook id", async () => {
+    const status: RepositoryAutomationStatus = {
+      automaticUpdates: {
+        capability: "CAN_MANAGE_WEBHOOK",
+        configuration: "NOT_CONFIGURED",
+        enabled: false,
+        lastOutcome: "WEBHOOK_DELETED",
+        lastVerifiedAt: "2026-09-29T14:00:00.000Z"
+      }
+    };
+    const fetchMock = mockFetch(status);
+
+    await expect(disableRepositoryAutomation("access_token", "repository_1")).resolves.toEqual(
+      status
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/v1/repositories/repository_1/automation/disable",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer access_token",
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty("body");
   });
 
   it("loads the current ProjectContext through the repository current-context API", async () => {

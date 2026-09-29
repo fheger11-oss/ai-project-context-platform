@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { RepositoryAutomationStatus } from "@ai-context/contracts";
 
-import { AutomaticUpdatesPanel } from "./automatic-updates-panel";
+import { AutomaticUpdatesPanel, DisableAutomaticUpdatesDialog } from "./automatic-updates-panel";
 
 type AutomaticUpdates = RepositoryAutomationStatus["automaticUpdates"];
 
@@ -17,10 +17,13 @@ const baseStatus: AutomaticUpdates = {
 function renderStatus(automaticUpdates: Partial<AutomaticUpdates>) {
   return renderToStaticMarkup(
     <AutomaticUpdatesPanel
+      disableError={null}
       error={null}
+      isDisabling={false}
       isLoading={false}
       isReconciling={false}
       isRetryingStatus={false}
+      onDisable={vi.fn()}
       onReconcile={vi.fn()}
       onRetryStatus={vi.fn()}
       reconcileError={null}
@@ -38,8 +41,81 @@ describe("AutomaticUpdatesPanel", () => {
     expect(enabled).toContain(
       "Your repository is automatically updated when changes are pushed to GitHub."
     );
+    expect(enabled).toContain("Disable automatic updates");
     expect(inconsistent).not.toContain(">Enabled<");
     expect(inconsistent).toContain("Not enabled");
+  });
+
+  it("keeps the authoritative enabled state visible while disable is pending", () => {
+    const markup = renderToStaticMarkup(
+      <AutomaticUpdatesPanel
+        disableError={null}
+        error={null}
+        isDisabling
+        isLoading={false}
+        isReconciling={false}
+        isRetryingStatus={false}
+        onDisable={vi.fn()}
+        onReconcile={vi.fn()}
+        onRetryStatus={vi.fn()}
+        reconcileError={null}
+        status={{
+          automaticUpdates: { ...baseStatus, configuration: "ENABLED", enabled: true }
+        }}
+      />
+    );
+
+    expect(markup).toContain(">Enabled<");
+    expect(markup).toContain("Disabling");
+    expect(markup).toContain("disabled");
+    expect(markup).not.toContain("Not configured");
+  });
+
+  it("shows the existing enable action after the backend reports NOT_CONFIGURED", () => {
+    const markup = renderStatus({ configuration: "NOT_CONFIGURED", enabled: false });
+
+    expect(markup).toContain("Enable automatic updates");
+    expect(markup).toContain("Not configured");
+  });
+
+  it("renders an accessible disable confirmation with separate cancel and confirm actions", () => {
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+    const markup = renderToStaticMarkup(
+      <DisableAutomaticUpdatesDialog
+        error={null}
+        isPending={false}
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+        open
+      />
+    );
+
+    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain('aria-modal="true"');
+    expect(markup).toContain("Disable automatic updates?");
+    expect(markup).toContain("The repository will remain connected");
+    expect(markup).toContain("Cancel");
+    expect(markup).toContain("Disable automatic updates");
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("keeps confirmation actions disabled and errors safe while disable is pending", () => {
+    const markup = renderToStaticMarkup(
+      <DisableAutomaticUpdatesDialog
+        error={new Error("raw provider deletion failure")}
+        isPending
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        open
+      />
+    );
+
+    expect(markup).toContain("Disabling");
+    expect(markup).toContain("disabled");
+    expect(markup).toContain("Ctxaro couldn&#x27;t disable automatic updates");
+    expect(markup).not.toContain("raw provider deletion failure");
   });
 
   it.each([
@@ -79,10 +155,13 @@ describe("AutomaticUpdatesPanel", () => {
   it("does not expose backend or provider errors", () => {
     const markup = renderToStaticMarkup(
       <AutomaticUpdatesPanel
+        disableError={null}
         error={new Error("raw provider secret failure")}
+        isDisabling={false}
         isLoading={false}
         isReconciling={false}
         isRetryingStatus={false}
+        onDisable={vi.fn()}
         onReconcile={vi.fn()}
         onRetryStatus={vi.fn()}
         reconcileError={null}
@@ -97,10 +176,13 @@ describe("AutomaticUpdatesPanel", () => {
   it("shows non-final loading and reconcile-pending states", () => {
     const loading = renderToStaticMarkup(
       <AutomaticUpdatesPanel
+        disableError={null}
         error={null}
+        isDisabling={false}
         isLoading
         isReconciling={false}
         isRetryingStatus={false}
+        onDisable={vi.fn()}
         onReconcile={vi.fn()}
         onRetryStatus={vi.fn()}
         reconcileError={null}
@@ -109,10 +191,13 @@ describe("AutomaticUpdatesPanel", () => {
     );
     const pending = renderToStaticMarkup(
       <AutomaticUpdatesPanel
+        disableError={null}
         error={null}
+        isDisabling={false}
         isLoading={false}
         isReconciling
         isRetryingStatus={false}
+        onDisable={vi.fn()}
         onReconcile={vi.fn()}
         onRetryStatus={vi.fn()}
         reconcileError={null}

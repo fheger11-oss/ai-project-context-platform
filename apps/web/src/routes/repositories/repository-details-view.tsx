@@ -27,6 +27,7 @@ import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
 import {
+  disableRepositoryAutomation,
   getCurrentRepositoryUpdate,
   getRepository,
   getRepositoryAutomationStatus,
@@ -164,6 +165,15 @@ export function RepositoryDetailsView() {
       ]);
     }
   });
+  const disableAutomationMutation = useMutation({
+    mutationFn: () => disableRepositoryAutomation(apiAccessToken, id ?? ""),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["repositories", id, "automation"] }),
+        queryClient.invalidateQueries({ queryKey: ["repositories", id] })
+      ]);
+    }
+  });
   const repository = repositoryQuery.data;
   const latestScan = latestScanQuery.data?.items[0] ?? null;
   const projectSummary =
@@ -267,10 +277,13 @@ export function RepositoryDetailsView() {
         <aside className="grid content-start gap-3" aria-label="Project actions">
           <RepositoryScanAction accessToken={apiAccessToken} repositoryId={repository.id} />
           <AutomaticUpdatesPanel
+            disableError={disableAutomationMutation.error}
             error={automationStatusQuery.error}
+            isDisabling={disableAutomationMutation.isPending}
             isLoading={automationStatusQuery.isLoading}
             isReconciling={reconcileAutomationMutation.isPending}
             isRetryingStatus={automationStatusQuery.isFetching}
+            onDisable={(onSuccess) => disableAutomationMutation.mutate(undefined, { onSuccess })}
             onReconcile={() => reconcileAutomationMutation.mutate()}
             onRetryStatus={() => void automationStatusQuery.refetch()}
             reconcileError={reconcileAutomationMutation.error}

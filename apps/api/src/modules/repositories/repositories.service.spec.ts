@@ -114,6 +114,28 @@ describe("RepositoriesService", () => {
       );
     });
 
+    it("delegates explicit automatic-update disable to the provisioning lifecycle", async () => {
+      const disabled = {
+        automaticUpdates: {
+          capability: "CAN_MANAGE_WEBHOOK",
+          configuration: "NOT_CONFIGURED",
+          enabled: false,
+          lastOutcome: "WEBHOOK_DELETED",
+          lastVerifiedAt: new Date()
+        }
+      } as const;
+      const disable = vi.fn().mockResolvedValue(disabled);
+      const service = serviceFor(
+        {} as PrismaService,
+        {
+          disable
+        } as unknown as RepositoryWebhookProvisioningService
+      );
+
+      await expect(service.disableAutomation(user, "repository_1")).resolves.toEqual(disabled);
+      expect(disable).toHaveBeenCalledWith(user, "repository_1");
+    });
+
     it("keeps a successful repository connection when capability detection is unavailable", async () => {
       const repository = {
         githubId: "123",

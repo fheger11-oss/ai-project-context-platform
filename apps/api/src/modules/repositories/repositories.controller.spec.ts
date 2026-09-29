@@ -66,6 +66,28 @@ describe("RepositoriesController RepositoryState endpoints", () => {
     );
   });
 
+  it("delegates automatic-update disable without accepting or exposing a provider hook id", async () => {
+    const disableAutomation = vi.fn().mockResolvedValue({
+      automaticUpdates: {
+        capability: "CAN_MANAGE_WEBHOOK",
+        configuration: "NOT_CONFIGURED",
+        enabled: false,
+        lastOutcome: "WEBHOOK_DELETED",
+        lastVerifiedAt: new Date("2026-09-29T14:00:00.000Z")
+      }
+    });
+    const controller = createController({}, { disableAutomation });
+
+    const response = await controller.disableAutomation(user, { id: "repository_1" });
+
+    expect(disableAutomation).toHaveBeenCalledWith(user, "repository_1");
+    expect(response.automaticUpdates).toMatchObject({
+      configuration: "NOT_CONFIGURED",
+      enabled: false
+    });
+    expect(JSON.stringify(response)).not.toMatch(/providerWebhookId|authorization|secret|token/i);
+  });
+
   it("returns an ownership-safe RepositoryState summary", async () => {
     const getOrInitialize = vi.fn(async () => ({
       id: "state_1",

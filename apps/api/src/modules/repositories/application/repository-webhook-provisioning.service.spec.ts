@@ -136,6 +136,7 @@ function harness(
     provider: { create, get, list, update: updateRemote, delete: deleteRemote },
     upsert,
     deleteLocal,
+    locks,
     local: () => local
   };
 }
@@ -343,5 +344,173 @@ describe("RepositoryWebhookProvisioningService", () => {
       active: false
     });
     expect(test.deleteLocal).not.toHaveBeenCalled();
+  });
+
+  it("disables automatic updates by deleting only the durably stored managed hook", async () => {
+    const test = harness({
+      local: {
+        repositoryId: repository.id,
+        providerWebhookId: "42",
+        provisioningStatus: "ENABLED",
+        lastOutcome: "WEBHOOK_CREATED",
+        lastVerifiedAt: new Date(),
+        active: true,
+        callbackUrl
+      },
+      hooks: [remote({ providerWebhookId: "99", callbackUrl: "https://unrelated.test/hook" })]
+    });
+
+    await expect(test.service.disable(user, repository.id)).resolves.toMatchObject({
+      automaticUpdates: {
+        configuration: "NOT_CONFIGURED",
+        enabled: false,
+        lastOutcome: "WEBHOOK_DELETED"
+      }
+    });
+    expect(test.provider.delete).toHaveBeenCalledWith(expect.anything(), "42");
+    expect(test.provider.list).not.toHaveBeenCalled();
+    expect(test.deleteLocal).toHaveBeenCalledOnce();
+    expect(test.local()).toBeNull();
+  });
+
+  it("treats remote 404 as a successfully disabled repository", async () => {
+    const test = harness({
+      local: {
+        repositoryId: repository.id,
+        providerWebhookId: "42",
+        provisioningStatus: "ENABLED",
+        lastOutcome: "WEBHOOK_CREATED",
+        lastVerifiedAt: new Date(),
+        active: true,
+        callbackUrl
+      },
+      provider: {
+        delete: vi.fn().mockRejectedValue(new RepositoryWebhookProviderError("NOT_FOUND"))
+      }
+    });
+
+    await expect(test.service.disable(user, repository.id)).resolves.toMatchObject({
+      automaticUpdates: {
+        configuration: "NOT_CONFIGURED",
+        enabled: false,
+        lastOutcome: "WEBHOOK_ALREADY_DELETED"
+      }
+    });
+    expect(test.local()).toBeNull();
+  });
+
+  it("is idempotent when no managed webhook exists or disable is repeated", async () => {
+    const test = harness({
+      local: {
+        repositoryId: repository.id,
+        providerWebhookId: "42",
+        provisioningStatus: "ENABLED",
+        lastOutcome: "WEBHOOK_CREATED",
+        lastVerifiedAt: new Date(),
+        active: true,
+        callbackUrl
+      }
+    });
+
+    await test.service.disable(user, repository.id);
+    await expect(test.service.disable(user, repository.id)).resolves.toMatchObject({
+      automaticUpdates: {
+        configuration: "NOT_CONFIGURED",
+        enabled: false,
+        lastOutcome: "WEBHOOK_ALREADY_DELETED"
+      }
+    });
+    expect(test.provider.delete).toHaveBeenCalledOnce();
+  });
+
+  it.each(["PROVIDER_UNAVAILABLE", "AUTHORIZATION_REQUIRED"] as const)(
+    "preserves durable cleanup identity after %s",
+    async (failure) => {
+      const test = harness({
+        local: {
+          repositoryId: repository.id,
+          providerWebhookId: "42",
+          provisioningStatus: "ENABLED",
+          lastOutcome: "WEBHOOK_CREATED",
+          lastVerifiedAt: new Date(),
+          active: true,
+          callbackUrl
+        },
+        provider: {
+          delete: vi.fn().mockRejectedValue(new RepositoryWebhookProviderError(failure))
+        }
+      });
+
+      await expect(test.service.disable(user, repository.id)).resolves.toMatchObject({
+        automaticUpdates: {
+          configuration: "CLEANUP_PENDING",
+          enabled: false,
+          lastOutcome: "WEBHOOK_CLEANUP_PENDING"
+        }
+      });
+      expect(test.local()).toMatchObject({
+        providerWebhookId: "42",
+        provisioningStatus: "CLEANUP_PENDING",
+        active: false
+      });
+      expect(test.deleteLocal).not.toHaveBeenCalled();
+    }
+  );
+
+  it("preserves cleanup identity when provider authorization cannot be loaded", async () => {
+    const test = harness({
+      tokenFailure: new Error("authorization unavailable"),
+      local: {
+        repositoryId: repository.id,
+        providerWebhookId: "42",
+        provisioningStatus: "ENABLED",
+        lastOutcome: "WEBHOOK_CREATED",
+        lastVerifiedAt: new Date(),
+        active: true,
+        callbackUrl
+      }
+    });
+
+    await expect(test.service.disable(user, repository.id)).resolves.toMatchObject({
+      automaticUpdates: { configuration: "CLEANUP_PENDING", enabled: false }
+    });
+    expect(test.provider.delete).not.toHaveBeenCalled();
+    expect(test.local()?.providerWebhookId).toBe("42");
+  });
+
+  it("enforces ownership and the repository automation lock for disable", async () => {
+    const notOwned = harness({ repositoryFound: false });
+    await expect(notOwned.service.disable(user, repository.id)).rejects.toBeInstanceOf(
+      NotFoundException
+    );
+    expect(notOwned.provider.delete).not.toHaveBeenCalled();
+
+    const owned = harness();
+    await owned.service.disable(user, repository.id);
+    expect(owned.locks.withLocks).toHaveBeenCalledWith(
+      [expect.objectContaining({ key: `repository:${repository.id}:automation` })],
+      expect.any(Function)
+    );
+  });
+
+  it("can re-enable through the existing reconcile flow after disable", async () => {
+    const test = harness({
+      local: {
+        repositoryId: repository.id,
+        providerWebhookId: "42",
+        provisioningStatus: "ENABLED",
+        lastOutcome: "WEBHOOK_CREATED",
+        lastVerifiedAt: new Date(),
+        active: true,
+        callbackUrl
+      }
+    });
+
+    await test.service.disable(user, repository.id);
+    await expect(test.service.reconcile(user, repository.id)).resolves.toMatchObject({
+      automaticUpdates: { configuration: "ENABLED", enabled: true }
+    });
+    expect(test.provider.delete).toHaveBeenCalledOnce();
+    expect(test.provider.create).toHaveBeenCalledOnce();
   });
 });

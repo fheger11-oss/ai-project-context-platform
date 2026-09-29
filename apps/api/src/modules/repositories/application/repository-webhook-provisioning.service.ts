@@ -33,6 +33,20 @@ type OwnedRepository = {
   name: string;
 };
 
+type CleanupResult =
+  | {
+      completed: true;
+      outcome: "WEBHOOK_DELETED" | "WEBHOOK_ALREADY_DELETED";
+    }
+  | {
+      completed: false;
+      webhook: {
+        provisioningStatus: RepositoryWebhookProvisioningStatus;
+        lastOutcome: RepositoryWebhookProvisioningOutcome | null;
+        lastVerifiedAt: Date | null;
+      };
+    };
+
 const EXPECTED_EVENTS = ["push"];
 
 @Injectable()
@@ -52,16 +66,7 @@ export class RepositoryWebhookProvisioningService {
     repositoryId: string
   ): Promise<RepositoryAutomationStatus> {
     const repository = await this.requireOwnedRepository(user.id, repositoryId);
-    let capability: RepositoryAutomationCapability;
-
-    try {
-      const token = await this.accessToken(user.id);
-      capability = (await this.repositories.checkWebhookManagementCapability(token, repository))
-        .capability;
-    } catch (error) {
-      capability =
-        error instanceof UnauthorizedException ? "PROVIDER_ACCESS_DENIED" : "PROVIDER_UNAVAILABLE";
-    }
+    const capability = await this.resolveCapability(user.id, repository);
     const webhook = await this.prisma.repositoryWebhook.findUnique({
       where: { repositoryId }
     });
@@ -201,36 +206,29 @@ export class RepositoryWebhookProvisioningService {
   async cleanup(user: AuthenticatedUser, repositoryId: string): Promise<boolean> {
     return this.locks.withLocks([repositoryAutomationLock(repositoryId)], async () => {
       const repository = await this.requireOwnedRepository(user.id, repositoryId);
-      const webhook = await this.prisma.repositoryWebhook.findUnique({ where: { repositoryId } });
+      const result = await this.cleanupManagedWebhook(user.id, repository);
 
-      if (!webhook?.providerWebhookId) {
-        if (webhook) {
-          await this.prisma.repositoryWebhook.delete({ where: { repositoryId } });
-        }
-        return true;
+      return result.completed;
+    });
+  }
+
+  async disable(
+    user: AuthenticatedUser,
+    repositoryId: string
+  ): Promise<RepositoryAutomationStatus> {
+    return this.locks.withLocks([repositoryAutomationLock(repositoryId)], async () => {
+      const repository = await this.requireOwnedRepository(user.id, repositoryId);
+      const result = await this.cleanupManagedWebhook(user.id, repository);
+      const capability = await this.resolveCapability(user.id, repository);
+
+      if (!result.completed) {
+        return this.status(capability, result.webhook);
       }
 
-      const token = await this.accessToken(user.id).catch(() => null);
-      if (!token) {
-        await this.markCleanupPending(repositoryId);
-        return false;
-      }
-
-      try {
-        await this.provider.delete(
-          this.providerAccess(repository, token),
-          webhook.providerWebhookId
-        );
-        await this.prisma.repositoryWebhook.delete({ where: { repositoryId } });
-        return true;
-      } catch (error) {
-        if (this.isProviderFailure(error, "NOT_FOUND")) {
-          await this.prisma.repositoryWebhook.delete({ where: { repositoryId } });
-          return true;
-        }
-        await this.markCleanupPending(repositoryId);
-        return false;
-      }
+      return repositoryAutomationStatus(capability, "NOT_CONFIGURED", {
+        lastOutcome: result.outcome,
+        lastVerifiedAt: new Date()
+      });
     });
   }
 
@@ -458,6 +456,21 @@ export class RepositoryWebhookProvisioningService {
     return this.accounts.getAccessTokenForUser(userId);
   }
 
+  private async resolveCapability(
+    userId: string,
+    repository: OwnedRepository
+  ): Promise<RepositoryAutomationCapability> {
+    try {
+      const token = await this.accessToken(userId);
+      return (await this.repositories.checkWebhookManagementCapability(token, repository))
+        .capability;
+    } catch (error) {
+      return error instanceof UnauthorizedException
+        ? "PROVIDER_ACCESS_DENIED"
+        : "PROVIDER_UNAVAILABLE";
+    }
+  }
+
   private secretFingerprint(secret: string) {
     return createHash("sha256").update(secret).digest("hex");
   }
@@ -482,8 +495,47 @@ export class RepositoryWebhookProvisioningService {
     return error instanceof RepositoryWebhookProviderError && error.failure === failure;
   }
 
-  private async markCleanupPending(repositoryId: string) {
-    await this.prisma.repositoryWebhook.update({
+  private async cleanupManagedWebhook(
+    userId: string,
+    repository: OwnedRepository
+  ): Promise<CleanupResult> {
+    const webhook = await this.prisma.repositoryWebhook.findUnique({
+      where: { repositoryId: repository.id }
+    });
+
+    if (!webhook?.providerWebhookId) {
+      if (webhook) {
+        await this.prisma.repositoryWebhook.delete({ where: { repositoryId: repository.id } });
+      }
+      return { completed: true, outcome: "WEBHOOK_ALREADY_DELETED" };
+    }
+
+    const token = await this.accessToken(userId).catch(() => null);
+    if (!token) {
+      return {
+        completed: false,
+        webhook: await this.markCleanupPending(repository.id)
+      };
+    }
+
+    try {
+      await this.provider.delete(this.providerAccess(repository, token), webhook.providerWebhookId);
+      await this.prisma.repositoryWebhook.delete({ where: { repositoryId: repository.id } });
+      return { completed: true, outcome: "WEBHOOK_DELETED" };
+    } catch (error) {
+      if (this.isProviderFailure(error, "NOT_FOUND")) {
+        await this.prisma.repositoryWebhook.delete({ where: { repositoryId: repository.id } });
+        return { completed: true, outcome: "WEBHOOK_ALREADY_DELETED" };
+      }
+      return {
+        completed: false,
+        webhook: await this.markCleanupPending(repository.id)
+      };
+    }
+  }
+
+  private markCleanupPending(repositoryId: string) {
+    return this.prisma.repositoryWebhook.update({
       where: { repositoryId },
       data: {
         provisioningStatus: "CLEANUP_PENDING",

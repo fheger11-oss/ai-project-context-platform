@@ -13,6 +13,7 @@ import type {
 
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
 import {
+  disableRepositoryAutomation,
   getCurrentRepositoryUpdate,
   getRepository,
   getRepositoryAutomationStatus,
@@ -277,6 +278,7 @@ vi.mock("@/features/repositories/api/repositories-api", async (importOriginal) =
 
   return {
     ...actual,
+    disableRepositoryAutomation: vi.fn(),
     getCurrentRepositoryUpdate: vi.fn(),
     getRepository: vi.fn(),
     getRepositoryAutomationStatus: vi.fn(),
@@ -383,6 +385,7 @@ describe("RepositoryDetailsView", () => {
     invalidateQueries.mockClear();
     refetchAutomationStatus.mockClear();
     vi.mocked(getCurrentRepositoryUpdate).mockReset();
+    vi.mocked(disableRepositoryAutomation).mockReset();
     vi.mocked(getRepository).mockReset();
     vi.mocked(getRepositoryAutomationStatus).mockReset();
     vi.mocked(getRepositoryUpdateHistory).mockReset();
@@ -670,6 +673,30 @@ describe("RepositoryDetailsView", () => {
     await mutationOptions[3]?.onSuccess?.();
 
     expect(reconcileRepositoryAutomation).toHaveBeenCalledWith("access_token", "repository_1");
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1", "automation"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1"]
+    });
+  });
+
+  it("disables automation through the existing API client and refreshes relevant state", async () => {
+    vi.mocked(disableRepositoryAutomation).mockResolvedValue({
+      automaticUpdates: {
+        capability: "CAN_MANAGE_WEBHOOK",
+        configuration: "NOT_CONFIGURED",
+        enabled: false,
+        lastOutcome: "WEBHOOK_DELETED",
+        lastVerifiedAt: "2026-09-29T14:00:00.000Z"
+      }
+    });
+    renderToStaticMarkup(<RepositoryDetailsView />);
+
+    await mutationOptions[4]?.mutationFn();
+    await mutationOptions[4]?.onSuccess?.();
+
+    expect(disableRepositoryAutomation).toHaveBeenCalledWith("access_token", "repository_1");
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["repositories", "repository_1", "automation"]
     });

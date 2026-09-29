@@ -139,6 +139,10 @@ export class RepositoriesService {
     return this.webhookProvisioning.reconcile(user, id);
   }
 
+  disableAutomation(user: AuthenticatedUser, id: string): Promise<RepositoryAutomationStatus> {
+    return this.webhookProvisioning.disable(user, id);
+  }
+
   async getScanAccessMetadataForUser(
     userId: string,
     repositoryId: string
