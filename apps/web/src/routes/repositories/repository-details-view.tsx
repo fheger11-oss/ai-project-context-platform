@@ -254,7 +254,7 @@ export function RepositoryDetailsView() {
   }
 
   return (
-    <section className="grid gap-5">
+    <section id="overview" className="grid scroll-mt-40 gap-5">
       <ProjectHeader repository={repository} />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
@@ -460,7 +460,7 @@ function RepositoryUpdatesPanel({
   isLoading: boolean;
 }) {
   return (
-    <Card>
+    <Card id="updates" className="scroll-mt-40">
       <CardHeader>
         <CardTitle>Updates</CardTitle>
         <CardDescription>

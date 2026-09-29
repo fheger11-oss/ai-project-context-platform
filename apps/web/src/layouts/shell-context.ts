@@ -45,6 +45,7 @@ export function repositoryOwner(repository: RepositorySummary): string | null {
 export function useShellContext(location: Location): ShellContext {
   const accessToken = useAuthSessionStore((state) => state.accessToken);
   const pathname = location.pathname;
+  const hash = location.hash;
   const repositoryMatch = matchPath({ path: "/repositories/:id", end: true }, pathname);
   const analysisMatch = matchPath({ path: "/analyses/:analysisId", end: true }, pathname);
   const repositoryIdFromRoute = repositoryMatch?.params.id ?? null;
@@ -102,33 +103,43 @@ export function useShellContext(location: Location): ShellContext {
 
     if (repositoryIdFromRoute) {
       const label = currentRepository ? repositoryDisplayName(currentRepository) : "Repository";
+      const section = hash === "#updates" ? "Updates" : "Overview";
 
       return {
         analysisId,
-        breadcrumbs: [{ href: "/repositories", label: "Projects" }, { label }],
+        breadcrumbs: [
+          { href: "/repositories", label: "Projects" },
+          {
+            href: `/repositories/${encodeURIComponent(repositoryIdFromRoute)}`,
+            label
+          },
+          { label: section }
+        ],
         currentRepository,
         isProjectLoading: repositoryQuery.isLoading || analysisQuery.isLoading,
         projectHref,
         repositoryId,
-        section: "Repository"
+        section
       };
     }
 
     if (analysisId) {
       const projectLabel = currentRepository ? repositoryDisplayName(currentRepository) : "Project";
+      const section =
+        hash === "#documents" ? "Documents" : hash === "#project-context" ? "Context" : "Analysis";
 
       return {
         analysisId,
         breadcrumbs: [
           { href: "/repositories", label: "Projects" },
           ...(projectHref ? [{ href: projectHref, label: projectLabel }] : []),
-          { label: "Analysis" }
+          { label: section }
         ],
         currentRepository,
         isProjectLoading: repositoryQuery.isLoading || analysisQuery.isLoading,
         projectHref,
         repositoryId,
-        section: "Analysis"
+        section
       };
     }
 
@@ -157,6 +168,7 @@ export function useShellContext(location: Location): ShellContext {
     analysisId,
     analysisQuery.isLoading,
     currentRepository,
+    hash,
     pathname,
     projectHref,
     repositoryId,

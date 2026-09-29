@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 
 import { Sidebar } from "@/layouts/sidebar";
+import { ProjectNavigation } from "@/layouts/project-navigation";
 import { useShellContext } from "@/layouts/shell-context";
 import { Topbar } from "@/layouts/topbar";
 
@@ -22,6 +23,7 @@ export function AppShell({ children }: AppShellProps) {
           <Topbar shellContext={shellContext} />
           <main className="flex-1 bg-background/80 px-4 py-5 md:px-6 md:py-6 lg:px-8">
             <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 md:gap-6">
+              <ProjectNavigation shellContext={shellContext} />
               {children ?? <Outlet />}
             </div>
           </main>
