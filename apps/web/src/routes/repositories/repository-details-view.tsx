@@ -29,12 +29,15 @@ import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
 import {
   getCurrentRepositoryUpdate,
   getRepository,
+  getRepositoryAutomationStatus,
   getRepositoryUpdateHistory,
+  reconcileRepositoryAutomation,
   refreshRepositoryState,
   runRepositoryUpdate,
   syncRepository
 } from "@/features/repositories/api/repositories-api";
 import type { RepositorySummary } from "@/features/repositories/api/repositories-api";
+import { AutomaticUpdatesPanel } from "@/features/repositories/components/automatic-updates-panel";
 import { getScanHistory, type ScanSnapshot } from "@/features/scans/api/scan-api";
 import { StartAnalysisButton } from "@/features/analysis/components/start-analysis-button";
 import { RepositoryScanAction } from "@/features/scans/components/repository-scan-action";
@@ -83,6 +86,11 @@ export function RepositoryDetailsView() {
   const repositoryQuery = useQuery({
     queryKey: ["repositories", id],
     queryFn: () => getRepository(apiAccessToken, id ?? ""),
+    enabled: Boolean(apiAccessToken && id)
+  });
+  const automationStatusQuery = useQuery({
+    queryKey: ["repositories", id, "automation"],
+    queryFn: () => getRepositoryAutomationStatus(apiAccessToken, id ?? ""),
     enabled: Boolean(apiAccessToken && id)
   });
   const latestScanQuery = useQuery({
@@ -145,6 +153,15 @@ export function RepositoryDetailsView() {
     },
     onError: () => {
       analytics.track("repository_update_failed", { reason: "UNKNOWN" });
+    }
+  });
+  const reconcileAutomationMutation = useMutation({
+    mutationFn: () => reconcileRepositoryAutomation(apiAccessToken, id ?? ""),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["repositories", id, "automation"] }),
+        queryClient.invalidateQueries({ queryKey: ["repositories", id] })
+      ]);
     }
   });
   const repository = repositoryQuery.data;
@@ -249,6 +266,16 @@ export function RepositoryDetailsView() {
 
         <aside className="grid content-start gap-3" aria-label="Project actions">
           <RepositoryScanAction accessToken={apiAccessToken} repositoryId={repository.id} />
+          <AutomaticUpdatesPanel
+            error={automationStatusQuery.error}
+            isLoading={automationStatusQuery.isLoading}
+            isReconciling={reconcileAutomationMutation.isPending}
+            isRetryingStatus={automationStatusQuery.isFetching}
+            onReconcile={() => reconcileAutomationMutation.mutate()}
+            onRetryStatus={() => void automationStatusQuery.refetch()}
+            reconcileError={reconcileAutomationMutation.error}
+            status={automationStatusQuery.data}
+          />
           <WorkflowAccess
             isLoading={dashboardProjectsQuery.isLoading}
             isError={dashboardProjectsQuery.isError}

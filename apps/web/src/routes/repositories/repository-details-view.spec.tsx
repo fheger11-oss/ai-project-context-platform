@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   DashboardProjectSummary,
   DashboardProjectsResponse,
+  RepositoryAutomationStatus,
   RepositoryCurrentUpdateResponse,
   RepositorySummary,
   RepositoryUpdateHistoryResponse,
@@ -14,8 +15,10 @@ import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
 import {
   getCurrentRepositoryUpdate,
   getRepository,
+  getRepositoryAutomationStatus,
   getRepositoryUpdateHistory,
   ApiRequestError,
+  reconcileRepositoryAutomation,
   refreshRepositoryState,
   runRepositoryUpdate
 } from "@/features/repositories/api/repositories-api";
@@ -45,6 +48,7 @@ type MutationOptions = {
 const queryOptions: QueryOptions[] = [];
 let accessToken = "access_token";
 let repositoryQuery: QueryResult = {};
+let automationStatusQuery: QueryResult = {};
 let latestScanQuery: QueryResult = {};
 let dashboardQuery: QueryResult = {};
 let updateHistoryQuery: QueryResult = {};
@@ -52,6 +56,7 @@ let currentUpdateQuery: QueryResult = {};
 const mutationOptions: MutationOptions[] = [];
 const mutationErrors: Array<unknown> = [];
 const invalidateQueries = vi.fn();
+const refetchAutomationStatus = vi.fn();
 
 const repository: RepositorySummary = {
   id: "repository_1",
@@ -206,6 +211,18 @@ vi.mock("@tanstack/react-query", () => ({
       };
     }
 
+    if (options.queryKey[0] === "repositories" && options.queryKey[2] === "automation") {
+      return {
+        data: automationStatusQuery.data,
+        error: automationStatusQuery.error,
+        isError: automationStatusQuery.isError ?? false,
+        isFetching: automationStatusQuery.isFetching ?? false,
+        isLoading: automationStatusQuery.isLoading ?? false,
+        isSuccess: automationStatusQuery.isSuccess ?? false,
+        refetch: refetchAutomationStatus
+      };
+    }
+
     if (options.queryKey[0] === "repositories") {
       return {
         data: repositoryQuery.data,
@@ -262,7 +279,9 @@ vi.mock("@/features/repositories/api/repositories-api", async (importOriginal) =
     ...actual,
     getCurrentRepositoryUpdate: vi.fn(),
     getRepository: vi.fn(),
+    getRepositoryAutomationStatus: vi.fn(),
     getRepositoryUpdateHistory: vi.fn(),
+    reconcileRepositoryAutomation: vi.fn(),
     refreshRepositoryState: vi.fn(),
     runRepositoryUpdate: vi.fn(),
     syncRepository: vi.fn()
@@ -320,6 +339,17 @@ describe("RepositoryDetailsView", () => {
     queryOptions.length = 0;
     accessToken = "access_token";
     repositoryQuery = { data: repository };
+    automationStatusQuery = {
+      data: {
+        automaticUpdates: {
+          capability: "CAN_MANAGE_WEBHOOK",
+          configuration: "ENABLED",
+          enabled: true,
+          lastOutcome: "WEBHOOK_ALREADY_CONFIGURED",
+          lastVerifiedAt: "2026-09-28T15:50:39.333Z"
+        }
+      } satisfies RepositoryAutomationStatus
+    };
     latestScanQuery = {
       data: {
         items: [scan],
@@ -351,11 +381,14 @@ describe("RepositoryDetailsView", () => {
     mutationOptions.length = 0;
     mutationErrors.length = 0;
     invalidateQueries.mockClear();
+    refetchAutomationStatus.mockClear();
     vi.mocked(getCurrentRepositoryUpdate).mockReset();
     vi.mocked(getRepository).mockReset();
+    vi.mocked(getRepositoryAutomationStatus).mockReset();
     vi.mocked(getRepositoryUpdateHistory).mockReset();
     vi.mocked(refreshRepositoryState).mockReset();
     vi.mocked(runRepositoryUpdate).mockReset();
+    vi.mocked(reconcileRepositoryAutomation).mockReset();
     vi.mocked(getScanHistory).mockReset();
     vi.mocked(listDashboardProjects).mockReset();
   });
@@ -576,7 +609,7 @@ describe("RepositoryDetailsView", () => {
     expect(markup).toContain("/analyses/analysis_1");
   });
 
-  it("does not add per-project engine API requests beyond the existing workspace queries", async () => {
+  it("uses the dedicated automation-status query with the existing workspace queries", async () => {
     vi.mocked(getRepository).mockResolvedValue(repository);
     vi.mocked(getScanHistory).mockResolvedValue({
       items: [scan],
@@ -587,6 +620,9 @@ describe("RepositoryDetailsView", () => {
         totalPages: 1
       }
     });
+    vi.mocked(getRepositoryAutomationStatus).mockResolvedValue(
+      automationStatusQuery.data as RepositoryAutomationStatus
+    );
     vi.mocked(listDashboardProjects).mockResolvedValue(dashboardResponse([projectSummary]));
     renderToStaticMarkup(<RepositoryDetailsView />);
 
@@ -594,16 +630,52 @@ describe("RepositoryDetailsView", () => {
 
     expect(queryOptions.map((option) => option.queryKey)).toEqual([
       ["repositories", "repository_1"],
+      ["repositories", "repository_1", "automation"],
       ["scan-history", "repository_1", 1, 1],
       ["dashboard", "projects"],
       ["repositories", "repository_1", "updates", 1, 5],
       ["repositories", "repository_1", "updates", "current"]
     ]);
     expect(getRepository).toHaveBeenCalledTimes(1);
+    expect(getRepositoryAutomationStatus).toHaveBeenCalledWith("access_token", "repository_1");
     expect(getScanHistory).toHaveBeenCalledTimes(1);
     expect(listDashboardProjects).toHaveBeenCalledTimes(1);
     expect(getRepositoryUpdateHistory).toHaveBeenCalledTimes(1);
     expect(getCurrentRepositoryUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the backend automatic-update status in the repository workspace", () => {
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Automatic Updates");
+    expect(markup).toContain(">Enabled<");
+    expect(markup).toContain(
+      "Your repository is automatically updated when changes are pushed to GitHub."
+    );
+  });
+
+  it("reconciles automation through the existing API client and refreshes relevant state", async () => {
+    vi.mocked(reconcileRepositoryAutomation).mockResolvedValue({
+      automaticUpdates: {
+        capability: "CAN_MANAGE_WEBHOOK",
+        configuration: "ENABLED",
+        enabled: true,
+        lastOutcome: "WEBHOOK_CREATED",
+        lastVerifiedAt: "2026-09-29T10:00:00.000Z"
+      }
+    });
+    renderToStaticMarkup(<RepositoryDetailsView />);
+
+    await mutationOptions[3]?.mutationFn();
+    await mutationOptions[3]?.onSuccess?.();
+
+    expect(reconcileRepositoryAutomation).toHaveBeenCalledWith("access_token", "repository_1");
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1", "automation"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1"]
+    });
   });
 
   it("refreshes repository and dashboard state after metadata sync succeeds", async () => {
