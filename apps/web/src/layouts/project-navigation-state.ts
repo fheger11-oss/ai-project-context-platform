@@ -1,5 +1,5 @@
 export type ProjectSection =
-  "overview" | "context" | "updates" | "documents" | "decisions" | "settings";
+  "overview" | "timeline" | "context" | "updates" | "documents" | "decisions" | "settings";
 
 export function activeProjectSection(pathname: string, hash: string): ProjectSection | null {
   if (pathname.startsWith("/analyses/")) {
@@ -8,6 +8,10 @@ export function activeProjectSection(pathname: string, hash: string): ProjectSec
 
   if (/^\/repositories\/[^/]+\/decisions\/?$/.test(pathname)) {
     return "decisions";
+  }
+
+  if (/^\/repositories\/[^/]+\/timeline\/?$/.test(pathname)) {
+    return "timeline";
   }
 
   if (pathname.startsWith("/repositories/")) {

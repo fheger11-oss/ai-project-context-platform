@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 
 const sections: { key: ProjectSection; label: string }[] = [
   { key: "overview", label: "Overview" },
+  { key: "timeline", label: "Timeline" },
   { key: "context", label: "Context" },
   { key: "updates", label: "Updates" },
   { key: "documents", label: "Documents" },
@@ -51,6 +52,7 @@ export function ProjectNavigation({ shellContext }: { shellContext: ShellContext
   const analysisHref = analysisId ? `/analyses/${encodeURIComponent(analysisId)}` : null;
   const hrefs: Record<ProjectSection, string | null> = {
     overview: `${shellContext.projectHref}#overview`,
+    timeline: `${shellContext.projectHref}/timeline`,
     context: analysisHref ? `${analysisHref}#project-context` : null,
     updates: `${shellContext.projectHref}#updates`,
     documents: analysisHref ? `${analysisHref}#documents` : null,

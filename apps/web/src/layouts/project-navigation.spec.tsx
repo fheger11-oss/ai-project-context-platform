@@ -94,6 +94,7 @@ describe("ProjectNavigation", () => {
 
     expect(markup).toContain("owner");
     expect(markup).toContain('href="/repositories/repository_1#overview"');
+    expect(markup).toContain('href="/repositories/repository_1/timeline"');
     expect(markup).toContain('href="/analyses/analysis_24#project-context"');
     expect(markup).toContain('href="/repositories/repository_1#updates"');
     expect(markup).toContain('href="/analyses/analysis_24#documents"');
@@ -103,11 +104,30 @@ describe("ProjectNavigation", () => {
   });
 
   it("derives nested active sections from the direct URL", () => {
+    expect(activeProjectSection("/repositories/repository_1/timeline", "")).toBe("timeline");
     expect(activeProjectSection("/repositories/repository_1/decisions", "")).toBe("decisions");
     expect(activeProjectSection("/repositories/repository_1", "")).toBe("overview");
     expect(activeProjectSection("/repositories/repository_1", "#updates")).toBe("updates");
     expect(activeProjectSection("/analyses/analysis_24", "#documents")).toBe("documents");
     expect(activeProjectSection("/analyses/analysis_24", "#project-context")).toBe("context");
+  });
+
+  it("marks Timeline active only on its dedicated repository route", () => {
+    const timelineMarkup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/repositories/repository_1/timeline"]}>
+        <ProjectNavigation shellContext={{ ...shellContext, section: "Timeline" }} />
+      </MemoryRouter>
+    );
+    const decisionsMarkup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/repositories/repository_1/decisions"]}>
+        <ProjectNavigation shellContext={{ ...shellContext, section: "Decisions" }} />
+      </MemoryRouter>
+    );
+
+    expect(timelineMarkup).toMatch(/aria-current="page"[^>]*>Timeline/);
+    expect(timelineMarkup).not.toMatch(/aria-current="page"[^>]*>Overview/);
+    expect(timelineMarkup).not.toMatch(/aria-current="page"[^>]*>Decisions/);
+    expect(decisionsMarkup).not.toMatch(/aria-current="page"[^>]*>Timeline/);
   });
 
   it("marks Decisions active only on the dedicated repository route", () => {

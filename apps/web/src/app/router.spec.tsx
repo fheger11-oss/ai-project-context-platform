@@ -6,6 +6,7 @@ import { AuthCallbackView } from "@/routes/auth-callback-view";
 import { LandingView } from "@/routes/landing-view";
 import { PrivacyView } from "@/routes/privacy-view";
 import { RepositoryDecisionsView } from "@/routes/repositories/repository-decisions-view";
+import { RepositoryTimelineView } from "@/routes/repositories/repository-timeline-view";
 import { RootEntryView } from "@/routes/root-entry-view";
 
 const createBrowserRouter = vi.hoisted(() => vi.fn((routes: unknown[]) => ({ routes })));
@@ -72,6 +73,25 @@ describe("router", () => {
     );
 
     expect(decisionsRoute?.element.type).toBe(RepositoryDecisionsView);
+  });
+
+  it("registers the repository Timeline workspace at the exact path", async () => {
+    const { router } = await import("@/app/router");
+    const routes = (
+      router as {
+        routes: {
+          path?: string;
+          element: ReactElement;
+          children?: { path?: string; element: ReactElement }[];
+        }[];
+      }
+    ).routes;
+    const appRoute = routes.find((route) => route.path === "/" && route.element.type === AppShell);
+    const timelineRoute = appRoute?.children?.find(
+      (route) => route.path === "repositories/:id/timeline"
+    );
+
+    expect(timelineRoute?.element.type).toBe(RepositoryTimelineView);
   });
 
   it("adds the public landing page outside the authenticated application shell", async () => {
