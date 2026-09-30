@@ -60,6 +60,7 @@ async function bootstrap() {
       .addTag("ai-export")
       .addTag("documents")
       .addTag("feedback")
+      .addTag("project-decisions")
       .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
 

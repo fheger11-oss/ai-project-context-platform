@@ -21,10 +21,16 @@ import type {
   ScanLimitErrorResponse,
   ScanLimits,
   ScanSnapshot,
-  ScanUsage
+  ScanUsage,
+  ProjectDecision,
+  ProjectDecisionStatus
 } from "./index.js";
 
 describe("contracts package exports", () => {
+  it("exports ProjectDecision contracts from the public entrypoint", () => {
+    expectTypeOf<ProjectDecisionStatus>().toEqualTypeOf<"ACTIVE" | "SUPERSEDED" | "ARCHIVED">();
+    expectTypeOf<ProjectDecision>().toHaveProperty("repositoryId").toEqualTypeOf<string>();
+  });
   it("exports Analysis API contracts from the public entrypoint", () => {
     expectTypeOf<CreateAnalysisRequest>().toMatchTypeOf<{ scanId: string }>();
     expectTypeOf<AnalysisResultResponse>().toHaveProperty("analysisId").toEqualTypeOf<string>();

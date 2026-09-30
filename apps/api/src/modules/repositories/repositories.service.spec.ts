@@ -44,6 +44,7 @@ function createService(repository: {
   deleteHistory?: ReturnType<typeof vi.fn>;
   findUnique?: ReturnType<typeof vi.fn>;
   cleanup?: ReturnType<typeof vi.fn>;
+  deleteDecisions?: ReturnType<typeof vi.fn>;
 }) {
   const prisma = {
     repository: {
@@ -52,6 +53,9 @@ function createService(repository: {
     },
     repositoryContextHistory: {
       deleteMany: repository.deleteHistory ?? vi.fn().mockResolvedValue({ count: 0 })
+    },
+    projectDecision: {
+      deleteMany: repository.deleteDecisions ?? vi.fn().mockResolvedValue({ count: 0 })
     },
     $transaction: vi.fn(async (operations: Promise<unknown>[]) => Promise.all(operations))
   } as unknown as PrismaService;
@@ -281,6 +285,7 @@ describe("RepositoriesService", () => {
     it("removes an owned repository record", async () => {
       const deleteRepository = vi.fn().mockResolvedValue({});
       const deleteHistory = vi.fn().mockResolvedValue({ count: 2 });
+      const deleteDecisions = vi.fn().mockResolvedValue({ count: 1 });
       const findUnique = vi.fn().mockResolvedValue({
         id: "repository_1",
         userId: user.id
@@ -288,6 +293,7 @@ describe("RepositoriesService", () => {
       const { service } = createService({
         delete: deleteRepository,
         deleteHistory,
+        deleteDecisions,
         findUnique
       });
 
@@ -301,6 +307,9 @@ describe("RepositoriesService", () => {
         where: { id: "repository_1" }
       });
       expect(deleteHistory).toHaveBeenCalledWith({
+        where: { repositoryId: "repository_1" }
+      });
+      expect(deleteDecisions).toHaveBeenCalledWith({
         where: { repositoryId: "repository_1" }
       });
     });

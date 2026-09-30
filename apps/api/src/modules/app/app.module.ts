@@ -16,6 +16,7 @@ import { DocumentGenerationModule } from "../document-generation/document-genera
 import { FeedbackModule } from "../feedback/feedback.module.js";
 import { HealthModule } from "../health/health.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
+import { ProjectDecisionsModule } from "../project-decisions/project-decisions.module.js";
 import { RepositoriesModule } from "../repositories/repositories.module.js";
 import { RepositoryUpdatesModule } from "../repository-updates/repository-updates.module.js";
 import { ScanModule } from "../scan/scan.module.js";
@@ -36,6 +37,7 @@ import { WebhooksModule } from "../webhooks/webhooks.module.js";
       ]
     }),
     PrismaModule,
+    ProjectDecisionsModule,
     UsersModule,
     AuthModule,
     RepositoriesModule,

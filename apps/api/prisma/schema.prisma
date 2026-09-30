@@ -79,6 +79,12 @@ enum RepositoryUpdateTriggerType {
   SYSTEM
 }
 
+enum ProjectDecisionStatus {
+  ACTIVE
+  SUPERSEDED
+  ARCHIVED
+}
+
 enum WebhookProvider {
   GITHUB
 }
@@ -204,6 +210,7 @@ model Repository {
   contextHistory   RepositoryContextHistory[]
   updateDispatches RepositoryUpdateDispatch[]
   webhook          RepositoryWebhook?
+  projectDecisions ProjectDecision[]
 
   @@unique([userId, githubId])
   @@index([userId])
@@ -276,12 +283,14 @@ model RepositoryUpdate {
   createdAt        DateTime                    @default(now()) @map("created_at")
   updatedAt        DateTime                    @updatedAt @map("updated_at")
 
-  repository     Repository                 @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  scan           Scan?                      @relation("RepositoryUpdateScan", fields: [scanId], references: [id], onDelete: SetNull)
-  analysis       Analysis?                  @relation("RepositoryUpdateAnalysis", fields: [analysisId], references: [id], onDelete: SetNull)
-  projectContext ProjectContext?            @relation("RepositoryUpdateProjectContext", fields: [projectContextId], references: [id], onDelete: SetNull)
-  dispatches     RepositoryUpdateDispatch[]
+  repository                Repository                 @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  scan                      Scan?                      @relation("RepositoryUpdateScan", fields: [scanId], references: [id], onDelete: SetNull)
+  analysis                  Analysis?                  @relation("RepositoryUpdateAnalysis", fields: [analysisId], references: [id], onDelete: SetNull)
+  projectContext            ProjectContext?            @relation("RepositoryUpdateProjectContext", fields: [projectContextId], references: [id], onDelete: SetNull)
+  dispatches                RepositoryUpdateDispatch[]
+  sourceForProjectDecisions ProjectDecision[]          @relation("ProjectDecisionSourceRepositoryUpdate")
 
+  @@unique([id, repositoryId])
   @@index([repositoryId])
   @@index([repositoryId, status])
   @@index([repositoryId, targetCommitSha])
@@ -411,6 +420,7 @@ model ProjectContext {
   currentForRepositoryStates RepositoryState[]          @relation("RepositoryStateCurrentProjectContext")
   repositoryUpdates          RepositoryUpdate[]         @relation("RepositoryUpdateProjectContext")
   repositoryContextHistory   RepositoryContextHistory[] @relation("RepositoryContextHistoryProjectContext")
+  sourceForProjectDecisions  ProjectDecision[]          @relation("ProjectDecisionSourceProjectContext")
 
   @@unique([id, repositoryId])
   @@index([contextId])
@@ -419,6 +429,31 @@ model ProjectContext {
   @@index([repositoryId])
   @@index([contextVersion])
   @@map("project_contexts")
+}
+
+model ProjectDecision {
+  id                       String                @id @default(cuid())
+  repositoryId             String                @map("repository_id")
+  title                    String
+  decision                 String                @db.Text
+  rationale                String                @db.Text
+  affectedArea             String                @map("affected_area")
+  status                   ProjectDecisionStatus @default(ACTIVE)
+  decidedAt                DateTime              @map("decided_at")
+  sourceProjectContextId   String?               @map("source_project_context_id")
+  sourceRepositoryUpdateId String?               @map("source_repository_update_id")
+  sourceCommitSha          String?               @map("source_commit_sha")
+  createdAt                DateTime              @default(now()) @map("created_at")
+  updatedAt                DateTime              @updatedAt @map("updated_at")
+
+  repository             Repository        @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  sourceProjectContext   ProjectContext?   @relation("ProjectDecisionSourceProjectContext", fields: [sourceProjectContextId, repositoryId], references: [id, repositoryId], onDelete: Restrict)
+  sourceRepositoryUpdate RepositoryUpdate? @relation("ProjectDecisionSourceRepositoryUpdate", fields: [sourceRepositoryUpdateId, repositoryId], references: [id, repositoryId], onDelete: Restrict)
+
+  @@index([repositoryId, status, decidedAt, id])
+  @@index([sourceProjectContextId])
+  @@index([sourceRepositoryUpdateId])
+  @@map("project_decisions")
 }
 
 model RepositoryContextHistory {

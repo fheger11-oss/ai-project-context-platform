@@ -1,6 +1,14 @@
 export type { AiExportFormat, AiExportResponse } from "./ai-export.js";
 
 export type {
+  CreateProjectDecisionRequest,
+  ProjectDecision,
+  ProjectDecisionListResponse,
+  ProjectDecisionStatus,
+  UpdateProjectDecisionRequest
+} from "./project-decisions.js";
+
+export type {
   DashboardProjectAiExportSummary,
   DashboardProjectDocumentsSummary,
   DashboardProjectLatestAnalysisSummary,
