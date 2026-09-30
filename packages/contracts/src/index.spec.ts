@@ -23,10 +23,21 @@ import type {
   ScanSnapshot,
   ScanUsage,
   ProjectDecision,
-  ProjectDecisionStatus
+  ProjectDecisionStatus,
+  ProjectTimelineItem,
+  ProjectTimelineItemType,
+  ProjectTimelineResponse
 } from "./index.js";
 
 describe("contracts package exports", () => {
+  it("exports ProjectTimeline contracts from the public entrypoint", () => {
+    expectTypeOf<ProjectTimelineItemType>().toEqualTypeOf<
+      "REPOSITORY_CONNECTED" | "REPOSITORY_UPDATE" | "CONTEXT_PROMOTED" | "DECISION_EFFECTIVE"
+    >();
+    expectTypeOf<ProjectTimelineItem>().toHaveProperty("occurredAt").toEqualTypeOf<string>();
+    expectTypeOf<ProjectTimelineResponse>().toHaveProperty("pagination");
+  });
+
   it("exports ProjectDecision contracts from the public entrypoint", () => {
     expectTypeOf<ProjectDecisionStatus>().toEqualTypeOf<"ACTIVE" | "SUPERSEDED" | "ARCHIVED">();
     expectTypeOf<ProjectDecision>().toHaveProperty("repositoryId").toEqualTypeOf<string>();

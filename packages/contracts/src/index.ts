@@ -9,6 +9,16 @@ export type {
 } from "./project-decisions.js";
 
 export type {
+  ContextPromotedTimelineItem,
+  DecisionEffectiveTimelineItem,
+  ProjectTimelineItem,
+  ProjectTimelineItemType,
+  ProjectTimelineResponse,
+  RepositoryConnectedTimelineItem,
+  RepositoryUpdateTimelineItem
+} from "./project-timeline.js";
+
+export type {
   DashboardProjectAiExportSummary,
   DashboardProjectDocumentsSummary,
   DashboardProjectLatestAnalysisSummary,
