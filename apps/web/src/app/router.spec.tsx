@@ -5,6 +5,7 @@ import { AppShell } from "@/layouts/app-shell";
 import { AuthCallbackView } from "@/routes/auth-callback-view";
 import { LandingView } from "@/routes/landing-view";
 import { PrivacyView } from "@/routes/privacy-view";
+import { RepositoryDecisionsView } from "@/routes/repositories/repository-decisions-view";
 import { RootEntryView } from "@/routes/root-entry-view";
 
 const createBrowserRouter = vi.hoisted(() => vi.fn((routes: unknown[]) => ({ routes })));
@@ -52,6 +53,25 @@ describe("router", () => {
 
     expect(paths).toContain("repositories/:id");
     expect(paths).not.toContain("projects/:id");
+  });
+
+  it("registers the repository Decisions workspace at the exact audited path", async () => {
+    const { router } = await import("@/app/router");
+    const routes = (
+      router as {
+        routes: {
+          path?: string;
+          element: ReactElement;
+          children?: { path?: string; element: ReactElement }[];
+        }[];
+      }
+    ).routes;
+    const appRoute = routes.find((route) => route.path === "/" && route.element.type === AppShell);
+    const decisionsRoute = appRoute?.children?.find(
+      (route) => route.path === "repositories/:id/decisions"
+    );
+
+    expect(decisionsRoute?.element.type).toBe(RepositoryDecisionsView);
   });
 
   it("adds the public landing page outside the authenticated application shell", async () => {

@@ -97,14 +97,35 @@ describe("ProjectNavigation", () => {
     expect(markup).toContain('href="/analyses/analysis_24#project-context"');
     expect(markup).toContain('href="/repositories/repository_1#updates"');
     expect(markup).toContain('href="/analyses/analysis_24#documents"');
+    expect(markup).toContain('href="/repositories/repository_1/decisions"');
     expect(markup).toMatch(/aria-disabled="true"[^>]*>Settings/);
     expect(markup).toMatch(/aria-current="page"[^>]*>Updates/);
   });
 
   it("derives nested active sections from the direct URL", () => {
+    expect(activeProjectSection("/repositories/repository_1/decisions", "")).toBe("decisions");
+    expect(activeProjectSection("/repositories/repository_1", "")).toBe("overview");
     expect(activeProjectSection("/repositories/repository_1", "#updates")).toBe("updates");
     expect(activeProjectSection("/analyses/analysis_24", "#documents")).toBe("documents");
     expect(activeProjectSection("/analyses/analysis_24", "#project-context")).toBe("context");
+  });
+
+  it("marks Decisions active only on the dedicated repository route", () => {
+    const decisionsMarkup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/repositories/repository_1/decisions"]}>
+        <ProjectNavigation shellContext={{ ...shellContext, section: "Decisions" }} />
+      </MemoryRouter>
+    );
+    const overviewMarkup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/repositories/repository_1"]}>
+        <ProjectNavigation shellContext={{ ...shellContext, section: "Overview" }} />
+      </MemoryRouter>
+    );
+
+    expect(decisionsMarkup).toMatch(/aria-current="page"[^>]*>Decisions/);
+    expect(decisionsMarkup).not.toMatch(/aria-current="page"[^>]*>Overview/);
+    expect(overviewMarkup).toMatch(/aria-current="page"[^>]*>Overview/);
+    expect(overviewMarkup).not.toMatch(/aria-current="page"[^>]*>Decisions/);
   });
 });
 

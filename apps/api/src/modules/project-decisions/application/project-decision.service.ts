@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException
+} from "@nestjs/common";
 import type {
   CreateProjectDecisionRequest,
   ProjectDecisionStatus,
@@ -106,7 +112,7 @@ export class ProjectDecisionService {
       );
     }
 
-    const updated = await this.decisions.updateByRepositoryAndId(repositoryId, id, {
+    const updated = await this.decisions.updateByRepositoryAndId(repositoryId, id, current.status, {
       ...(request.title === undefined ? {} : { title: normalizeRequiredText(request.title) }),
       ...(request.decision === undefined
         ? {}
@@ -121,7 +127,11 @@ export class ProjectDecisionService {
       ...(request.status === undefined ? {} : { status: request.status })
     });
 
-    if (!updated) throw new NotFoundException("ProjectDecision was not found");
+    if (!updated) {
+      throw new ConflictException(
+        "ProjectDecision changed while the update was being applied. Reload and try again."
+      );
+    }
     return updated;
   }
 

@@ -42,6 +42,7 @@ export interface ProjectDecisionRepository {
   updateByRepositoryAndId(
     repositoryId: string,
     id: string,
+    expectedStatus: ProjectDecisionStatus,
     input: UpdateProjectDecisionInput
   ): Promise<ProjectDecisionRecord | null>;
   findProjectContextSource(

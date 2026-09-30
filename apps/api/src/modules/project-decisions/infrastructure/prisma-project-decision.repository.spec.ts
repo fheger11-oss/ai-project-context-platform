@@ -47,16 +47,20 @@ describe("PrismaProjectDecisionRepository", () => {
     );
   });
 
-  it("updates through a repository-and-decision scoped predicate", async () => {
+  it("atomically updates through a repository, decision, and expected-status predicate", async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const repository = new PrismaProjectDecisionRepository({
       projectDecision: { updateMany }
     } as unknown as PrismaService);
     await expect(
-      repository.updateByRepositoryAndId("repository01", "decision0001", { status: "ARCHIVED" })
+      repository.updateByRepositoryAndId("repository01", "decision0001", "ACTIVE", {
+        status: "ARCHIVED"
+      })
     ).resolves.toBeNull();
     expect(updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "decision0001", repositoryId: "repository01" } })
+      expect.objectContaining({
+        where: { id: "decision0001", repositoryId: "repository01", status: "ACTIVE" }
+      })
     );
   });
 });

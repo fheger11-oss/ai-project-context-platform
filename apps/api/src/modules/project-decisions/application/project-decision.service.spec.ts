@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { RepositoriesService } from "../../repositories/repositories.service.js";
@@ -31,7 +31,10 @@ function harness() {
     create: vi.fn(async (input) => ({ ...record, ...input })),
     findByRepositoryAndId: vi.fn(async () => record),
     listByRepository: vi.fn(async () => ({ items: [record], total: 1 })),
-    updateByRepositoryAndId: vi.fn(async (_repositoryId, _id, input) => ({ ...record, ...input })),
+    updateByRepositoryAndId: vi.fn(async (_repositoryId, _id, _expectedStatus, input) => ({
+      ...record,
+      ...input
+    })),
     findProjectContextSource: vi.fn(async () => null),
     findRepositoryUpdateSource: vi.fn(async () => null),
     repositoryHasCommit: vi.fn(async () => true)
@@ -136,6 +139,50 @@ describe("ProjectDecisionService", () => {
       h.service.update("user_1", "repository01", "decision0001", { status })
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it.each([
+    ["SUPERSEDED", "ARCHIVED"],
+    ["ARCHIVED", "SUPERSEDED"]
+  ] as const)(
+    "does not let a stale ACTIVE transition overwrite a concurrent %s winner with %s",
+    async (winningStatus, staleStatus) => {
+      let persistedStatus: ProjectDecisionRecord["status"] = "ACTIVE";
+      vi.mocked(h.repository.findByRepositoryAndId).mockResolvedValue(record);
+      vi.mocked(h.repository.updateByRepositoryAndId).mockImplementation(
+        async (_repositoryId, _id, expectedStatus, input) => {
+          if (persistedStatus !== expectedStatus) return null;
+          persistedStatus = input.status ?? persistedStatus;
+          return { ...record, ...input, status: persistedStatus };
+        }
+      );
+
+      await expect(
+        h.service.update("user_1", "repository01", "decision0001", {
+          status: winningStatus
+        })
+      ).resolves.toMatchObject({ status: winningStatus });
+      await expect(
+        h.service.update("user_1", "repository01", "decision0001", { status: staleStatus })
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(persistedStatus).toBe(winningStatus);
+    }
+  );
+
+  it.each(["ACTIVE", "ARCHIVED", "SUPERSEDED"] as const)(
+    "keeps idempotent %s status updates valid",
+    async (status) => {
+      vi.mocked(h.repository.findByRepositoryAndId).mockResolvedValue({ ...record, status });
+      await expect(
+        h.service.update("user_1", "repository01", "decision0001", { status })
+      ).resolves.toMatchObject({ status });
+      expect(h.repository.updateByRepositoryAndId).toHaveBeenCalledWith(
+        "repository01",
+        "decision0001",
+        status,
+        { status }
+      );
+    }
+  );
 
   it("accepts matching same-repository context, update, and commit provenance", async () => {
     vi.mocked(h.repository.findProjectContextSource).mockResolvedValue({

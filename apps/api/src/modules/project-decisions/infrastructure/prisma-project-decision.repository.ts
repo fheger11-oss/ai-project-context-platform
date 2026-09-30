@@ -51,10 +51,11 @@ export class PrismaProjectDecisionRepository implements ProjectDecisionRepositor
   async updateByRepositoryAndId(
     repositoryId: string,
     id: string,
+    expectedStatus: ProjectDecisionRecord["status"],
     input: UpdateProjectDecisionInput
   ): Promise<ProjectDecisionRecord | null> {
     const result = await this.prisma.projectDecision.updateMany({
-      where: { id, repositoryId },
+      where: { id, repositoryId, status: expectedStatus },
       data: input
     });
     if (result.count === 0) return null;

@@ -47,8 +47,13 @@ export function useShellContext(location: Location): ShellContext {
   const pathname = location.pathname;
   const hash = location.hash;
   const repositoryMatch = matchPath({ path: "/repositories/:id", end: true }, pathname);
+  const repositoryDecisionsMatch = matchPath(
+    { path: "/repositories/:id/decisions", end: true },
+    pathname
+  );
   const analysisMatch = matchPath({ path: "/analyses/:analysisId", end: true }, pathname);
-  const repositoryIdFromRoute = repositoryMatch?.params.id ?? null;
+  const repositoryIdFromRoute =
+    repositoryDecisionsMatch?.params.id ?? repositoryMatch?.params.id ?? null;
   const analysisId = analysisMatch?.params.analysisId ?? null;
   const analysisQuery = useQuery({
     queryKey: ["analysis", analysisId],
@@ -103,7 +108,11 @@ export function useShellContext(location: Location): ShellContext {
 
     if (repositoryIdFromRoute) {
       const label = currentRepository ? repositoryDisplayName(currentRepository) : "Repository";
-      const section = hash === "#updates" ? "Updates" : "Overview";
+      const section = repositoryDecisionsMatch
+        ? "Decisions"
+        : hash === "#updates"
+          ? "Updates"
+          : "Overview";
 
       return {
         analysisId,
@@ -173,6 +182,7 @@ export function useShellContext(location: Location): ShellContext {
     projectHref,
     repositoryId,
     repositoryIdFromRoute,
+    repositoryDecisionsMatch,
     repositoryQuery.isLoading
   ]);
 }
