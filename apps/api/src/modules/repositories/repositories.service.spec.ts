@@ -45,6 +45,7 @@ function createService(repository: {
   findUnique?: ReturnType<typeof vi.fn>;
   cleanup?: ReturnType<typeof vi.fn>;
   deleteDecisions?: ReturnType<typeof vi.fn>;
+  deleteKnowledge?: ReturnType<typeof vi.fn>;
 }) {
   const prisma = {
     repository: {
@@ -56,6 +57,9 @@ function createService(repository: {
     },
     projectDecision: {
       deleteMany: repository.deleteDecisions ?? vi.fn().mockResolvedValue({ count: 0 })
+    },
+    projectKnowledge: {
+      deleteMany: repository.deleteKnowledge ?? vi.fn().mockResolvedValue({ count: 0 })
     },
     $transaction: vi.fn(async (operations: Promise<unknown>[]) => Promise.all(operations))
   } as unknown as PrismaService;

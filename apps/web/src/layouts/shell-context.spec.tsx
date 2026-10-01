@@ -53,6 +53,16 @@ function ShellContextProbe() {
 }
 
 describe("useShellContext", () => {
+  it("resolves repository context and Knowledge breadcrumbs", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/repositories/repository_1/knowledge"]}>
+        <ShellContextProbe />
+      </MemoryRouter>
+    );
+    expect(markup).toContain('data-repository-id="repository_1"');
+    expect(markup).toContain('data-section="Knowledge"');
+    expect(markup).toContain("Projects &gt; project &gt; Knowledge");
+  });
   it("resolves repository context and Decisions breadcrumbs for the descendant route", () => {
     const markup = renderToStaticMarkup(
       <MemoryRouter initialEntries={["/repositories/repository_1/decisions"]}>

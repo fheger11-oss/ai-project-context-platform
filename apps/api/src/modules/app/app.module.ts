@@ -18,6 +18,7 @@ import { FeedbackModule } from "../feedback/feedback.module.js";
 import { HealthModule } from "../health/health.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { ProjectDecisionsModule } from "../project-decisions/project-decisions.module.js";
+import { ProjectKnowledgeModule } from "../project-knowledge/project-knowledge.module.js";
 import { ProjectTimelineModule } from "../project-timeline/project-timeline.module.js";
 import { RepositoriesModule } from "../repositories/repositories.module.js";
 import { RepositoryUpdatesModule } from "../repository-updates/repository-updates.module.js";
@@ -41,6 +42,7 @@ import { WebhooksModule } from "../webhooks/webhooks.module.js";
     PrismaModule,
     ArchitectureHistoryModule,
     ProjectDecisionsModule,
+    ProjectKnowledgeModule,
     ProjectTimelineModule,
     UsersModule,
     AuthModule,

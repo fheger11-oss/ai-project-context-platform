@@ -21,6 +21,7 @@ const sections: { key: ProjectSection; label: string }[] = [
   { key: "updates", label: "Updates" },
   { key: "documents", label: "Documents" },
   { key: "decisions", label: "Decisions" },
+  { key: "knowledge", label: "Knowledge" },
   { key: "settings", label: "Settings" }
 ];
 
@@ -59,6 +60,7 @@ export function ProjectNavigation({ shellContext }: { shellContext: ShellContext
     updates: `${shellContext.projectHref}#updates`,
     documents: analysisHref ? `${analysisHref}#documents` : null,
     decisions: `${shellContext.projectHref}/decisions`,
+    knowledge: `${shellContext.projectHref}/knowledge`,
     settings: null
   };
   const activeSection = activeProjectSection(location.pathname, location.hash);

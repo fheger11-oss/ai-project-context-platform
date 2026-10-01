@@ -6,6 +6,7 @@ export type ProjectSection =
   | "updates"
   | "documents"
   | "decisions"
+  | "knowledge"
   | "settings";
 
 export function activeProjectSection(pathname: string, hash: string): ProjectSection | null {
@@ -15,6 +16,10 @@ export function activeProjectSection(pathname: string, hash: string): ProjectSec
 
   if (/^\/repositories\/[^/]+\/decisions\/?$/.test(pathname)) {
     return "decisions";
+  }
+
+  if (/^\/repositories\/[^/]+\/knowledge\/?$/.test(pathname)) {
+    return "knowledge";
   }
 
   if (/^\/repositories\/[^/]+\/timeline\/?$/.test(pathname)) {

@@ -7,6 +7,7 @@ import { LandingView } from "@/routes/landing-view";
 import { PrivacyView } from "@/routes/privacy-view";
 import { RepositoryArchitectureHistoryView } from "@/routes/repositories/repository-architecture-history-view";
 import { RepositoryDecisionsView } from "@/routes/repositories/repository-decisions-view";
+import { RepositoryKnowledgeView } from "@/routes/repositories/repository-knowledge-view";
 import { RepositoryTimelineView } from "@/routes/repositories/repository-timeline-view";
 import { RootEntryView } from "@/routes/root-entry-view";
 
@@ -74,6 +75,24 @@ describe("router", () => {
     );
 
     expect(decisionsRoute?.element.type).toBe(RepositoryDecisionsView);
+  });
+
+  it("registers Project Knowledge at the exact repository path", async () => {
+    const { router } = await import("@/app/router");
+    const routes = (
+      router as {
+        routes: {
+          path?: string;
+          element: { type: unknown };
+          children?: { path: string; element: { type: unknown } }[];
+        }[];
+      }
+    ).routes;
+    const appRoute = routes.find((route) => route.path === "/" && route.element.type === AppShell);
+    const knowledgeRoute = appRoute?.children?.find(
+      (route) => route.path === "repositories/:id/knowledge"
+    );
+    expect(knowledgeRoute?.element.type).toBe(RepositoryKnowledgeView);
   });
 
   it("registers the repository Timeline workspace at the exact path", async () => {

@@ -100,6 +100,7 @@ describe("ProjectNavigation", () => {
     expect(markup).toContain('href="/repositories/repository_1#updates"');
     expect(markup).toContain('href="/analyses/analysis_24#documents"');
     expect(markup).toContain('href="/repositories/repository_1/decisions"');
+    expect(markup).toContain('href="/repositories/repository_1/knowledge"');
     expect(markup).toMatch(/aria-disabled="true"[^>]*>Settings/);
     expect(markup).toMatch(/aria-current="page"[^>]*>Updates/);
   });
@@ -107,6 +108,7 @@ describe("ProjectNavigation", () => {
   it("derives nested active sections from the direct URL", () => {
     expect(activeProjectSection("/repositories/repository_1/timeline", "")).toBe("timeline");
     expect(activeProjectSection("/repositories/repository_1/decisions", "")).toBe("decisions");
+    expect(activeProjectSection("/repositories/repository_1/knowledge", "")).toBe("knowledge");
     expect(activeProjectSection("/repositories/repository_1/architecture-history", "")).toBe(
       "architecture-history"
     );

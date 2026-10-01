@@ -196,6 +196,9 @@ export class RepositoriesService {
     // Decision provenance and RepositoryContextHistory protect source rows with RESTRICT.
     // Remove only this repository's owned records before the aggregate cascade completes.
     await this.prisma.$transaction([
+      this.prisma.projectKnowledge.deleteMany({
+        where: { repositoryId: repository.id }
+      }),
       this.prisma.projectDecision.deleteMany({
         where: { repositoryId: repository.id }
       }),

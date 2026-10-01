@@ -85,6 +85,36 @@ enum ProjectDecisionStatus {
   ARCHIVED
 }
 
+enum ProjectKnowledgeStatus {
+  ACTIVE
+  SUPERSEDED
+  ARCHIVED
+}
+
+enum ProjectKnowledgeOrigin {
+  USER_AUTHORED
+  SYSTEM_DERIVED
+}
+
+enum ProjectKnowledgeKind {
+  USER_ASSERTED
+  OBSERVED
+  INFERRED
+}
+
+enum ProjectKnowledgeSourceType {
+  USER
+  REPOSITORY
+  PROJECT_CONTEXT
+  PROJECT_DECISION
+}
+
+enum ProjectKnowledgeConfidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 enum WebhookProvider {
   GITHUB
 }
@@ -211,6 +241,7 @@ model Repository {
   updateDispatches RepositoryUpdateDispatch[]
   webhook          RepositoryWebhook?
   projectDecisions ProjectDecision[]
+  projectKnowledge ProjectKnowledge[]
 
   @@unique([userId, githubId])
   @@index([userId])
@@ -421,6 +452,7 @@ model ProjectContext {
   repositoryUpdates          RepositoryUpdate[]         @relation("RepositoryUpdateProjectContext")
   repositoryContextHistory   RepositoryContextHistory[] @relation("RepositoryContextHistoryProjectContext")
   sourceForProjectDecisions  ProjectDecision[]          @relation("ProjectDecisionSourceProjectContext")
+  sourceForProjectKnowledge  ProjectKnowledge[]         @relation("ProjectKnowledgeSourceProjectContext")
 
   @@unique([id, repositoryId])
   @@index([contextId])
@@ -446,14 +478,41 @@ model ProjectDecision {
   createdAt                DateTime              @default(now()) @map("created_at")
   updatedAt                DateTime              @updatedAt @map("updated_at")
 
-  repository             Repository        @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  sourceProjectContext   ProjectContext?   @relation("ProjectDecisionSourceProjectContext", fields: [sourceProjectContextId, repositoryId], references: [id, repositoryId], onDelete: Restrict)
-  sourceRepositoryUpdate RepositoryUpdate? @relation("ProjectDecisionSourceRepositoryUpdate", fields: [sourceRepositoryUpdateId, repositoryId], references: [id, repositoryId], onDelete: Restrict)
+  repository                Repository         @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  sourceProjectContext      ProjectContext?    @relation("ProjectDecisionSourceProjectContext", fields: [sourceProjectContextId, repositoryId], references: [id, repositoryId], onDelete: Restrict)
+  sourceRepositoryUpdate    RepositoryUpdate?  @relation("ProjectDecisionSourceRepositoryUpdate", fields: [sourceRepositoryUpdateId, repositoryId], references: [id, repositoryId], onDelete: Restrict)
+  sourceForProjectKnowledge ProjectKnowledge[] @relation("ProjectKnowledgeSourceProjectDecision")
 
+  @@unique([id, repositoryId])
   @@index([repositoryId, status, decidedAt, id])
   @@index([sourceProjectContextId])
   @@index([sourceRepositoryUpdateId])
   @@map("project_decisions")
+}
+
+model ProjectKnowledge {
+  id                      String                      @id @default(cuid())
+  repositoryId            String                      @map("repository_id")
+  content                 String                      @db.Text
+  status                  ProjectKnowledgeStatus      @default(ACTIVE)
+  origin                  ProjectKnowledgeOrigin      @default(USER_AUTHORED)
+  kind                    ProjectKnowledgeKind        @default(USER_ASSERTED)
+  sourceType              ProjectKnowledgeSourceType  @default(USER) @map("source_type")
+  confidence              ProjectKnowledgeConfidence?
+  sourceProjectContextId  String?                     @map("source_project_context_id")
+  sourceProjectDecisionId String?                     @map("source_project_decision_id")
+  verifiedAt              DateTime?                   @map("verified_at")
+  createdAt               DateTime                    @default(now()) @map("created_at")
+  updatedAt               DateTime                    @updatedAt @map("updated_at")
+
+  repository            Repository       @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  sourceProjectContext  ProjectContext?  @relation("ProjectKnowledgeSourceProjectContext", fields: [sourceProjectContextId, repositoryId], references: [id, repositoryId], onDelete: Restrict)
+  sourceProjectDecision ProjectDecision? @relation("ProjectKnowledgeSourceProjectDecision", fields: [sourceProjectDecisionId, repositoryId], references: [id, repositoryId], onDelete: Restrict)
+
+  @@index([repositoryId, status, createdAt, id])
+  @@index([sourceProjectContextId])
+  @@index([sourceProjectDecisionId])
+  @@map("project_knowledge")
 }
 
 model RepositoryContextHistory {

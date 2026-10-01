@@ -23,6 +23,17 @@ export type {
   ProjectDecisionStatus,
   UpdateProjectDecisionRequest
 } from "./project-decisions.js";
+export type {
+  CreateProjectKnowledgeRequest,
+  ProjectKnowledge,
+  ProjectKnowledgeConfidence,
+  ProjectKnowledgeKind,
+  ProjectKnowledgeListResponse,
+  ProjectKnowledgeOrigin,
+  ProjectKnowledgeSourceType,
+  ProjectKnowledgeStatus,
+  UpdateProjectKnowledgeRequest
+} from "./project-knowledge.js";
 
 export type {
   ContextPromotedTimelineItem,
