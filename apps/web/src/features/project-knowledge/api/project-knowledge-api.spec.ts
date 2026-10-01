@@ -41,6 +41,12 @@ describe("project-knowledge-api", () => {
       expect.stringContaining("/repositories/r1/knowledge"),
       expect.objectContaining({ method: "POST", body: JSON.stringify({ content: "Fact" }) })
     );
+    const createBody = JSON.parse(String(fetch.mock.calls[0]?.[1]?.body)) as Record<
+      string,
+      unknown
+    >;
+    expect(createBody).toEqual({ content: "Fact" });
+    expect(createBody).not.toHaveProperty("knowledgeId");
     expect(fetch).toHaveBeenNthCalledWith(
       2,
       expect.stringContaining("/repositories/r1/knowledge/k%2F1"),

@@ -10,7 +10,9 @@ export class ProjectKnowledgeParamsDto {
   @MaxLength(32)
   @Matches(ID_PATTERN)
   id!: string;
+}
 
+export class ProjectKnowledgeItemParamsDto extends ProjectKnowledgeParamsDto {
   @ApiProperty()
   @IsString()
   @MinLength(10)

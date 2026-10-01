@@ -22,7 +22,10 @@ import { ProjectKnowledgeService } from "../application/project-knowledge.servic
 import { CreateProjectKnowledgeDto } from "./dto/create-project-knowledge.dto.js";
 // ValidationPipe needs this DTO as a runtime value.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { ProjectKnowledgeParamsDto } from "./dto/project-knowledge-params.dto.js";
+import {
+  ProjectKnowledgeItemParamsDto,
+  ProjectKnowledgeParamsDto
+} from "./dto/project-knowledge-params.dto.js";
 // ValidationPipe needs this DTO as a runtime value.
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { ProjectKnowledgeQueryDto } from "./dto/project-knowledge-query.dto.js";
@@ -75,7 +78,7 @@ export class ProjectKnowledgeController {
   @ApiOkResponse({ type: ProjectKnowledgeResponseDto })
   async update(
     @CurrentUser() user: AuthenticatedUser,
-    @Param() params: ProjectKnowledgeParamsDto,
+    @Param() params: ProjectKnowledgeItemParamsDto,
     @Body() dto: UpdateProjectKnowledgeDto
   ): Promise<ProjectKnowledge> {
     return toProjectKnowledgeResponse(
