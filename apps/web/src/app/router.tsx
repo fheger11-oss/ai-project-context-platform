@@ -6,6 +6,7 @@ import { AnalysisResultView } from "@/routes/analyses/analysis-result-view";
 import { ConnectRepositoryView } from "@/routes/repositories/connect-repository-view";
 import { LandingView } from "@/routes/landing-view";
 import { PrivacyView } from "@/routes/privacy-view";
+import { RepositoryArchitectureHistoryView } from "@/routes/repositories/repository-architecture-history-view";
 import { RepositoryDecisionsView } from "@/routes/repositories/repository-decisions-view";
 import { RepositoryDetailsView } from "@/routes/repositories/repository-details-view";
 import { RepositoryListView } from "@/routes/repositories/repository-list-view";
@@ -52,6 +53,10 @@ export const router = createBrowserRouter([
       {
         path: "repositories/:id/timeline",
         element: <RepositoryTimelineView />
+      },
+      {
+        path: "repositories/:id/architecture-history",
+        element: <RepositoryArchitectureHistoryView />
       },
       {
         path: "analyses/:analysisId",

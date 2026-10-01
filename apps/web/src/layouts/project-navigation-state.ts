@@ -1,5 +1,12 @@
 export type ProjectSection =
-  "overview" | "timeline" | "context" | "updates" | "documents" | "decisions" | "settings";
+  | "overview"
+  | "timeline"
+  | "context"
+  | "architecture-history"
+  | "updates"
+  | "documents"
+  | "decisions"
+  | "settings";
 
 export function activeProjectSection(pathname: string, hash: string): ProjectSection | null {
   if (pathname.startsWith("/analyses/")) {
@@ -12,6 +19,10 @@ export function activeProjectSection(pathname: string, hash: string): ProjectSec
 
   if (/^\/repositories\/[^/]+\/timeline\/?$/.test(pathname)) {
     return "timeline";
+  }
+
+  if (/^\/repositories\/[^/]+\/architecture-history\/?$/.test(pathname)) {
+    return "architecture-history";
   }
 
   if (pathname.startsWith("/repositories/")) {

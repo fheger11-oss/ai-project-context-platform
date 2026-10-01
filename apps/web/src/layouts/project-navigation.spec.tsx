@@ -96,6 +96,7 @@ describe("ProjectNavigation", () => {
     expect(markup).toContain('href="/repositories/repository_1#overview"');
     expect(markup).toContain('href="/repositories/repository_1/timeline"');
     expect(markup).toContain('href="/analyses/analysis_24#project-context"');
+    expect(markup).toContain('href="/repositories/repository_1/architecture-history"');
     expect(markup).toContain('href="/repositories/repository_1#updates"');
     expect(markup).toContain('href="/analyses/analysis_24#documents"');
     expect(markup).toContain('href="/repositories/repository_1/decisions"');
@@ -106,10 +107,31 @@ describe("ProjectNavigation", () => {
   it("derives nested active sections from the direct URL", () => {
     expect(activeProjectSection("/repositories/repository_1/timeline", "")).toBe("timeline");
     expect(activeProjectSection("/repositories/repository_1/decisions", "")).toBe("decisions");
+    expect(activeProjectSection("/repositories/repository_1/architecture-history", "")).toBe(
+      "architecture-history"
+    );
     expect(activeProjectSection("/repositories/repository_1", "")).toBe("overview");
     expect(activeProjectSection("/repositories/repository_1", "#updates")).toBe("updates");
     expect(activeProjectSection("/analyses/analysis_24", "#documents")).toBe("documents");
     expect(activeProjectSection("/analyses/analysis_24", "#project-context")).toBe("context");
+  });
+
+  it("marks Architecture History active only on its dedicated repository route", () => {
+    const historyMarkup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/repositories/repository_1/architecture-history"]}>
+        <ProjectNavigation shellContext={{ ...shellContext, section: "Architecture History" }} />
+      </MemoryRouter>
+    );
+    const overviewMarkup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/repositories/repository_1"]}>
+        <ProjectNavigation shellContext={{ ...shellContext, section: "Overview" }} />
+      </MemoryRouter>
+    );
+
+    expect(historyMarkup).toMatch(/aria-current="page"[^>]*>Architecture History/);
+    expect(historyMarkup).not.toMatch(/aria-current="page"[^>]*>Overview/);
+    expect(historyMarkup).not.toMatch(/aria-current="page"[^>]*>Timeline/);
+    expect(overviewMarkup).not.toMatch(/aria-current="page"[^>]*>Architecture History/);
   });
 
   it("marks Timeline active only on its dedicated repository route", () => {

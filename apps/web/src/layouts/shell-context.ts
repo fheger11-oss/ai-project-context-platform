@@ -55,8 +55,13 @@ export function useShellContext(location: Location): ShellContext {
     { path: "/repositories/:id/timeline", end: true },
     pathname
   );
+  const repositoryArchitectureHistoryMatch = matchPath(
+    { path: "/repositories/:id/architecture-history", end: true },
+    pathname
+  );
   const analysisMatch = matchPath({ path: "/analyses/:analysisId", end: true }, pathname);
   const repositoryIdFromRoute =
+    repositoryArchitectureHistoryMatch?.params.id ??
     repositoryDecisionsMatch?.params.id ??
     repositoryTimelineMatch?.params.id ??
     repositoryMatch?.params.id ??
@@ -115,13 +120,15 @@ export function useShellContext(location: Location): ShellContext {
 
     if (repositoryIdFromRoute) {
       const label = currentRepository ? repositoryDisplayName(currentRepository) : "Repository";
-      const section = repositoryDecisionsMatch
-        ? "Decisions"
-        : repositoryTimelineMatch
-          ? "Timeline"
-          : hash === "#updates"
-            ? "Updates"
-            : "Overview";
+      const section = repositoryArchitectureHistoryMatch
+        ? "Architecture History"
+        : repositoryDecisionsMatch
+          ? "Decisions"
+          : repositoryTimelineMatch
+            ? "Timeline"
+            : hash === "#updates"
+              ? "Updates"
+              : "Overview";
 
       return {
         analysisId,
@@ -191,6 +198,7 @@ export function useShellContext(location: Location): ShellContext {
     projectHref,
     repositoryId,
     repositoryIdFromRoute,
+    repositoryArchitectureHistoryMatch,
     repositoryDecisionsMatch,
     repositoryTimelineMatch,
     repositoryQuery.isLoading

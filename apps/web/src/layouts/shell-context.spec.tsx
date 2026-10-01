@@ -78,4 +78,17 @@ describe("useShellContext", () => {
     expect(markup).toContain('data-section="Timeline"');
     expect(markup).toContain("Projects &gt; project &gt; Timeline");
   });
+
+  it("resolves repository context and Architecture History breadcrumbs", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/repositories/repository_1/architecture-history"]}>
+        <ShellContextProbe />
+      </MemoryRouter>
+    );
+
+    expect(markup).toContain('data-repository-id="repository_1"');
+    expect(markup).toContain('data-project-href="/repositories/repository_1"');
+    expect(markup).toContain('data-section="Architecture History"');
+    expect(markup).toContain("Projects &gt; project &gt; Architecture History");
+  });
 });
