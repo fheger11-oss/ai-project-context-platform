@@ -1,6 +1,22 @@
 export type { AiExportFormat, AiExportResponse } from "./ai-export.js";
 
 export type {
+  ArchitectureComparisonDiagnostic,
+  ArchitectureComparisonResponse,
+  ArchitectureComparisonStatus,
+  ArchitectureHistoryResponse,
+  ArchitectureModule,
+  ArchitectureRelationship,
+  ArchitectureSnapshotSummary,
+  ComparableArchitectureComparison,
+  IncompatibleArchitectureComparison,
+  IncompleteArchitectureComparison,
+  ModifiedArchitectureModule,
+  NoBaselineArchitectureComparison,
+  SuppressedArchitectureClaim
+} from "./architecture-history.js";
+
+export type {
   CreateProjectDecisionRequest,
   ProjectDecision,
   ProjectDecisionListResponse,

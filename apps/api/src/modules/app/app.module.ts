@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 
 import { RequestLoggerMiddleware } from "../../shared/middleware/request-logger.middleware.js";
 import { AiExportModule } from "../ai-export/ai-export.module.js";
+import { ArchitectureHistoryModule } from "../architecture-history/architecture-history.module.js";
 import { AnalysisModule } from "../analysis/analysis.module.js";
 import { AuthModule } from "../auth/auth.module.js";
 import { ChangeSetsModule } from "../change-sets/change-sets.module.js";
@@ -38,6 +39,7 @@ import { WebhooksModule } from "../webhooks/webhooks.module.js";
       ]
     }),
     PrismaModule,
+    ArchitectureHistoryModule,
     ProjectDecisionsModule,
     ProjectTimelineModule,
     UsersModule,

@@ -4,8 +4,9 @@ import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { describe, expect, it } from "vitest";
 
-import { AppModule } from "./app.module.js";
+import { ArchitectureHistoryModule } from "../architecture-history/architecture-history.module.js";
 import { ProjectTimelineModule } from "../project-timeline/project-timeline.module.js";
+import { AppModule } from "./app.module.js";
 
 const MODULE_IMPORTS_METADATA = "imports";
 const MODULE_PROVIDERS_METADATA = "providers";
@@ -30,5 +31,10 @@ describe("AppModule security", () => {
   it("registers the ProjectTimeline read model", () => {
     const imports = Reflect.getMetadata(MODULE_IMPORTS_METADATA, AppModule) as unknown[];
     expect(imports).toContain(ProjectTimelineModule);
+  });
+
+  it("registers the ArchitectureHistory read model", () => {
+    const imports = Reflect.getMetadata(MODULE_IMPORTS_METADATA, AppModule) as unknown[];
+    expect(imports).toContain(ArchitectureHistoryModule);
   });
 });
