@@ -91,9 +91,7 @@ export class GitHubOAuthProvider {
       throw new BadGatewayException("GitHub profile could not be validated");
     }
 
-    const primaryEmail =
-      emailsPayload.data.find((email) => email.primary && email.verified)?.email ??
-      userPayload.data.email;
+    const primaryEmail = emailsPayload.data.find((email) => email.primary && email.verified)?.email;
 
     if (!primaryEmail) {
       throw new UnauthorizedException("GitHub account does not expose a verified email");

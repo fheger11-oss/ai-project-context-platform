@@ -15,6 +15,9 @@ const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
 export const GITHUB_SCAN_MAX_FILE_COUNT = SCAN_LIMITS.maxFiles;
 export const GITHUB_SCAN_MAX_FILE_SIZE_BYTES = SCAN_LIMITS.maxIndividualFileSizeBytes;
 export const GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES = SCAN_LIMITS.maxTotalSizeBytes;
+// A repository with at most maxFiles useful blobs does not need more than maxFiles + 1
+// tree fetches. This also bounds malicious empty/deep trees that never increment fileCount.
+export const GITHUB_SCAN_MAX_TREE_COUNT = SCAN_LIMITS.maxFiles + 1;
 
 type GitHubCommitResponse = {
   sha: string;
@@ -120,12 +123,18 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
     let fileCount = 0;
     let totalSize = 0n;
     let filesProcessed = 0;
+    let treesProcessed = 0;
 
     while (treeStack.length > 0) {
       const currentTree = treeStack.pop();
 
       if (!currentTree) {
         continue;
+      }
+
+      treesProcessed += 1;
+      if (treesProcessed > GITHUB_SCAN_MAX_TREE_COUNT) {
+        throw new Error("GitHub repository tree traversal limit exceeded.");
       }
 
       const tree = await this.loadTree(githubAccess, currentTree.treeSha);

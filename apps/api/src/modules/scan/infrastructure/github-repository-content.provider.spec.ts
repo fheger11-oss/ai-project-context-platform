@@ -5,6 +5,7 @@ import { ScanLimitExceededError } from "../domain/errors/scan-limit-exceeded.err
 import {
   GITHUB_SCAN_MAX_FILE_COUNT,
   GITHUB_SCAN_MAX_FILE_SIZE_BYTES,
+  GITHUB_SCAN_MAX_TREE_COUNT,
   GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES,
   GitHubRepositoryContentProvider
 } from "./github-repository-content.provider.js";
@@ -238,6 +239,41 @@ describe("GitHubRepositoryContentProvider", () => {
     }
 
     expect(count).toBe(GITHUB_SCAN_MAX_FILE_COUNT);
+  });
+
+  it("bounds traversal of crafted trees that contain no countable files", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ tree: { sha: "root_tree_sha" } })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          truncated: false,
+          tree: Array.from({ length: GITHUB_SCAN_MAX_TREE_COUNT }, (_, index) => ({
+            path: `empty-${index}`,
+            sha: `tree_sha_${index}`,
+            type: "tree"
+          }))
+        })
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ truncated: false, tree: [] })
+      });
+
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new GitHubRepositoryContentProvider();
+
+    await expect(async () => {
+      for await (const _file of provider.listSnapshotFiles(access, "commit_sha")) {
+        // Drain the async iterator.
+      }
+    }).rejects.toThrow("GitHub repository tree traversal limit exceeded.");
+
+    expect(fetchMock).toHaveBeenCalledTimes(GITHUB_SCAN_MAX_TREE_COUNT + 1);
   });
 
   it("rejects repositories that exceed the total scanned byte limit", async () => {
