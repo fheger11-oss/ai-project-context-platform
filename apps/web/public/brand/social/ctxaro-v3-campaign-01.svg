@@ -1,0 +1,96 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <title>Ctxaro V3 — From Repository to Project Memory</title>
+  <defs>
+    <linearGradient id="veil" x1="600" y1="0" x2="600" y2="1200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#050706" stop-opacity="0.88"/>
+      <stop offset="0.46" stop-color="#050706" stop-opacity="0.60"/>
+      <stop offset="1" stop-color="#050706" stop-opacity="0.82"/>
+    </linearGradient>
+    <linearGradient id="memory" x1="126" y1="706" x2="1074" y2="1042" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A1511" stop-opacity="0.97"/>
+      <stop offset="1" stop-color="#07100D" stop-opacity="0.92"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0 0L8 4L0 8Z" fill="#45D39A" fill-opacity="0.82"/>
+    </marker>
+  </defs>
+
+  <image width="1200" height="1200" xlink:href="ctxaro-v3-campaign-01-background.png" preserveAspectRatio="xMidYMid slice"/>
+  <rect width="1200" height="1200" fill="url(#veil)"/>
+
+  <g transform="translate(72 62)">
+    <g color="#45D39A">
+      <rect width="52" height="52" rx="9" fill="#45D39A" fill-opacity="0.09"/>
+      <rect x="0.5" y="0.5" width="51" height="51" rx="8.5" stroke="#45D39A" stroke-opacity="0.24"/>
+      <g transform="translate(10 10)">
+        <path d="M16 4.5 25.5 10v12L16 27.5 6.5 22V10L16 4.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"/>
+        <path d="M16 10.5 21 13.35v5.3l-5 2.85-5-2.85v-5.3l5-2.85Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1"/>
+        <path d="M6.5 10 11 13.35M25.5 10 21 13.35M16 21.5v6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1"/>
+        <circle cx="16" cy="4.5" r="1.7" fill="currentColor"/>
+        <circle cx="6.5" cy="22" r="1.7" fill="currentColor"/>
+        <circle cx="25.5" cy="22" r="1.7" fill="currentColor"/>
+      </g>
+    </g>
+    <text x="70" y="35" fill="#F7FAF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="27" font-weight="650">ctxaro</text>
+    <text x="984" y="34" text-anchor="end" fill="#45D39A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" font-weight="600" letter-spacing="2.8">V3</text>
+  </g>
+
+  <text x="72" y="184" fill="#F7FAF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="65" font-weight="650" letter-spacing="-2.5">From Repository</text>
+  <text x="72" y="254" fill="#F7FAF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="65" font-weight="650" letter-spacing="-2.5">to Project Memory</text>
+  <text x="74" y="307" fill="#AAB5B0" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22">Current technical context, promoted history, knowledge, and decisions—</text>
+  <text x="74" y="339" fill="#AAB5B0" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22">kept as durable project records.</text>
+
+  <g>
+    <rect x="72" y="408" width="280" height="154" rx="12" fill="#07100D" fill-opacity="0.94" stroke="#FFFFFF" stroke-opacity="0.11"/>
+    <text x="96" y="444" fill="#45D39A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="600" letter-spacing="1.8">01 · SOURCE</text>
+    <text x="96" y="487" fill="#F7FAF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="25" font-weight="600">GitHub Repository</text>
+    <text x="96" y="523" fill="#95A19C" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="16">Files · manifests · source structure</text>
+
+    <path d="M362 485H443" stroke="#45D39A" stroke-opacity="0.72" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <rect x="458" y="408" width="280" height="154" rx="12" fill="#07100D" fill-opacity="0.94" stroke="#FFFFFF" stroke-opacity="0.11"/>
+    <text x="482" y="444" fill="#45D39A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="600" letter-spacing="1.8">02 · PROCESS</text>
+    <text x="482" y="487" fill="#F7FAF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="25" font-weight="600">Scan + Analysis</text>
+    <text x="482" y="523" fill="#95A19C" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="16">Structure · dependencies · evidence</text>
+
+    <path d="M748 485H829" stroke="#45D39A" stroke-opacity="0.72" stroke-width="2" marker-end="url(#arrow)"/>
+
+    <rect x="844" y="408" width="284" height="154" rx="12" fill="#0A1511" fill-opacity="0.97" stroke="#45D39A" stroke-opacity="0.34"/>
+    <text x="868" y="444" fill="#45D39A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="600" letter-spacing="1.8">03 · CURRENT STATE</text>
+    <text x="868" y="487" fill="#F7FAF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="25" font-weight="600">Project Context</text>
+    <text x="868" y="519" fill="#95A19C" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="15">Commit-bound structured snapshot</text>
+    <text x="868" y="543" fill="#95A19C" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="15">with claim evidence + confidence</text>
+  </g>
+
+  <path d="M986 578V640H600V688" stroke="#45D39A" stroke-opacity="0.72" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="72" y="706" width="1056" height="382" rx="16" fill="url(#memory)" stroke="#45D39A" stroke-opacity="0.30"/>
+  <rect x="72" y="706" width="1056" height="3" rx="1.5" fill="#45D39A" fill-opacity="0.82"/>
+  <text x="104" y="757" fill="#45D39A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" font-weight="600" letter-spacing="2.2">04 · DURABLE PROJECT RECORDS</text>
+  <text x="104" y="806" fill="#F7FAF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="35" font-weight="620">Project Memory</text>
+  <text x="104" y="840" fill="#95A19C" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17">Built around the current context and repository-scoped history.</text>
+
+  <g font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <rect x="104" y="884" width="292" height="82" rx="9" fill="#FFFFFF" fill-opacity="0.035" stroke="#FFFFFF" stroke-opacity="0.10"/>
+    <text x="126" y="917" fill="#F7FAF8" font-size="17" font-weight="600">Promoted Context History</text>
+    <text x="126" y="944" fill="#95A19C" font-size="14">Context snapshots linked to commits</text>
+
+    <rect x="414" y="884" width="292" height="82" rx="9" fill="#FFFFFF" fill-opacity="0.035" stroke="#FFFFFF" stroke-opacity="0.10"/>
+    <text x="436" y="917" fill="#F7FAF8" font-size="17" font-weight="600">Project Knowledge</text>
+    <text x="436" y="944" fill="#95A19C" font-size="14">User-authored facts with lifecycle</text>
+
+    <rect x="724" y="884" width="372" height="82" rx="9" fill="#FFFFFF" fill-opacity="0.035" stroke="#FFFFFF" stroke-opacity="0.10"/>
+    <text x="746" y="917" fill="#F7FAF8" font-size="17" font-weight="600">Project Decisions</text>
+    <text x="746" y="944" fill="#95A19C" font-size="14">Decision · rationale · area · provenance</text>
+
+    <rect x="104" y="982" width="292" height="76" rx="9" fill="#45D39A" fill-opacity="0.055" stroke="#45D39A" stroke-opacity="0.18"/>
+    <text x="126" y="1014" fill="#F7FAF8" font-size="17" font-weight="600">Timeline</text>
+    <text x="126" y="1040" fill="#95A19C" font-size="14">Activity projected chronologically</text>
+
+    <rect x="414" y="982" width="682" height="76" rx="9" fill="#45D39A" fill-opacity="0.055" stroke="#45D39A" stroke-opacity="0.18"/>
+    <text x="436" y="1014" fill="#F7FAF8" font-size="17" font-weight="600">Architecture History</text>
+    <text x="436" y="1040" fill="#95A19C" font-size="14">Structural comparison across promoted context snapshots</text>
+  </g>
+
+  <text x="72" y="1147" fill="#75817C" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" letter-spacing="1.2">REPOSITORY UNDERSTANDING  →  PROJECT CONTEXT  →  PROJECT MEMORY</text>
+</svg>

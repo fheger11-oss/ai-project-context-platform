@@ -1,0 +1,90 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <title>Ctxaro V3 — Project Memory</title>
+  <defs>
+    <radialGradient id="veil" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(600 592) rotate(90) scale(690)">
+      <stop stop-color="#050706" stop-opacity="0.28"/>
+      <stop offset="0.56" stop-color="#050706" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#050706" stop-opacity="0.92"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="26" flood-color="#000000" flood-opacity="0.44"/>
+    </filter>
+  </defs>
+
+  <image width="1200" height="1200" xlink:href="ctxaro-v3-campaign-02-background.png" preserveAspectRatio="xMidYMid slice"/>
+  <rect width="1200" height="1200" fill="url(#veil)"/>
+
+  <g transform="translate(72 62)">
+    <g color="#45D39A">
+      <rect width="52" height="52" rx="9" fill="#45D39A" fill-opacity="0.09"/>
+      <rect x="0.5" y="0.5" width="51" height="51" rx="8.5" stroke="#45D39A" stroke-opacity="0.24"/>
+      <g transform="translate(10 10)">
+        <path d="M16 4.5 25.5 10v12L16 27.5 6.5 22V10L16 4.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"/>
+        <path d="M16 10.5 21 13.35v5.3l-5 2.85-5-2.85v-5.3l5-2.85Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1"/>
+        <path d="M6.5 10 11 13.35M25.5 10 21 13.35M16 21.5v6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1"/>
+        <circle cx="16" cy="4.5" r="1.7" fill="currentColor"/>
+        <circle cx="6.5" cy="22" r="1.7" fill="currentColor"/>
+        <circle cx="25.5" cy="22" r="1.7" fill="currentColor"/>
+      </g>
+    </g>
+    <text x="70" y="35" fill="#F7FAF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="27" font-weight="650">ctxaro</text>
+    <text x="984" y="34" text-anchor="end" fill="#45D39A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" font-weight="600" letter-spacing="2.8">V3</text>
+  </g>
+
+  <text x="72" y="188" fill="#F7FAF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="72" font-weight="650" letter-spacing="-2.8">Project Memory</text>
+  <text x="74" y="240" fill="#AAB5B0" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="22">Durable records around the repository’s current Project Context.</text>
+  <text x="74" y="274" fill="#75817C" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="17">Stored knowledge and decisions. Projected activity. Compared context history.</text>
+
+  <g stroke="#45D39A" stroke-opacity="0.34" stroke-width="1.5">
+    <path d="M600 526L374 476"/>
+    <path d="M600 526L826 476"/>
+    <path d="M600 630L374 792"/>
+    <path d="M600 630L826 792"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="444" y="438" width="312" height="228" rx="18" fill="#09130F" fill-opacity="0.98" stroke="#45D39A" stroke-opacity="0.42"/>
+    <rect x="444" y="438" width="312" height="3" rx="1.5" fill="#45D39A"/>
+    <text x="600" y="485" text-anchor="middle" fill="#45D39A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" font-weight="600" letter-spacing="2">CURRENT STATE</text>
+    <text x="600" y="532" text-anchor="middle" fill="#F7FAF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="29" font-weight="620">Project Context</text>
+    <text x="600" y="570" text-anchor="middle" fill="#AAB5B0" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="16">Commit-bound snapshot</text>
+    <text x="600" y="597" text-anchor="middle" fill="#AAB5B0" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="16">Observed + inferred claims</text>
+    <text x="600" y="624" text-anchor="middle" fill="#AAB5B0" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="16">Evidence + confidence</text>
+  </g>
+
+  <g font-family="Inter, ui-sans-serif, system-ui, sans-serif">
+    <rect x="72" y="366" width="332" height="210" rx="14" fill="#07100D" fill-opacity="0.96" stroke="#FFFFFF" stroke-opacity="0.12"/>
+    <text x="100" y="407" fill="#45D39A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" font-weight="600" letter-spacing="1.7">STORED RECORD</text>
+    <text x="100" y="451" fill="#F7FAF8" font-size="25" font-weight="620">Project Knowledge</text>
+    <text x="100" y="489" fill="#AAB5B0" font-size="16">User-authored project facts</text>
+    <text x="100" y="518" fill="#AAB5B0" font-size="16">Active · superseded · archived</text>
+    <text x="100" y="547" fill="#75817C" font-size="14">Repository-scoped and persisted</text>
+
+    <rect x="796" y="366" width="332" height="210" rx="14" fill="#07100D" fill-opacity="0.96" stroke="#FFFFFF" stroke-opacity="0.12"/>
+    <text x="824" y="407" fill="#45D39A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" font-weight="600" letter-spacing="1.7">STORED RECORD</text>
+    <text x="824" y="451" fill="#F7FAF8" font-size="25" font-weight="620">Project Decisions</text>
+    <text x="824" y="489" fill="#AAB5B0" font-size="16">Decision · rationale · affected area</text>
+    <text x="824" y="518" fill="#AAB5B0" font-size="16">Lifecycle status + decided date</text>
+    <text x="824" y="547" fill="#75817C" font-size="14">Optional context / update provenance</text>
+
+    <rect x="72" y="710" width="332" height="224" rx="14" fill="#07100D" fill-opacity="0.96" stroke="#FFFFFF" stroke-opacity="0.12"/>
+    <text x="100" y="751" fill="#45D39A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" font-weight="600" letter-spacing="1.7">CHRONOLOGICAL PROJECTION</text>
+    <text x="100" y="795" fill="#F7FAF8" font-size="25" font-weight="620">Timeline</text>
+    <text x="100" y="833" fill="#AAB5B0" font-size="16">Repository connected</text>
+    <text x="100" y="861" fill="#AAB5B0" font-size="16">Updates · context promoted</text>
+    <text x="100" y="889" fill="#AAB5B0" font-size="16">Decision effective</text>
+
+    <rect x="796" y="710" width="332" height="224" rx="14" fill="#07100D" fill-opacity="0.96" stroke="#FFFFFF" stroke-opacity="0.12"/>
+    <text x="824" y="751" fill="#45D39A" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="12" font-weight="600" letter-spacing="1.7">DERIVED COMPARISON</text>
+    <text x="824" y="795" fill="#F7FAF8" font-size="25" font-weight="620">Architecture History</text>
+    <text x="824" y="833" fill="#AAB5B0" font-size="16">Promoted context snapshots</text>
+    <text x="824" y="861" fill="#AAB5B0" font-size="16">Modules + relationships</text>
+    <text x="824" y="889" fill="#AAB5B0" font-size="16">Compatibility + confidence guarded</text>
+  </g>
+
+  <rect x="214" y="1000" width="772" height="82" rx="12" fill="#45D39A" fill-opacity="0.055" stroke="#45D39A" stroke-opacity="0.20"/>
+  <text x="600" y="1034" text-anchor="middle" fill="#F7FAF8" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18" font-weight="600">Current Project Context stays distinct from durable project records.</text>
+  <text x="600" y="1062" text-anchor="middle" fill="#95A19C" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="15">Timeline and Architecture History project change from repository activity and promoted contexts.</text>
+
+  <text x="72" y="1147" fill="#75817C" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" letter-spacing="1.2">PROJECT CONTEXT  +  KNOWLEDGE  +  DECISIONS  +  HISTORY OVER TIME</text>
+</svg>
