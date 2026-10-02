@@ -72,4 +72,12 @@ describe("GitHubCallbackDto", () => {
     expect(missingCodeErrors.map((error) => error.property)).toContain("code");
     expect(missingStateErrors.map((error) => error.property)).toContain("state");
   });
+
+  it("rejects callback values larger than the provider and signed-state boundaries", async () => {
+    const oversizedCodeErrors = await validateDto({ code: "c".repeat(513), state: "state" });
+    const oversizedStateErrors = await validateDto({ code: "code", state: "s".repeat(2_049) });
+
+    expect(oversizedCodeErrors.map((error) => error.property)).toContain("code");
+    expect(oversizedStateErrors.map((error) => error.property)).toContain("state");
+  });
 });

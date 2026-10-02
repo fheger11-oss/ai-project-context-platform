@@ -326,13 +326,15 @@ function renderInlineMarkdown(value: string): ReactNode[] {
     }
 
     if (next.type === "link") {
+      const href = safeHref(match[2]);
+
       nodes.push(
         <a
           className="font-medium text-primary underline-offset-4 hover:underline"
-          href={safeHref(match[2])}
+          href={href}
           key={key++}
           rel="noreferrer"
-          target={isExternalHref(match[2]) ? "_blank" : undefined}
+          target={isExternalHref(href) ? "_blank" : undefined}
         >
           {match[1]}
         </a>
@@ -372,17 +374,43 @@ function findNextInlineToken(
 }
 
 function safeHref(value: string | undefined): string | undefined {
-  if (!value) {
+  if (!value || value !== value.trim() || containsControlCharacter(value)) {
     return undefined;
   }
 
-  if (/^(https?:\/\/|mailto:|#|\/)/.test(value)) {
+  if (value.startsWith("#")) {
     return value;
   }
 
-  return undefined;
+  if (value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")) {
+    return value;
+  }
+
+  try {
+    const url = new URL(value);
+
+    return ["http:", "https:", "mailto:"].includes(url.protocol) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function containsControlCharacter(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+
+    return codePoint <= 31 || codePoint === 127;
+  });
 }
 
 function isExternalHref(value: string | undefined): boolean {
-  return Boolean(value && /^https?:\/\//.test(value));
+  if (!value) {
+    return false;
+  }
+
+  try {
+    return ["http:", "https:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
 }
