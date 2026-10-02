@@ -14,7 +14,7 @@ const formatPreviews = {
     "# Ctxaro Context",
     "Stack: TypeScript · React · Node.js",
     "Architecture: Modular monorepo",
-    "Exports: context for AI coding tools"
+    "Exports: structured context for external tools"
   ],
   "Plain Text": [
     "Ctxaro project context",

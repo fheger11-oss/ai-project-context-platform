@@ -1,4 +1,4 @@
-import { Bot, Braces, FileText, GitBranch, Radar, ScanLine } from "lucide-react";
+import { BookOpen, Braces, Clock3, GitBranch, Radar, ScanLine } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -7,8 +7,8 @@ const railSteps = [
   { label: "Scan", icon: ScanLine },
   { label: "Understand", icon: Radar },
   { label: "Context", icon: Braces },
-  { label: "Documents", icon: FileText },
-  { label: "AI Export", icon: Bot }
+  { label: "Memory", icon: BookOpen },
+  { label: "Evolution", icon: Clock3 }
 ];
 
 type ContextRailProps = {

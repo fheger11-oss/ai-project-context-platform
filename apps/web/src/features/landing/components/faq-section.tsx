@@ -10,10 +10,22 @@ const faqs = [
       "Ctxaro helps developers understand a connected repository and build structured Project Context. Project Memory preserves that context with project knowledge, decisions, timeline events, and architecture history as the project evolves."
   },
   {
-    id: "project-context-and-memory",
-    question: "How are Project Context and Project Memory different?",
+    id: "project-context",
+    question: "What is Project Context?",
     answer:
-      "Project Context is a structured understanding of a project's technical state. Project Memory preserves that context over time alongside durable knowledge, decisions, timeline events, and architecture history."
+      "Project Context is Ctxaro's structured representation of the repository's current technical state, including its identity, technologies, architecture, modules, dependencies, entry points, testing, and infrastructure context."
+  },
+  {
+    id: "project-memory",
+    question: "What is Project Memory?",
+    answer:
+      "Project Memory is the durable layer around Project Context. It retains explicit project knowledge, decisions, timeline events, and architecture history so important information is not limited to one analysis snapshot."
+  },
+  {
+    id: "project-context-and-memory",
+    question: "How is Project Memory different from Project Context?",
+    answer:
+      "Project Context describes what the repository looks like now. Project Memory preserves what the project should retain over time, including durable knowledge, decisions, activity, and architectural evolution."
   },
   {
     id: "what-does-ctxaro-analyze",
@@ -28,16 +40,34 @@ const faqs = [
       "Ctxaro generates Project Context, Project Overview, Technical Documentation, Architecture Documentation, Module Documentation, README, and AI Export outputs in AI Context, Markdown, and Plain Text formats."
   },
   {
-    id: "ai-model-repository",
-    question: "Does Ctxaro send my repository directly to an AI model?",
+    id: "retained-information",
+    question: "What information does Ctxaro retain?",
     answer:
-      "Ctxaro currently creates structured project context and AI-ready exports. The core repository analysis and document generation flow is implemented in the app; AI Export packages the resulting context rather than acting as a chatbot."
+      "Ctxaro retains generated Project Context snapshots and the durable project knowledge, decisions, timeline events, and architecture history associated with a connected repository."
   },
   {
-    id: "who-is-ctxaro-for",
-    question: "Who is Ctxaro for?",
+    id: "coding-assistant",
+    question: "Does Ctxaro replace a coding assistant?",
     answer:
-      "Ctxaro is for developers and teams who want reusable project context for the AI tools they already use."
+      "No. Ctxaro is a repository understanding and Project Memory platform, not a chatbot or coding agent. AI Export can package selected Project Context for tools you already use."
+  },
+  {
+    id: "modify-code",
+    question: "Does Ctxaro modify my code?",
+    answer:
+      "No. Ctxaro scans and analyzes a connected repository to build context and memory; it does not edit the repository's source code."
+  },
+  {
+    id: "repository-understanding",
+    question: "How does Ctxaro understand a repository?",
+    answer:
+      "Ctxaro scans a consistent repository snapshot and analyzes project structure, technologies, dependencies, modules, entry points, testing, infrastructure, and other supported technical signals."
+  },
+  {
+    id: "using-context",
+    question: "What can I use the resulting context for?",
+    answer:
+      "You can inspect structured Project Context, generate supported Markdown documentation, and export selected context in AI Context, Markdown, or Plain Text formats for external development workflows."
   }
 ];
 

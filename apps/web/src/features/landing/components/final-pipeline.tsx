@@ -1,12 +1,12 @@
-import { Bot, Braces, FileText, GitBranch, Network, ScanLine } from "lucide-react";
+import { BookOpen, Braces, Clock3, GitBranch, History, Scale } from "lucide-react";
 
 const finalSteps = [
   { label: "Repository", icon: GitBranch },
-  { label: "Scan", icon: ScanLine },
-  { label: "Analysis", icon: Network },
   { label: "Project Context", icon: Braces },
-  { label: "Documents", icon: FileText },
-  { label: "AI Export", icon: Bot }
+  { label: "Project Memory", icon: BookOpen },
+  { label: "Knowledge + Decisions", icon: Scale },
+  { label: "Timeline", icon: Clock3 },
+  { label: "Architecture History", icon: History }
 ];
 
 export function FinalPipeline() {

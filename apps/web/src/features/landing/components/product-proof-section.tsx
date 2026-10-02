@@ -7,6 +7,7 @@ import { AiExportPreview } from "@/features/landing/components/ai-export-preview
 import { DocumentPreview } from "@/features/landing/components/document-preview";
 import { ProductContextPreview } from "@/features/landing/components/product-context-preview";
 import { ProductFlowConnector } from "@/features/landing/components/product-flow-connector";
+import { ProjectMemoryPreview } from "@/features/landing/components/project-memory-preview";
 import { analytics } from "@/lib/analytics";
 
 export function ProductProofSection() {
@@ -69,6 +70,9 @@ export function ProductProofSection() {
             <ProductContextPreview />
           </div>
           <ProductFlowConnector />
+          <div className="mx-auto max-w-2xl">
+            <ProjectMemoryPreview />
+          </div>
           <ProductFlowConnector direction="split" className="hidden md:block" />
           <div className="grid gap-4 md:grid-cols-2">
             <DocumentPreview />
@@ -79,8 +83,8 @@ export function ProductProofSection() {
 
       <div className="mt-8 flex flex-col items-start justify-between gap-4 rounded-md border border-white/10 bg-[#08100e]/72 p-5 sm:flex-row sm:items-center">
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-          See the same pipeline turn repository structure into Project Context, Markdown documents,
-          and AI-ready exports.
+          See how the current technical state becomes Project Context, while important knowledge,
+          decisions, and architectural change become Project Memory.
         </p>
         <Button asChild className="h-10">
           <a

@@ -1,4 +1,4 @@
-import { ArrowRight, Bot, Code2, Users } from "lucide-react";
+import { ArrowRight, Clock3, Code2, Users } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -20,10 +20,9 @@ const audiences = [
     icon: Users
   },
   {
-    title: "AI workflows",
-    description:
-      "Give AI structured project context instead of repeatedly explaining the codebase.",
-    icon: Bot
+    title: "Long-lived projects",
+    description: "Preserve important knowledge and evolution beyond a single snapshot.",
+    icon: Clock3
   }
 ];
 

@@ -1,14 +1,14 @@
 import {
   ArrowRight,
-  Bot,
+  BookOpen,
   Braces,
-  FileText,
+  Clock3,
   GitBranch,
   Layers3,
   Network,
   ScanLine,
   ShieldCheck,
-  Sparkles
+  History
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -39,14 +39,15 @@ const pipelineSteps = [
     icon: Braces
   },
   {
-    title: "Documents",
-    description: "Generate useful Markdown documentation from verified context.",
-    icon: FileText
+    title: "Project Memory",
+    description: "Preserve durable knowledge, decisions, and important project activity.",
+    icon: BookOpen
   },
   {
-    title: "AI Export",
-    description: "Export compact context for the AI tools you already use.",
-    icon: Bot
+    title: "Project Evolution",
+    description:
+      "Follow timeline events and architecture changes across durable context snapshots.",
+    icon: Clock3
   }
 ];
 
@@ -59,18 +60,18 @@ const capabilities = [
     icon: ShieldCheck
   },
   {
-    label: "Generate",
-    title: "Generate useful project knowledge.",
+    label: "Preserve",
+    title: "Build durable Project Memory.",
     description:
-      "Project Context can become readable Markdown artifacts, including Project Overview, Technical Documentation, Architecture Documentation, Module Documentation, and README output.",
+      "Retain explicit project knowledge, important decisions, timeline events, and architecture history beyond a single analysis snapshot.",
     icon: Layers3
   },
   {
-    label: "Export",
-    title: "Give AI the context it needs.",
+    label: "Use",
+    title: "Put structured context to work.",
     description:
-      "Export selected Project Context as AI Context, Markdown, or Plain Text, with preview, copy, and download workflows available in the MVP.",
-    icon: Sparkles
+      "Generate readable Markdown documents or package selected Project Context for external development tools in supported export formats.",
+    icon: History
   }
 ];
 
@@ -133,8 +134,8 @@ export function HowItWorksSection() {
 
         <div className="mt-10 flex flex-col items-start justify-between gap-4 rounded-md border border-white/10 bg-[#08100e]/72 p-5 sm:flex-row sm:items-center">
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            Start with the repository you already have. Ctxaro turns it into context your team and
-            AI coding tools can reuse.
+            Start with the repository you already have. Ctxaro structures its current technical
+            state and preserves the knowledge and history your team needs over time.
           </p>
           <Button asChild className="h-10">
             <a

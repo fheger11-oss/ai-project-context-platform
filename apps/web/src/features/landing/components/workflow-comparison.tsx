@@ -1,4 +1,4 @@
-import { Bot, Braces, FileQuestion, Layers3 } from "lucide-react";
+import { BookOpen, Braces, FileQuestion, Layers3 } from "lucide-react";
 
 export function WorkflowComparison() {
   return (
@@ -28,8 +28,8 @@ export function WorkflowComparison() {
         <div className="mt-4 grid gap-2">
           {[
             "Project Context",
-            "Architecture + Modules + Dependencies",
-            "Reusable AI-ready context"
+            "Durable knowledge + decisions",
+            "Timeline + architecture history"
           ].map((label) => (
             <div
               key={label}
@@ -48,7 +48,7 @@ export function WorkflowComparison() {
           <Connector />
           <WorkflowNode label="Project Context" icon={Braces} active />
           <Connector />
-          <WorkflowNode label="Documents + AI Export" icon={Bot} active />
+          <WorkflowNode label="Project Memory" icon={BookOpen} active />
         </div>
       </section>
     </div>

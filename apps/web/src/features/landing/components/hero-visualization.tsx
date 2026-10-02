@@ -1,7 +1,15 @@
-import { Bot, Braces, CheckCircle2, FileCode2, FileText, GitBranch, ScanLine } from "lucide-react";
+import {
+  BookOpen,
+  Braces,
+  CheckCircle2,
+  Clock3,
+  FileCode2,
+  GitBranch,
+  ScanLine
+} from "lucide-react";
 
 const files = ["src/routes", "features/context", "analysis-engine.ts", "docs/generated.md"];
-const contextItems = ["architecture", "workflows", "module map", "AI context"];
+const contextItems = ["architecture", "technology stack", "module map", "dependencies"];
 
 export function HeroVisualization() {
   return (
@@ -89,25 +97,27 @@ export function HeroVisualization() {
 
             <section className="relative min-w-0 rounded-md border border-white/10 bg-black/24 p-3">
               <div className="mb-3 flex items-center gap-2 text-[11px] font-medium uppercase text-muted-foreground">
-                <FileText className="size-3.5 text-primary" />
-                Documents
+                <Clock3 className="size-3.5 text-primary" />
+                Project Memory
               </div>
-              <div className="space-y-2 font-mono text-[11px] leading-5 text-muted-foreground">
-                <p className="text-subtle-foreground"># Architecture overview</p>
-                <p>Auth, repository sync, scan history, analysis output...</p>
+              <div className="grid grid-cols-2 gap-2 font-mono text-[10px] text-muted-foreground">
+                {["Knowledge", "Decisions", "Timeline", "Architecture history"].map((item) => (
+                  <span key={item} className="rounded-sm border border-white/8 px-2 py-1.5">
+                    {item}
+                  </span>
+                ))}
               </div>
             </section>
 
             <section className="relative min-w-0 rounded-md border border-primary/25 bg-primary/[0.055] p-3">
               <div className="flex items-start gap-3">
                 <div className="grid size-8 shrink-0 place-items-center rounded-md border border-primary/25 bg-primary/10 text-primary">
-                  <Bot className="size-4" />
+                  <BookOpen className="size-4" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-white">AI-ready export</p>
+                  <p className="text-sm font-medium text-white">Project evolution</p>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    Markdown, plain text, and AI Context outputs prepared from the latest project
-                    context.
+                    Preserve the context and history that explain how the project changes over time.
                   </p>
                 </div>
               </div>

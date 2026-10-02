@@ -32,6 +32,9 @@ describe("landing branding and CTAs", () => {
 
     expect(markup).toContain('href="http://localhost:3000/api/v1/auth/github"');
     expect(markup).toContain("Start for free");
+    expect(markup).toContain("Understand your repository. Preserve its memory.");
+    expect(markup).toContain("Project Context");
+    expect(markup).toContain("Project Memory");
   });
 
   it("sends unauthenticated dashboard exploration to GitHub auth", () => {

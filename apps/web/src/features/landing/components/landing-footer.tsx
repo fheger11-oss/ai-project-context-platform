@@ -49,8 +49,12 @@ export function LandingFooter() {
             >
               Privacy
             </Link>
-            <span>Documentation coming soon</span>
-            <span>Pricing coming soon</span>
+            <a
+              href="#faq"
+              className="w-fit rounded-md outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-primary/75 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050706]"
+            >
+              FAQ
+            </a>
           </div>
         </div>
 
