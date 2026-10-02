@@ -9,7 +9,8 @@ import {
   Query,
   Redirect,
   Req,
-  Res
+  Res,
+  UnauthorizedException
 } from "@nestjs/common";
 import {
   ApiBearerAuth,
@@ -32,10 +33,6 @@ import { GitHubCallbackDto } from "./dto/github-callback.dto.js";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { LoginDto } from "./dto/login.dto.js";
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { LogoutDto } from "./dto/logout.dto.js";
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
-import { RefreshTokenDto } from "./dto/refresh-token.dto.js";
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import { RegisterDto } from "./dto/register.dto.js";
 import type { AuthenticatedUser } from "./types/authenticated-user.js";
 import { AUTH_RATE_LIMIT } from "../config/rate-limit.config.js";
@@ -43,6 +40,7 @@ import { AUTH_RATE_LIMIT } from "../config/rate-limit.config.js";
 import { UserResponseDto } from "../users/dto/user-response.dto.js";
 
 const GITHUB_OAUTH_STATE_COOKIE = "ctxaro_github_oauth_state";
+const REFRESH_TOKEN_COOKIE = "ctxaro_refresh_token";
 const GITHUB_OAUTH_STATE_COOKIE_MAX_AGE_SECONDS = 600;
 
 @ApiTags("auth")
@@ -84,11 +82,11 @@ export class AuthController {
       stateCookieNonce,
       this.getSessionMetadata(request)
     );
+    this.setRefreshTokenCookie(response, authResponse.tokens.refreshToken);
     const redirectUrl = new URL(this.authService.webAuthCallbackUrl);
 
     redirectUrl.hash = new URLSearchParams({
       access_token: authResponse.tokens.accessToken,
-      refresh_token: authResponse.tokens.refreshToken,
       expires_in: String(authResponse.tokens.expiresIn)
     }).toString();
 
@@ -98,32 +96,49 @@ export class AuthController {
   @Post("register")
   @Throttle(AUTH_RATE_LIMIT)
   @ApiCreatedResponse({ type: AuthResponseDto })
-  register(@Body() dto: RegisterDto, @Req() request: Request) {
-    return this.authService.register(dto, this.getSessionMetadata(request));
+  async register(
+    @Body() dto: RegisterDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    const session = await this.authService.register(dto, this.getSessionMetadata(request));
+    return this.publishSession(response, session);
   }
 
   @Post("login")
   @Throttle(AUTH_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: AuthResponseDto })
-  login(@Body() dto: LoginDto, @Req() request: Request) {
-    return this.authService.login(dto, this.getSessionMetadata(request));
+  async login(
+    @Body() dto: LoginDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    const session = await this.authService.login(dto, this.getSessionMetadata(request));
+    return this.publishSession(response, session);
   }
 
   @Post("refresh")
   @Throttle(AUTH_RATE_LIMIT)
   @HttpCode(HttpStatus.OK)
   @ApiOkResponse({ type: AuthResponseDto })
-  refresh(@Body() dto: RefreshTokenDto, @Req() request: Request) {
-    return this.authService.refresh(dto.refreshToken, this.getSessionMetadata(request));
+  async refresh(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    const refreshToken = this.readCookie(request, REFRESH_TOKEN_COOKIE);
+    if (!refreshToken) {
+      throw new UnauthorizedException("Invalid refresh token");
+    }
+    const session = await this.authService.refresh(refreshToken, this.getSessionMetadata(request));
+    return this.publishSession(response, session);
   }
 
   @Post("logout")
   @Throttle(AUTH_RATE_LIMIT)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiNoContentResponse()
-  async logout(@Body() dto: LogoutDto) {
-    await this.authService.logout(dto.refreshToken);
+  async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    const refreshToken = this.readCookie(request, REFRESH_TOKEN_COOKIE);
+    this.clearRefreshTokenCookie(response);
+    if (refreshToken) await this.authService.logout(refreshToken);
   }
 
   @Get("me")
@@ -156,6 +171,36 @@ export class AuthController {
       path: "/",
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production" || process.env.APP_ENV === "production"
+    });
+  }
+
+  private publishSession(response: Response, session: Awaited<ReturnType<AuthService["login"]>>) {
+    this.setRefreshTokenCookie(response, session.tokens.refreshToken);
+    return {
+      user: session.user,
+      tokens: {
+        accessToken: session.tokens.accessToken,
+        expiresIn: session.tokens.expiresIn
+      }
+    };
+  }
+
+  private setRefreshTokenCookie(response: Response, refreshToken: string): void {
+    response.cookie(REFRESH_TOKEN_COOKIE, refreshToken, {
+      httpOnly: true,
+      maxAge: this.authService.refreshTokenCookieMaxAgeMilliseconds,
+      path: "/",
+      sameSite: "lax",
+      secure: this.authService.secureCookies
+    });
+  }
+
+  private clearRefreshTokenCookie(response: Response): void {
+    response.clearCookie(REFRESH_TOKEN_COOKIE, {
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+      secure: this.authService.secureCookies
     });
   }
 

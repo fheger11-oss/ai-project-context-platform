@@ -37,32 +37,24 @@ describe("AuthCallbackView", () => {
   });
 
   it("parses OAuth tokens from a URL fragment", () => {
-    expect(
-      readAuthCallbackSession("#access_token=access&refresh_token=refresh&expires_in=7200")
-    ).toEqual({
+    expect(readAuthCallbackSession("#access_token=access&expires_in=7200")).toEqual({
       accessToken: "access",
-      refreshToken: "refresh",
       expiresIn: 7200
     });
   });
 
   it("does not accept OAuth tokens from query parameters", () => {
-    expect(
-      readAuthCallbackSession("?access_token=access&refresh_token=refresh&expires_in=7200")
-    ).toBeNull();
+    expect(readAuthCallbackSession("?access_token=access&expires_in=7200")).toBeNull();
   });
 
   it("returns null when required callback tokens are missing", () => {
     expect(readAuthCallbackSession("#access_token=access")).toBeNull();
-    expect(readAuthCallbackSession("#refresh_token=refresh&expires_in=7200")).toBeNull();
-    expect(readAuthCallbackSession("#access_token=access&expires_in=7200")).toBeNull();
-    expect(readAuthCallbackSession("#access_token=access&refresh_token=refresh")).toBeNull();
+    expect(readAuthCallbackSession("#expires_in=7200")).toBeNull();
+    expect(readAuthCallbackSession("#access_token=access")).toBeNull();
   });
 
   it("returns null when callback state is malformed", () => {
-    expect(
-      readAuthCallbackSession("#access_token=access&refresh_token=refresh&expires_in=not-a-number")
-    ).toBeNull();
+    expect(readAuthCallbackSession("#access_token=access&expires_in=not-a-number")).toBeNull();
   });
 
   it("persists a valid callback fragment, cleans the URL, refreshes auth state, and navigates home", () => {
@@ -81,7 +73,7 @@ describe("AuthCallbackView", () => {
     ];
 
     const completed = completeAuthCallback({
-      hash: "#access_token=TEST_ACCESS_TOKEN&refresh_token=TEST_REFRESH_TOKEN&expires_in=7200",
+      hash: "#access_token=TEST_ACCESS_TOKEN&expires_in=7200",
       navigate,
       queryClient,
       replaceCallbackUrl,
@@ -91,7 +83,6 @@ describe("AuthCallbackView", () => {
     expect(completed).toBe(true);
     expect(setSession).toHaveBeenCalledWith({
       accessToken: "TEST_ACCESS_TOKEN",
-      refreshToken: "TEST_REFRESH_TOKEN",
       expiresIn: 7200
     });
     expect(replaceCallbackUrl).toHaveBeenCalledTimes(1);
@@ -105,7 +96,6 @@ describe("AuthCallbackView", () => {
       .flat()
       .join(" ");
     expect(consoleOutput).not.toContain("TEST_ACCESS_TOKEN");
-    expect(consoleOutput).not.toContain("TEST_REFRESH_TOKEN");
 
     consoleMethods.forEach((spy) => spy.mockRestore());
   });
@@ -120,7 +110,7 @@ describe("AuthCallbackView", () => {
     };
 
     const completed = completeAuthCallback({
-      hash: "#refresh_token=TEST_REFRESH_TOKEN&expires_in=7200",
+      hash: "#expires_in=7200",
       navigate,
       queryClient,
       replaceCallbackUrl,

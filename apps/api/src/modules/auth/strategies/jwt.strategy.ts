@@ -16,6 +16,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
     private readonly usersService: UsersService
   ) {
     super({
+      algorithms: ["HS256"],
+      ignoreExpiration: false,
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       secretOrKey: config.jwtAccessSecret
     });

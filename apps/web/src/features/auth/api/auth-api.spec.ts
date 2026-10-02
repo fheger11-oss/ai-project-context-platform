@@ -15,14 +15,14 @@ describe("auth-api", () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await logout("refresh_token");
+    await logout();
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 
     expect(url).toBe("http://localhost:3000/api/v1/auth/logout");
     expect(init.method).toBe("POST");
     expect(init.headers).toBeInstanceOf(Headers);
-    expect((init.headers as Headers).get("Content-Type")).toBe("application/json");
-    expect(init.body).toBe(JSON.stringify({ refreshToken: "refresh_token" }));
+    expect(init.credentials).toBe("include");
+    expect(init.body).toBeUndefined();
   });
 });

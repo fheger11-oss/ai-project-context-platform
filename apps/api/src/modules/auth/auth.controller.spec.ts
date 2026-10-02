@@ -109,10 +109,13 @@ describe("AuthController GitHub OAuth state cookie", () => {
           expiresIn: 7200
         }
       }),
-      webAuthCallbackUrl: "http://localhost:5173/auth/callback"
+      webAuthCallbackUrl: "http://localhost:5173/auth/callback",
+      refreshTokenCookieMaxAgeMilliseconds: 2_592_000_000,
+      secureCookies: false
     };
     const response = {
       clearCookie: vi.fn(),
+      cookie: vi.fn(),
       redirect: vi.fn()
     };
     const request = {
@@ -142,7 +145,12 @@ describe("AuthController GitHub OAuth state cookie", () => {
       userAgent: "vitest"
     });
     expect(response.redirect).toHaveBeenCalledWith(
-      "http://localhost:5173/auth/callback#access_token=access-token&refresh_token=refresh-token&expires_in=7200"
+      "http://localhost:5173/auth/callback#access_token=access-token&expires_in=7200"
+    );
+    expect(response.cookie).toHaveBeenCalledWith(
+      "ctxaro_refresh_token",
+      "refresh-token",
+      expect.objectContaining({ httpOnly: true, sameSite: "lax" })
     );
   });
 
@@ -179,5 +187,54 @@ describe("AuthController GitHub OAuth state cookie", () => {
       })
     );
     expect(response.redirect).not.toHaveBeenCalled();
+  });
+});
+
+describe("AuthController refresh-token cookie", () => {
+  it("rotates the HttpOnly cookie without returning the refresh token to JavaScript", async () => {
+    const authService = {
+      refresh: vi.fn().mockResolvedValue({
+        user: { id: "user_1" },
+        tokens: { accessToken: "new-access", refreshToken: "new-refresh", expiresIn: 900 }
+      }),
+      refreshTokenCookieMaxAgeMilliseconds: 2_592_000_000,
+      secureCookies: true
+    };
+    const request = {
+      get: vi.fn().mockReturnValue("vitest"),
+      headers: { cookie: "ctxaro_refresh_token=old-refresh" },
+      ip: "127.0.0.1"
+    };
+    const response = { cookie: vi.fn() };
+    const controller = new AuthController(authService as never);
+
+    const result = await controller.refresh(request as never, response as never);
+
+    expect(authService.refresh).toHaveBeenCalledWith("old-refresh", expect.any(Object));
+    expect(response.cookie).toHaveBeenCalledWith(
+      "ctxaro_refresh_token",
+      "new-refresh",
+      expect.objectContaining({ httpOnly: true, sameSite: "lax", secure: true })
+    );
+    expect(result.tokens).toEqual({ accessToken: "new-access", expiresIn: 900 });
+    expect(result).not.toHaveProperty("tokens.refreshToken");
+  });
+
+  it("clears and revokes the cookie-backed session on logout", async () => {
+    const authService = {
+      logout: vi.fn().mockResolvedValue(undefined),
+      secureCookies: true
+    };
+    const request = { headers: { cookie: "ctxaro_refresh_token=refresh-token" } };
+    const response = { clearCookie: vi.fn() };
+    const controller = new AuthController(authService as never);
+
+    await controller.logout(request as never, response as never);
+
+    expect(authService.logout).toHaveBeenCalledWith("refresh-token");
+    expect(response.clearCookie).toHaveBeenCalledWith(
+      "ctxaro_refresh_token",
+      expect.objectContaining({ httpOnly: true, sameSite: "lax", secure: true })
+    );
   });
 });

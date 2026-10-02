@@ -1,4 +1,4 @@
-import { ForbiddenException, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PrismaService } from "../prisma/prisma.service.js";
@@ -331,7 +331,7 @@ describe("RepositoriesService", () => {
       expect(deleteRepository).not.toHaveBeenCalled();
     });
 
-    it("returns 403 when the repository belongs to another user", async () => {
+    it("returns an ownership-safe 404 when the repository belongs to another user", async () => {
       const deleteRepository = vi.fn();
       const { service } = createService({
         delete: deleteRepository,
@@ -342,7 +342,7 @@ describe("RepositoriesService", () => {
       });
 
       await expect(service.disconnect(user, "repository_2")).rejects.toBeInstanceOf(
-        ForbiddenException
+        NotFoundException
       );
       expect(deleteRepository).not.toHaveBeenCalled();
     });

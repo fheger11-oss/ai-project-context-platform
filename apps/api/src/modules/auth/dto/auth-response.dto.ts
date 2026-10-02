@@ -6,9 +6,6 @@ export class AuthTokensDto {
   @ApiProperty({ type: String })
   accessToken!: string;
 
-  @ApiProperty({ type: String })
-  refreshToken!: string;
-
   @ApiProperty({ type: Number, example: 7200 })
   expiresIn!: number;
 }

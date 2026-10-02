@@ -18,7 +18,6 @@ export function AuthUserSection({ collapsed = false }: AuthUserSectionProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const accessToken = useAuthSessionStore((state) => state.accessToken);
-  const refreshToken = useAuthSessionStore((state) => state.refreshToken);
   const clearSession = useAuthSessionStore((state) => state.clearSession);
   const isAuthenticated = Boolean(accessToken);
   const currentUserQuery = useQuery({
@@ -28,7 +27,7 @@ export function AuthUserSection({ collapsed = false }: AuthUserSectionProps) {
     retry: false
   });
   const logoutMutation = useMutation({
-    mutationFn: () => (refreshToken ? logout(refreshToken) : Promise.resolve()),
+    mutationFn: () => logout(),
     onSettled: async () => {
       clearSession();
       analytics.track("logout_completed");

@@ -31,6 +31,7 @@ async function request<T>(
   }
 
   const init: RequestInit = {
+    credentials: "include",
     method: options.method ?? "GET",
     headers
   };
@@ -63,12 +64,9 @@ export function getCurrentUser(accessToken: string) {
   return request<AuthenticatedUser>("/auth/me", { accessToken });
 }
 
-export function logout(refreshToken: string) {
+export function logout() {
   return request<void>("/auth/logout", {
-    method: "POST",
-    body: {
-      refreshToken
-    }
+    method: "POST"
   });
 }
 

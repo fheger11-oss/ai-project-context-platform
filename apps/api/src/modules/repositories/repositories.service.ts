@@ -1,10 +1,4 @@
-import {
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-  ServiceUnavailableException
-} from "@nestjs/common";
+import { Inject, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 
 import type { RepositoryModel } from "../../generated/prisma/models.js";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -182,7 +176,7 @@ export class RepositoriesService {
     }
 
     if (repository.userId !== user.id) {
-      throw new ForbiddenException("Repository belongs to another user");
+      throw new NotFoundException("Repository was not found");
     }
 
     const cleanupCompleted = await this.webhookProvisioning.cleanup(user, repository.id);

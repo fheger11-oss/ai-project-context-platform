@@ -7,7 +7,7 @@ import type { UserModel } from "../../generated/prisma/models.js";
 import { AppConfigService } from "../config/app-config.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { UsersService } from "../users/users.service.js";
-import type { AuthResponseDto } from "./dto/auth-response.dto.js";
+import type { UserResponseDto } from "../users/dto/user-response.dto.js";
 import type { LoginDto } from "./dto/login.dto.js";
 import type { RegisterDto } from "./dto/register.dto.js";
 import { GitHubAccountService } from "./providers/github-account.service.js";
@@ -30,6 +30,12 @@ type UserWithGitHubAccount = UserModel & {
 const PASSWORD_SALT_ROUNDS = 12;
 const GITHUB_OAUTH_STATE_TTL_SECONDS = 600;
 const GITHUB_OAUTH_NONCE_BYTES = 32;
+const JWT_ALGORITHM = "HS256" as const;
+
+export type AuthSession = {
+  user: UserResponseDto;
+  tokens: { accessToken: string; refreshToken: string; expiresIn: number };
+};
 
 @Injectable()
 export class AuthService {
@@ -52,6 +58,14 @@ export class AuthService {
     return this.config.webAuthCallbackUrl;
   }
 
+  get refreshTokenCookieMaxAgeMilliseconds() {
+    return this.config.jwtRefreshTokenTtlSeconds * 1000;
+  }
+
+  get secureCookies() {
+    return this.config.isProduction;
+  }
+
   createGitHubOAuthNonce(): string {
     return randomBytes(GITHUB_OAUTH_NONCE_BYTES).toString("base64url");
   }
@@ -63,6 +77,7 @@ export class AuthService {
         type: "github_oauth_state"
       },
       {
+        algorithm: JWT_ALGORITHM,
         secret: this.config.jwtAccessSecret,
         expiresIn: GITHUB_OAUTH_STATE_TTL_SECONDS
       }
@@ -76,7 +91,7 @@ export class AuthService {
     state: string,
     stateCookieNonce: string | null,
     metadata: SessionMetadata
-  ): Promise<AuthResponseDto> {
+  ): Promise<AuthSession> {
     await this.verifyGitHubOAuthState(state, stateCookieNonce);
 
     const profile = await this.githubOAuthProvider.exchangeCodeForProfile(code);
@@ -104,7 +119,7 @@ export class AuthService {
     return this.createSession(user, metadata);
   }
 
-  async register(dto: RegisterDto, metadata: SessionMetadata): Promise<AuthResponseDto> {
+  async register(dto: RegisterDto, metadata: SessionMetadata): Promise<AuthSession> {
     const existingUser = await this.usersService.findByEmail(dto.email);
 
     if (existingUser) {
@@ -120,7 +135,7 @@ export class AuthService {
     return this.createSession(user, metadata);
   }
 
-  async login(dto: LoginDto, metadata: SessionMetadata): Promise<AuthResponseDto> {
+  async login(dto: LoginDto, metadata: SessionMetadata): Promise<AuthSession> {
     const user = await this.usersService.findByEmail(dto.email);
 
     if (!user) {
@@ -140,7 +155,7 @@ export class AuthService {
     return this.createSession(user, metadata);
   }
 
-  async refresh(refreshToken: string, metadata: SessionMetadata): Promise<AuthResponseDto> {
+  async refresh(refreshToken: string, metadata: SessionMetadata): Promise<AuthSession> {
     const payload = await this.verifyRefreshToken(refreshToken);
     const tokenHash = this.hashToken(refreshToken);
     const existingToken = await this.prisma.refreshToken.findUnique({
@@ -247,10 +262,7 @@ export class AuthService {
     return this.toUserResponse(user);
   }
 
-  private async createSession(
-    user: UserModel,
-    metadata: SessionMetadata
-  ): Promise<AuthResponseDto> {
+  private async createSession(user: UserModel, metadata: SessionMetadata): Promise<AuthSession> {
     const refreshTokenId = randomUUID();
     const tokens = await this.signTokens(user, refreshTokenId);
 
@@ -287,10 +299,12 @@ export class AuthService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(accessPayload, {
+        algorithm: JWT_ALGORITHM,
         secret: this.config.jwtAccessSecret,
         expiresIn: this.config.jwtAccessTokenTtlSeconds
       }),
       this.jwtService.signAsync(refreshPayload, {
+        algorithm: JWT_ALGORITHM,
         secret: this.config.jwtRefreshSecret,
         expiresIn: this.config.jwtRefreshTokenTtlSeconds
       })
@@ -306,6 +320,7 @@ export class AuthService {
   private async verifyRefreshToken(refreshToken: string) {
     const payload = await this.jwtService
       .verifyAsync<RefreshTokenPayload>(refreshToken, {
+        algorithms: [JWT_ALGORITHM],
         secret: this.config.jwtRefreshSecret
       })
       .catch(() => null);
@@ -320,6 +335,7 @@ export class AuthService {
   private async verifyGitHubOAuthState(state: string, stateCookieNonce: string | null) {
     const payload = await this.jwtService
       .verifyAsync<{ nonceHash?: string; type?: string }>(state, {
+        algorithms: [JWT_ALGORITHM],
         secret: this.config.jwtAccessSecret
       })
       .catch(() => null);

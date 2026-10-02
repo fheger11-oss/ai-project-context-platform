@@ -11,7 +11,6 @@ describe("authenticatedFetch", () => {
   beforeEach(() => {
     useAuthSessionStore.setState({
       accessToken: "expired_access_token",
-      refreshToken: "refresh_token",
       expiresIn: 7200
     });
   });
@@ -32,7 +31,6 @@ describe("authenticatedFetch", () => {
           },
           tokens: {
             accessToken: "fresh_access_token",
-            refreshToken: "fresh_refresh_token",
             expiresIn: 7200
           }
         })
@@ -53,7 +51,8 @@ describe("authenticatedFetch", () => {
       "http://localhost:3000/api/v1/auth/refresh",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ refreshToken: "refresh_token" })
+        body: JSON.stringify({}),
+        credentials: "include"
       })
     );
     const retryInit = fetchMock.mock.calls[2]?.[1] as RequestInit | undefined;
@@ -62,7 +61,6 @@ describe("authenticatedFetch", () => {
     expect(new Headers(retryInit?.headers).get("Authorization")).toBe("Bearer fresh_access_token");
     expect(useAuthSessionStore.getState()).toMatchObject({
       accessToken: "fresh_access_token",
-      refreshToken: "fresh_refresh_token",
       expiresIn: 7200
     });
   });
@@ -75,7 +73,6 @@ describe("authenticatedFetch", () => {
         jsonResponse({
           tokens: {
             accessToken: "fresh_access_token",
-            refreshToken: "fresh_refresh_token",
             expiresIn: 7200
           }
         })
@@ -112,7 +109,6 @@ describe("authenticatedFetch", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(useAuthSessionStore.getState()).toMatchObject({
       accessToken: "",
-      refreshToken: "",
       expiresIn: null
     });
   });

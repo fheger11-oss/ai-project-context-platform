@@ -6,7 +6,6 @@ let refreshPromise: Promise<string | null> | null = null;
 type RefreshAuthResponse = {
   tokens: {
     accessToken: string;
-    refreshToken: string;
     expiresIn: number;
   };
 };
@@ -46,19 +45,15 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 async function refreshAccessTokenOnce(): Promise<string | null> {
-  const { clearSession, refreshToken, setSession } = useAuthSessionStore.getState();
-
-  if (!refreshToken) {
-    clearSession();
-    return null;
-  }
+  const { clearSession, setSession } = useAuthSessionStore.getState();
 
   const response = await fetch(`${API_URL}/auth/refresh`, {
+    credentials: "include",
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ refreshToken })
+    body: JSON.stringify({})
   });
 
   if (!response.ok) {
@@ -70,7 +65,6 @@ async function refreshAccessTokenOnce(): Promise<string | null> {
 
   setSession({
     accessToken: authResponse.tokens.accessToken,
-    refreshToken: authResponse.tokens.refreshToken,
     expiresIn: authResponse.tokens.expiresIn
   });
 
