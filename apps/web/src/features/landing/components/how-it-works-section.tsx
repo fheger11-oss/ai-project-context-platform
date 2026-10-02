@@ -1,14 +1,13 @@
 import {
   ArrowRight,
-  Bot,
   Braces,
-  FileText,
   GitBranch,
-  Layers3,
+  History,
   Network,
+  RefreshCw,
   ScanLine,
   ShieldCheck,
-  Sparkles
+  Workflow
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -35,42 +34,42 @@ const pipelineSteps = [
   },
   {
     title: "Project Context",
-    description: "Turn those signals into structured knowledge about the project.",
+    description: "Create structured context tied to the analyzed repository commit.",
     icon: Braces
   },
   {
-    title: "Documents",
-    description: "Generate useful Markdown documentation from verified context.",
-    icon: FileText
+    title: "Repository Changes",
+    description: "Detect a new default-branch state through GitHub when updates are enabled.",
+    icon: RefreshCw
   },
   {
-    title: "AI Export",
-    description: "Export compact context for the AI tools you already use.",
-    icon: Bot
+    title: "Current Context",
+    description: "Promote a new Project Context only after its provenance is validated.",
+    icon: ShieldCheck
   }
 ];
 
 const capabilities = [
   {
-    label: "Understand",
-    title: "Understand the project.",
+    label: "Analyze",
+    title: "Build context from repository evidence.",
     description:
       "Ctxaro builds structured understanding from the repository: project identity, technology stack, architecture, modules, dependencies, entry points, testing, and infrastructure context.",
-    icon: ShieldCheck
+    icon: Network
   },
   {
-    label: "Generate",
-    title: "Generate useful project knowledge.",
+    label: "Maintain",
+    title: "Process changes without starting from an empty picture.",
     description:
-      "Project Context can become readable Markdown artifacts, including Project Overview, Technical Documentation, Architecture Documentation, Module Documentation, and README output.",
-    icon: Layers3
+      "Eligible updates reuse unchanged source structures while changed source is parsed again. The complete target snapshot still drives repository-wide analysis.",
+    icon: Workflow
   },
   {
-    label: "Export",
-    title: "Give AI the context it needs.",
+    label: "Preserve",
+    title: "Keep the last valid context available.",
     description:
-      "Export selected Project Context as AI Context, Markdown, or Plain Text, with preview, copy, and download workflows available in the MVP.",
-    icon: Sparkles
+      "Ctxaro keeps context history and promotes a new current version only after validation. If an update fails, the previous context remains available.",
+    icon: History
   }
 ];
 
@@ -94,12 +93,13 @@ export function HowItWorksSection() {
               id="how-it-works-title"
               className="mt-4 max-w-3xl text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl"
             >
-              Turn your codebase into context AI can actually use.
+              Analyze once. Keep Project Context current as the repository evolves.
             </h2>
           </div>
           <p className="max-w-2xl text-base leading-8 text-muted-foreground lg:justify-self-end">
-            Ctxaro reads your repository, understands its structure, and turns what it finds into
-            structured project context, documentation, and AI-ready exports.
+            A connected repository is scanned and analyzed at a specific commit. When Automatic
+            Updates are enabled, later default-branch pushes can trigger the same verified path for
+            a new repository state.
           </p>
         </div>
 
@@ -133,15 +133,15 @@ export function HowItWorksSection() {
 
         <div className="mt-10 flex flex-col items-start justify-between gap-4 rounded-md border border-white/10 bg-[#08100e]/72 p-5 sm:flex-row sm:items-center">
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-            Start with the repository you already have. Ctxaro turns it into context your team and
-            AI coding tools can reuse.
+            Freshness shows whether the current Project Context matches the latest GitHub commit
+            Ctxaro has verified.
           </p>
           <Button asChild className="h-10">
             <a
               href={githubLoginUrl}
               onClick={() => analytics.track("github_login_started", { method: "github" })}
             >
-              Start with your repository
+              Connect your repository
               <ArrowRight />
             </a>
           </Button>

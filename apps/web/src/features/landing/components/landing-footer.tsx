@@ -25,7 +25,7 @@ export function LandingFooter() {
             <CtxaroWordmark />
           </Link>
           <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
-            Structured context for real codebases.
+            Continuous Project Context for connected GitHub repositories.
           </p>
         </div>
 
@@ -33,8 +33,8 @@ export function LandingFooter() {
           title="Product"
           links={[
             { label: "How it works", href: "#how-it-works" },
-            { label: "Product", href: "#product-proof" },
-            { label: "Why Ctxaro", href: "#why-ctxaro" }
+            { label: "What's new in V2", href: "#continuous-context" },
+            { label: "Outputs", href: "#product-proof" }
           ]}
         />
 

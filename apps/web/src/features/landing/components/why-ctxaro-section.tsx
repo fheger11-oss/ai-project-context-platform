@@ -66,18 +66,18 @@ export function WhyCtxaroSection() {
       <div className="grid gap-5 lg:grid-cols-[0.72fr_1fr] lg:items-end">
         <div>
           <p className="font-mono text-xs font-medium uppercase tracking-[0.24em] text-primary">
-            Built for real repository work
+            Useful beyond the first scan
           </p>
           <h2
             id="why-ctxaro-title"
             className="mt-4 max-w-3xl text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl"
           >
-            Your codebase already contains the context. Ctxaro makes it usable.
+            Context stays useful when it reflects the repository you are working on.
           </h2>
         </div>
         <p className="max-w-2xl text-base leading-8 text-muted-foreground lg:justify-self-end">
-          Instead of repeatedly explaining your project to AI, turn the structure already inside
-          your repository into reusable project context.
+          Ctxaro turns repository evidence into reusable Project Context, then gives you a verified
+          path to update it when the connected repository changes.
         </p>
       </div>
 
@@ -109,7 +109,8 @@ export function WhyCtxaroSection() {
 
       <div className="mt-8 flex flex-col items-start justify-between gap-4 rounded-md border border-white/10 bg-[#08100e]/72 p-5 sm:flex-row sm:items-center">
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-          Move from repository structure to Project Context, then into Documents and AI Export.
+          Use current Project Context directly, turn it into documents, or package it through AI
+          Export for other coding tools.
         </p>
         <Button asChild className="h-10">
           <a

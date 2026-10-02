@@ -7,7 +7,19 @@ const faqs = [
     id: "what-is-ctxaro",
     question: "What is Ctxaro?",
     answer:
-      "Ctxaro analyzes a connected repository and turns its discovered project structure into structured Project Context, documentation, and AI-ready exports."
+      "Ctxaro scans and analyzes a connected GitHub repository, creates structured Project Context for a verified commit, and can maintain that context as the repository changes."
+  },
+  {
+    id: "continuous-project-context",
+    question: "What does Continuous Project Context mean?",
+    answer:
+      "When Automatic Updates are enabled, an eligible push to the connected repository's default branch can trigger update processing. Ctxaro scans and analyzes the target commit, validates the resulting context provenance, and only then promotes it as current."
+  },
+  {
+    id: "failed-context-update",
+    question: "What happens if an update does not complete?",
+    answer:
+      "The previous valid Project Context remains available. Ctxaro preserves context history and does not promote an incomplete or provenance-mismatched result as current."
   },
   {
     id: "what-does-ctxaro-analyze",
@@ -25,7 +37,7 @@ const faqs = [
     id: "ai-model-repository",
     question: "Does Ctxaro send my repository directly to an AI model?",
     answer:
-      "Ctxaro currently creates structured project context and AI-ready exports. The core repository analysis and document generation flow is implemented in the app; AI Export packages the resulting context rather than acting as a chatbot."
+      "No. Ctxaro's core repository scan, analysis, Project Context, and update pipeline is deterministic. AI Export packages resulting context for other tools rather than using an AI model to generate the underlying Project Context."
   },
   {
     id: "who-is-ctxaro-for",

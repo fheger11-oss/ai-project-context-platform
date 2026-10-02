@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 import { ContextRail } from "@/features/landing/components/context-rail";
+import { ContinuousContextSection } from "@/features/landing/components/continuous-context-section";
 import { FaqSection } from "@/features/landing/components/faq-section";
 import { FinalCtaSection } from "@/features/landing/components/final-cta-section";
 import { HeroSection } from "@/features/landing/components/hero-section";
@@ -26,6 +27,7 @@ export function LandingView() {
           <ContextRail className="ml-4" />
           <div className="w-screen max-w-[100vw] min-w-0 flex-1 lg:w-full">
             <HeroSection />
+            <ContinuousContextSection />
             <HowItWorksSection />
             <ProductProofSection />
             <WhyCtxaroSection />
