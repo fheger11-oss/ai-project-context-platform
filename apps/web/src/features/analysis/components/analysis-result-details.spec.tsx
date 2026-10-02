@@ -162,7 +162,7 @@ describe("AnalysisResultDetails", () => {
   it("renders all AnalysisResult sections from backend-owned data", () => {
     const markup = renderToStaticMarkup(<AnalysisResultDetails result={result} />);
 
-    expect(markup).toContain("Project intelligence");
+    expect(markup).toContain("Project understanding");
     expect(markup).toContain("Technology stack");
     expect(markup).toContain("Files");
     expect(markup).toContain("Source structures");

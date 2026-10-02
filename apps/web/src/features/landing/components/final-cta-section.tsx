@@ -51,11 +51,11 @@ export function FinalCtaSection() {
             id="final-cta-title"
             className="mt-4 max-w-2xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl"
           >
-            Turn your repository into context.
+            Give your repository a memory.
           </h2>
           <p className="mt-5 max-w-xl text-base leading-8 text-muted-foreground">
-            Connect a GitHub repository and let Ctxaro turn its structure into reusable project
-            context, documentation, and AI-ready exports.
+            Connect a GitHub repository to build structured Project Context and preserve its
+            knowledge, decisions, architecture history, and evolution over time.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg" className="landing-final-button h-11 px-5">

@@ -128,7 +128,7 @@ export function AnalysisResultView() {
           </Button>
         }
         className="min-h-[320px]"
-        description="Sign in with GitHub to load project intelligence."
+        description="Sign in with GitHub to load the repository analysis."
         title="Session required"
         tone="empty"
       />
@@ -425,7 +425,7 @@ function AnalysisHeader({
             {projectName(repository)}
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
-            Project intelligence generated from a completed repository scan.
+            Project understanding generated from a completed repository scan.
           </p>
           {repository ? (
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">

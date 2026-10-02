@@ -94,12 +94,12 @@ export function HowItWorksSection() {
               id="how-it-works-title"
               className="mt-4 max-w-3xl text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl"
             >
-              Turn your codebase into context AI can actually use.
+              From repository understanding to durable Project Memory.
             </h2>
           </div>
           <p className="max-w-2xl text-base leading-8 text-muted-foreground lg:justify-self-end">
-            Ctxaro reads your repository, understands its structure, and turns what it finds into
-            structured project context, documentation, and AI-ready exports.
+            Ctxaro builds structured Project Context from your repository. Project Memory preserves
+            that context alongside durable knowledge, decisions, and architecture changes over time.
           </p>
         </div>
 

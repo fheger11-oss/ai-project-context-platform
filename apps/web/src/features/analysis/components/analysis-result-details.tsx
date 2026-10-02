@@ -151,7 +151,7 @@ export function AnalysisResultDetails({ result }: AnalysisResultDetailsProps) {
       <section className="grid gap-3" aria-labelledby="analysis-intelligence-title">
         <div>
           <h2 id="analysis-intelligence-title" className="text-base font-semibold">
-            Project intelligence
+            Project understanding
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             High-level facts detected directly from the completed scan.

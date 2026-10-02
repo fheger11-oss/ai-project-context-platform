@@ -54,12 +54,12 @@ export function ProductProofSection() {
             id="product-proof-title"
             className="mt-4 max-w-3xl text-3xl font-semibold leading-tight text-white sm:text-4xl lg:text-5xl"
           >
-            From codebase to usable knowledge.
+            From codebase to durable project knowledge.
           </h2>
         </div>
         <p className="max-w-2xl text-base leading-8 text-muted-foreground lg:justify-self-end">
-          Ctxaro turns the structure hidden inside your repository into context you can understand,
-          documents you can share, and exports you can give to AI.
+          Ctxaro turns repository structure into Project Context and preserves the knowledge,
+          decisions, and architecture changes that explain how the project evolves.
         </p>
       </div>
 

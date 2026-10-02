@@ -25,7 +25,7 @@ export function LandingFooter() {
             <CtxaroWordmark />
           </Link>
           <p className="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
-            Structured context for real codebases.
+            Repository understanding and durable Project Memory.
           </p>
         </div>
 

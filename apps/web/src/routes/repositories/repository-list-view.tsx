@@ -68,7 +68,7 @@ export function RepositoryListView() {
       {apiAccessToken && repositoriesQuery.isSuccess && repositories.length === 0 ? (
         <RepositoryState
           title="No repositories connected"
-          description="Connect a GitHub repository to scan its structure and generate project intelligence."
+          description="Connect a GitHub repository to scan its structure and build Project Context."
           action={
             <Button asChild>
               <Link to="/repositories/connect">

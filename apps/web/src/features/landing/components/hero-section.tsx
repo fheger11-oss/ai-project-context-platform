@@ -18,11 +18,11 @@ export function HeroSection() {
           Understand your codebase
         </p>
         <h1 className="mt-5 max-w-[12.5ch] text-5xl font-semibold leading-[0.95] text-white sm:text-6xl lg:text-7xl">
-          Turn your codebase into context AI can use.
+          Understand your repository. Preserve its memory.
         </h1>
         <p className="landing-mobile-measure mt-6 max-w-xl text-base leading-8 text-muted-foreground sm:text-lg">
-          Ctxaro connects to a GitHub repository, scans the project, builds structured Project
-          Context, generates useful documents, and exports AI-ready context for coding tools.
+          Ctxaro turns a GitHub repository into structured Project Context, then preserves its
+          knowledge, decisions, architecture history, and evolution as Project Memory.
         </p>
 
         <div className="landing-mobile-measure mt-8 flex flex-col gap-3 sm:flex-row">
@@ -51,7 +51,7 @@ export function HeroSection() {
         <div className="landing-mobile-measure mt-7 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span className="inline-flex max-w-full items-center gap-2 rounded-md border border-white/10 bg-white/[0.025] px-3 py-2">
             <span className="size-1.5 shrink-0 rounded-full bg-primary shadow-[0_0_18px_rgba(69,211,154,0.75)]" />
-            <span className="min-w-0">Repository understanding, not chatbot sprawl</span>
+            <span className="min-w-0">Repository understanding that evolves with your project</span>
           </span>
           <a
             href={dashboardHref}

@@ -7,7 +7,13 @@ const faqs = [
     id: "what-is-ctxaro",
     question: "What is Ctxaro?",
     answer:
-      "Ctxaro analyzes a connected repository and turns its discovered project structure into structured Project Context, documentation, and AI-ready exports."
+      "Ctxaro helps developers understand a connected repository and build structured Project Context. Project Memory preserves that context with project knowledge, decisions, timeline events, and architecture history as the project evolves."
+  },
+  {
+    id: "project-context-and-memory",
+    question: "How are Project Context and Project Memory different?",
+    answer:
+      "Project Context is a structured understanding of a project's technical state. Project Memory preserves that context over time alongside durable knowledge, decisions, timeline events, and architecture history."
   },
   {
     id: "what-does-ctxaro-analyze",

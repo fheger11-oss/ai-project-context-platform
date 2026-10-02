@@ -28,7 +28,7 @@ const pipelineDetails: Record<ProductPipelineStageKey, { description: string; ic
     repository: { description: "Connect a GitHub project.", icon: GitBranch },
     scan: { description: "Capture repository metadata and files.", icon: ScanLine },
     analysis: { description: "Detect structure, languages, and dependencies.", icon: Layers3 },
-    context: { description: "Generate structured project intelligence.", icon: FileText },
+    context: { description: "Generate structured Project Context.", icon: FileText },
     documents: { description: "Create readable project documentation.", icon: ArrowRight },
     "ai-export": { description: "Package project context for AI workflows.", icon: FileJson2 }
   };

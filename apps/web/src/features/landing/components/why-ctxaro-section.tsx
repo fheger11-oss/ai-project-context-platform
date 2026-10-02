@@ -76,8 +76,8 @@ export function WhyCtxaroSection() {
           </h2>
         </div>
         <p className="max-w-2xl text-base leading-8 text-muted-foreground lg:justify-self-end">
-          Instead of repeatedly explaining your project to AI, turn the structure already inside
-          your repository into reusable project context.
+          Turn the structure inside your repository into Project Context, then preserve what the
+          project knows, why it changed, and how its architecture evolved.
         </p>
       </div>
 
@@ -109,7 +109,8 @@ export function WhyCtxaroSection() {
 
       <div className="mt-8 flex flex-col items-start justify-between gap-4 rounded-md border border-white/10 bg-[#08100e]/72 p-5 sm:flex-row sm:items-center">
         <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-          Move from repository structure to Project Context, then into Documents and AI Export.
+          Move from repository understanding to Project Context, Project Memory, and a durable
+          record of project evolution.
         </p>
         <Button asChild className="h-10">
           <a
