@@ -9,6 +9,7 @@ import { DocumentController } from "../document-generation/presentation/document
 import { RepositoriesController } from "../repositories/repositories.controller.js";
 import { RepositoryUpdatesController } from "../repository-updates/presentation/repository-updates.controller.js";
 import { ScanController } from "../scan/presentation/scan.controller.js";
+import { GitHubWebhookController } from "../webhooks/github-webhook.controller.js";
 
 const THROTTLER_LIMIT_METADATA = "THROTTLER:LIMITdefault";
 const THROTTLER_TTL_METADATA = "THROTTLER:TTLdefault";
@@ -41,5 +42,16 @@ describe("expensive operation rate limiting", () => {
       expect(limit()).toBe(4);
       expect(ttl()).toBe(90_000);
     }
+  });
+
+  it("applies a separately configurable limit to signed webhook deliveries", () => {
+    vi.stubEnv("RATE_LIMIT_WEBHOOK_MAX", "75");
+    vi.stubEnv("RATE_LIMIT_WEBHOOK_TTL_SECONDS", "120");
+    const method = GitHubWebhookController.prototype.receive;
+    const limit = Reflect.getMetadata(THROTTLER_LIMIT_METADATA, method) as () => number;
+    const ttl = Reflect.getMetadata(THROTTLER_TTL_METADATA, method) as () => number;
+
+    expect(limit()).toBe(75);
+    expect(ttl()).toBe(120_000);
   });
 });

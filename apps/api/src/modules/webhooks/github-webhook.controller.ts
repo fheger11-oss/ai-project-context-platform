@@ -1,15 +1,16 @@
 import { Controller, Headers, Inject, Post, Req, Res } from "@nestjs/common";
-import { SkipThrottle } from "@nestjs/throttler";
+import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 
 import { GitHubWebhookService } from "./github-webhook.service.js";
+import { WEBHOOK_RATE_LIMIT } from "../config/rate-limit.config.js";
 
 @Controller({ path: "webhooks/github", version: "1" })
-@SkipThrottle()
 export class GitHubWebhookController {
   constructor(@Inject(GitHubWebhookService) private readonly webhooks: GitHubWebhookService) {}
 
   @Post()
+  @Throttle(WEBHOOK_RATE_LIMIT)
   async receive(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,

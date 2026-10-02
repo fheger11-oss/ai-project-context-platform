@@ -6,6 +6,31 @@ import { describe, expect, it, vi } from "vitest";
 import { GlobalExceptionFilter } from "./global-exception.filter.js";
 
 describe("GlobalExceptionFilter", () => {
+  it("preserves parser 413 errors without leaking parser internals", () => {
+    const json = vi.fn();
+    const status = vi.fn().mockReturnValue({ json });
+    const request = { method: "POST", path: "/api/v1/auth/login" } as Request;
+    const response = { status } as unknown as Response;
+    const host = {
+      switchToHttp: () => ({ getRequest: () => request, getResponse: () => response })
+    } as ArgumentsHost;
+
+    new GlobalExceptionFilter(true).catch(
+      { status: 413, type: "entity.too.large", message: "request entity too large" },
+      host
+    );
+
+    expect(status).toHaveBeenCalledWith(413);
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 413,
+        message: "Payload Too Large",
+        error: "Payload Too Large"
+      })
+    );
+    expect(JSON.stringify(json.mock.calls)).not.toContain("entity.too.large");
+  });
+
   it("returns and logs request paths without OAuth query strings", () => {
     const loggerSpy = vi.spyOn(Logger.prototype, "error").mockImplementation(() => undefined);
     const json = vi.fn();

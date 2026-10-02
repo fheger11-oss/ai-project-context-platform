@@ -4,6 +4,8 @@ const DEFAULT_AUTH_RATE_LIMIT_TTL_SECONDS = 60;
 const DEFAULT_AUTH_RATE_LIMIT_MAX = 10;
 const DEFAULT_EXPENSIVE_RATE_LIMIT_TTL_SECONDS = 60;
 const DEFAULT_EXPENSIVE_RATE_LIMIT_MAX = 5;
+const DEFAULT_WEBHOOK_RATE_LIMIT_TTL_SECONDS = 60;
+const DEFAULT_WEBHOOK_RATE_LIMIT_MAX = 60;
 
 type ThrottleOptions = Parameters<typeof Throttle>[0];
 
@@ -24,6 +26,17 @@ export const EXPENSIVE_OPERATION_RATE_LIMIT: ThrottleOptions = {
         DEFAULT_EXPENSIVE_RATE_LIMIT_TTL_SECONDS
       ) * 1000,
     limit: () => readPositiveInteger("RATE_LIMIT_EXPENSIVE_MAX", DEFAULT_EXPENSIVE_RATE_LIMIT_MAX)
+  }
+};
+
+export const WEBHOOK_RATE_LIMIT: ThrottleOptions = {
+  default: {
+    ttl: () =>
+      readPositiveInteger(
+        "RATE_LIMIT_WEBHOOK_TTL_SECONDS",
+        DEFAULT_WEBHOOK_RATE_LIMIT_TTL_SECONDS
+      ) * 1000,
+    limit: () => readPositiveInteger("RATE_LIMIT_WEBHOOK_MAX", DEFAULT_WEBHOOK_RATE_LIMIT_MAX)
   }
 };
 

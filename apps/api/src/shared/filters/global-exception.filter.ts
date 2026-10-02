@@ -21,8 +21,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const request = context.getRequest<Request>();
     const response = context.getResponse<Response>();
 
-    const status =
-      exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+    const status = this.statusOf(exception);
     const payload = this.toPayload(exception, status);
 
     if (status >= 500) {
@@ -59,10 +58,30 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       };
     }
 
+    if (status >= 400 && status < 500) {
+      const error = status === HttpStatus.PAYLOAD_TOO_LARGE ? "Payload Too Large" : "Bad Request";
+      return {
+        statusCode: status,
+        message: error,
+        error
+      };
+    }
+
     return {
       statusCode: status,
       message: "Internal server error",
       error: "Internal Server Error"
     };
+  }
+
+  private statusOf(exception: unknown): number {
+    if (exception instanceof HttpException) return exception.getStatus();
+    if (!exception || typeof exception !== "object") return HttpStatus.INTERNAL_SERVER_ERROR;
+
+    const candidate = exception as { status?: unknown; statusCode?: unknown };
+    const status = candidate.status ?? candidate.statusCode;
+    return typeof status === "number" && Number.isInteger(status) && status >= 400 && status <= 599
+      ? status
+      : HttpStatus.INTERNAL_SERVER_ERROR;
   }
 }

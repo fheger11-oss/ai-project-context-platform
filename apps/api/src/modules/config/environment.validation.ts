@@ -24,6 +24,8 @@ const environmentSchema = z
     RATE_LIMIT_AUTH_MAX: z.coerce.number().int().positive().default(10),
     RATE_LIMIT_EXPENSIVE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
     RATE_LIMIT_EXPENSIVE_MAX: z.coerce.number().int().positive().default(5),
+    RATE_LIMIT_WEBHOOK_TTL_SECONDS: z.coerce.number().int().positive().default(60),
+    RATE_LIMIT_WEBHOOK_MAX: z.coerce.number().int().positive().default(60),
     SCAN_MONTHLY_LIMIT: z.coerce.number().int().positive().max(1_000_000).default(3),
     ANALYSIS_MONTHLY_LIMIT: z.coerce.number().int().positive().max(1_000_000).default(3),
     CONTEXT_MONTHLY_LIMIT: z.coerce.number().int().positive().max(1_000_000).default(3),

@@ -13,6 +13,7 @@ import {
   createWebhookRawBodyParser
 } from "./shared/http/request-body-parsers.js";
 import { createSecurityHeadersMiddleware } from "./shared/http/security-headers.js";
+import { createCorsOptions } from "./shared/http/cors-options.js";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -31,11 +32,8 @@ async function bootstrap() {
   );
   app.use(...createRequestBodyParsers(config.requestBodyLimitBytes));
   app.getHttpAdapter().getInstance().set("trust proxy", config.trustProxy);
-  app.use(createSecurityHeadersMiddleware());
-  app.enableCors({
-    origin: config.corsOrigins,
-    credentials: true
-  });
+  app.use(createSecurityHeadersMiddleware(config.isProduction));
+  app.enableCors(createCorsOptions(config.corsOrigins));
   app.enableShutdownHooks();
   app.useGlobalPipes(
     new ValidationPipe({
