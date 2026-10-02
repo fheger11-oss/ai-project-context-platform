@@ -9,6 +9,7 @@ import { analytics } from "@/lib/analytics";
 const navLinks = [
   { label: "How it works", href: "#how-it-works" },
   { label: "Product", href: "#product-proof" },
+  { label: "Project Memory", href: "#project-memory" },
   { label: "Why Ctxaro", href: "#why-ctxaro" },
   { label: "FAQ", href: "#faq" }
 ];

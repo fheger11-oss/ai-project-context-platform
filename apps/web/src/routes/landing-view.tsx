@@ -9,6 +9,7 @@ import { LandingFooter } from "@/features/landing/components/landing-footer";
 import { LandingNav } from "@/features/landing/components/landing-nav";
 import { MotionBackground } from "@/features/landing/components/motion-background";
 import { ProductProofSection } from "@/features/landing/components/product-proof-section";
+import { ProjectMemorySection } from "@/features/landing/components/project-memory-section";
 import { WhyCtxaroSection } from "@/features/landing/components/why-ctxaro-section";
 import { analytics } from "@/lib/analytics";
 
@@ -28,6 +29,7 @@ export function LandingView() {
             <HeroSection />
             <HowItWorksSection />
             <ProductProofSection />
+            <ProjectMemorySection />
             <WhyCtxaroSection />
             <FinalCtaSection />
             <FaqSection />

@@ -19,7 +19,7 @@ const faqs = [
     id: "project-memory",
     question: "What is Project Memory?",
     answer:
-      "Project Memory is the durable layer around Project Context. It retains explicit project knowledge, decisions, timeline events, and architecture history so important information is not limited to one analysis snapshot."
+      "Project Memory is the persistent layer around the current Project Context. It brings together durable project knowledge, decisions, timeline events, and architecture history so supported information is not limited to one repository snapshot."
   },
   {
     id: "project-context-and-memory",
@@ -28,28 +28,34 @@ const faqs = [
       "Project Context describes what the repository looks like now. Project Memory preserves what the project should retain over time, including durable knowledge, decisions, activity, and architectural evolution."
   },
   {
-    id: "what-does-ctxaro-analyze",
-    question: "What does Ctxaro analyze?",
+    id: "project-knowledge",
+    question: "What is Project Knowledge?",
     answer:
-      "Ctxaro works with project structure, technologies, dependencies, architecture signals, modules, entry points, testing and infrastructure context, plus evidence and confidence on generated context claims."
+      "Project Knowledge consists of stored project facts with lifecycle status and source metadata. A record identifies whether it is user-authored or system-derived, distinguishes asserted, observed, and inferred knowledge, and can include confidence, verification, and links to a source Project Context or Project Decision."
   },
   {
-    id: "what-does-ctxaro-generate",
-    question: "What does Ctxaro generate?",
+    id: "project-decisions",
+    question: "What are Project Decisions?",
     answer:
-      "Ctxaro generates Project Context, Project Overview, Technical Documentation, Architecture Documentation, Module Documentation, README, and AI Export outputs in AI Context, Markdown, and Plain Text formats."
+      "Project Decisions are stored technical choices with a title, decision, rationale, affected area, lifecycle status, and effective date. When available, their provenance links them to a Project Context, repository update, or commit."
   },
   {
-    id: "retained-information",
-    question: "What information does Ctxaro retain?",
+    id: "timeline",
+    question: "What is the Timeline in Ctxaro?",
     answer:
-      "Ctxaro retains generated Project Context snapshots and the durable project knowledge, decisions, timeline events, and architecture history associated with a connected repository."
+      "Timeline is a chronological view of supported project events. It includes repository connection, repository updates, promoted Project Context versions, and the effective dates of Project Decisions."
+  },
+  {
+    id: "architecture-history",
+    question: "What is Architecture History?",
+    answer:
+      "Architecture History compares the structural architecture in adjacent, compatible promoted Project Context snapshots. It can identify added, removed, and modified modules and relationships, while compatibility checks and confidence thresholds prevent unsupported comparisons."
   },
   {
     id: "coding-assistant",
-    question: "Does Ctxaro replace a coding assistant?",
+    question: "Is Ctxaro an AI coding agent?",
     answer:
-      "No. Ctxaro is a repository understanding and Project Memory platform, not a chatbot or coding agent. AI Export can package selected Project Context for tools you already use."
+      "No. Ctxaro is a repository understanding and Project Memory application, not a chatbot or coding agent. It does not modify repository source code. AI Export can package selected Project Context for external tools you already use."
   },
   {
     id: "modify-code",
@@ -62,6 +68,12 @@ const faqs = [
     question: "How does Ctxaro understand a repository?",
     answer:
       "Ctxaro scans a consistent repository snapshot and analyzes project structure, technologies, dependencies, modules, entry points, testing, infrastructure, and other supported technical signals."
+  },
+  {
+    id: "documents-and-export",
+    question: "What can Ctxaro generate and export?",
+    answer:
+      "From a selected Project Context, Ctxaro can generate Markdown project overviews, technical documentation, architecture documents, module documentation, and README files. AI Export packages context in AI Context, Markdown, or Plain Text format for external workflows."
   },
   {
     id: "using-context",

@@ -36,11 +36,78 @@
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "Ctxaro",
-        "url": "https://ctxaro.com/",
-        "applicationCategory": "DeveloperApplication",
-        "description": "Ctxaro helps developers understand repositories and preserve project context, project knowledge, decisions, architecture history, and evolution over time."
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://ctxaro.com/#organization",
+            "name": "Ctxaro",
+            "url": "https://ctxaro.com/"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://ctxaro.com/#website",
+            "name": "Ctxaro",
+            "url": "https://ctxaro.com/",
+            "publisher": { "@id": "https://ctxaro.com/#organization" }
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://ctxaro.com/#application",
+            "name": "Ctxaro",
+            "url": "https://ctxaro.com/",
+            "applicationCategory": "DeveloperApplication",
+            "isPartOf": { "@id": "https://ctxaro.com/#website" },
+            "provider": { "@id": "https://ctxaro.com/#organization" },
+            "description": "Ctxaro is a repository understanding and Project Memory application. It turns a GitHub repository snapshot into structured Project Context and preserves supported project knowledge, decisions, timeline events, and architecture history."
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://ctxaro.com/#faq",
+            "isPartOf": { "@id": "https://ctxaro.com/#website" },
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is Ctxaro?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Ctxaro is a repository understanding and Project Memory application for developers. It builds structured Project Context from a connected repository and preserves supported knowledge, decisions, timeline events, and architecture history as the project evolves."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What is Project Context?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Project Context is Ctxaro's structured representation of a repository's current technical state at a specific commit, with evidence and confidence for its supported claims."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What is Project Memory?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Project Memory is the persistent layer around the current Project Context. It brings together durable project knowledge, decisions, timeline events, and architecture history."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How is Project Memory different from Project Context?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Project Context describes the repository's technical state at a specific commit. Project Memory preserves supported records and history that remain useful beyond that current snapshot."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is Ctxaro an AI coding agent?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Ctxaro is a repository understanding and Project Memory application, not a chatbot or coding agent, and it does not modify repository source code."
+                }
+              }
+            ]
+          }
+        ]
       }
     </script>
     <title>Ctxaro | Repository Understanding &amp; Project Memory</title>
