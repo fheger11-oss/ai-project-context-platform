@@ -13,5 +13,17 @@ apps/api/src/generated/prisma/
 .env.*
 !.env.example
 *.log
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.dump
+*.sql.gz
+*.bak
+*.backup
+credentials*.json
+service-account*.json
 .DS_Store
 .env.local

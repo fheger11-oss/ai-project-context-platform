@@ -23,7 +23,7 @@ async function bootstrap() {
   const logger = new Logger("Bootstrap");
   const config = app.get(AppConfigService);
 
-  app.useLogger(["error", "warn", "log", "debug", "verbose"]);
+  app.useLogger(config.logLevels);
   configureApiRouting(app, config);
   app.use(
     githubWebhookPath(config),

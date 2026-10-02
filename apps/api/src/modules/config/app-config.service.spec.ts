@@ -31,6 +31,18 @@ describe("AppConfigService", () => {
     expect(config.swaggerEnabled).toBe(false);
   });
 
+  it("disables debug and verbose log levels in production", () => {
+    const config = createConfigService({ APP_ENV: "production", NODE_ENV: "production" });
+
+    expect(config.logLevels).toEqual(["error", "warn", "log"]);
+  });
+
+  it("keeps debug and verbose log levels available outside production", () => {
+    const config = createConfigService({ APP_ENV: "development", NODE_ENV: "development" });
+
+    expect(config.logLevels).toEqual(["error", "warn", "log", "debug", "verbose"]);
+  });
+
   it("exposes only the explicitly configured CORS origins", () => {
     const config = createConfigService({
       APP_ENV: "production",

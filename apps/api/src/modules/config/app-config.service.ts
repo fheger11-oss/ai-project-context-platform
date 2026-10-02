@@ -47,6 +47,12 @@ export class AppConfigService {
     return this.nodeEnv === "production" || this.appEnv === "production";
   }
 
+  get logLevels(): ("error" | "warn" | "log" | "debug" | "verbose")[] {
+    return this.isProduction
+      ? ["error", "warn", "log"]
+      : ["error", "warn", "log", "debug", "verbose"];
+  }
+
   get databaseUrl() {
     return this.config.get("DATABASE_URL", { infer: true });
   }
