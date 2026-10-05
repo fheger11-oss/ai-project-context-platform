@@ -1,4 +1,4 @@
-import { InternalServerErrorException, Logger } from "@nestjs/common";
+import { HttpException, InternalServerErrorException, Logger } from "@nestjs/common";
 import type { ArgumentsHost } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { describe, expect, it, vi } from "vitest";
@@ -38,5 +38,35 @@ describe("GlobalExceptionFilter", () => {
     expect(payload.path).toBe("/api/v1/auth/github/callback");
     expect(JSON.stringify(payload)).not.toContain("secret-code");
     expect(JSON.stringify(payload)).not.toContain("secret-state");
+  });
+
+  it("sanitizes explicit HTTP 5xx responses and logs no exception details in production", () => {
+    const loggerSpy = vi.spyOn(Logger.prototype, "error").mockImplementation(() => undefined);
+    const json = vi.fn();
+    const status = vi.fn().mockReturnValue({ json });
+    const secret = "postgresql://user:sensitive-password@db.example.com/app";
+    const request = { method: "GET", path: "/api/v1/repositories" } as Request;
+    const response = { status } as unknown as Response;
+    const host = {
+      switchToHttp: () => ({
+        getRequest: () => request,
+        getResponse: () => response
+      })
+    } as ArgumentsHost;
+
+    new GlobalExceptionFilter(true).catch(
+      new HttpException({ statusCode: 503, message: secret, details: secret }, 503),
+      host
+    );
+
+    expect(json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 503,
+        message: "Internal server error",
+        error: "Internal Server Error"
+      })
+    );
+    expect(JSON.stringify(json.mock.calls)).not.toContain(secret);
+    expect(loggerSpy.mock.calls.flat().join("\n")).not.toContain(secret);
   });
 });

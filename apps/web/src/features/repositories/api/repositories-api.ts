@@ -1,11 +1,19 @@
 import type {
   AvailableGitHubRepository,
+  ConnectRepositoryResponse,
   ListAvailableGitHubRepositoriesResponse,
   ListRepositoriesResponse,
+  ProjectContextResponse,
+  RepositoryAutomationStatus,
+  RepositoryCurrentUpdateResponse,
+  RepositoryUpdateHistoryResponse,
+  RepositoryUpdateResponse,
+  RepositoryStateSummary,
   RepositorySummary
 } from "@ai-context/contracts";
 
 import { authenticatedFetch } from "@/lib/authenticated-fetch";
+import { ApiRequestError, apiRequestErrorFromResponse } from "@/lib/api-error";
 
 type RequestOptions = {
   accessToken: string;
@@ -13,14 +21,7 @@ type RequestOptions = {
   method?: "DELETE" | "GET" | "POST";
 };
 
-export class ApiRequestError extends Error {
-  constructor(
-    message: string,
-    readonly status: number
-  ) {
-    super(message);
-  }
-}
+export { ApiRequestError };
 
 async function request<T>(path: string, options: RequestOptions): Promise<T> {
   const init: RequestInit = {
@@ -38,9 +39,7 @@ async function request<T>(path: string, options: RequestOptions): Promise<T> {
   const response = await authenticatedFetch(path, init);
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-
-    throw new ApiRequestError(payload?.message ?? "Request failed", response.status);
+    throw await apiRequestErrorFromResponse(response, "Request failed");
   }
 
   if (response.status === 204) {
@@ -58,6 +57,50 @@ export function getRepository(accessToken: string, id: string) {
   return request<RepositorySummary>(`/repositories/${id}`, { accessToken });
 }
 
+export function getRepositoryState(accessToken: string, id: string) {
+  return request<RepositoryStateSummary>(`/repositories/${id}/state`, { accessToken });
+}
+
+export function refreshRepositoryState(accessToken: string, id: string) {
+  return request<RepositoryStateSummary>(`/repositories/${id}/state/refresh`, {
+    accessToken,
+    method: "POST"
+  });
+}
+
+export function getCurrentProjectContext(accessToken: string, id: string) {
+  return request<ProjectContextResponse>(`/repositories/${id}/current-context`, { accessToken });
+}
+
+export function runRepositoryUpdate(accessToken: string, id: string) {
+  return request<RepositoryUpdateResponse>(`/repositories/${id}/updates`, {
+    accessToken,
+    method: "POST"
+  });
+}
+
+export function getRepositoryUpdateHistory(
+  accessToken: string,
+  id: string,
+  page = 1,
+  pageSize = 5
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize)
+  });
+
+  return request<RepositoryUpdateHistoryResponse>(`/repositories/${id}/updates?${params}`, {
+    accessToken
+  });
+}
+
+export function getCurrentRepositoryUpdate(accessToken: string, id: string) {
+  return request<RepositoryCurrentUpdateResponse>(`/repositories/${id}/updates/current`, {
+    accessToken
+  });
+}
+
 export function listAvailableGitHubRepositories(accessToken: string) {
   return request<ListAvailableGitHubRepositoriesResponse>("/repositories/github/list", {
     accessToken
@@ -65,12 +108,32 @@ export function listAvailableGitHubRepositories(accessToken: string) {
 }
 
 export function connectRepository(accessToken: string, githubId: string) {
-  return request<RepositorySummary>("/repositories/connect", {
+  return request<ConnectRepositoryResponse>("/repositories/connect", {
     accessToken,
     method: "POST",
     body: {
       githubId
     }
+  });
+}
+
+export function getRepositoryAutomationStatus(accessToken: string, id: string) {
+  return request<RepositoryAutomationStatus>(`/repositories/${id}/automation-status`, {
+    accessToken
+  });
+}
+
+export function reconcileRepositoryAutomation(accessToken: string, id: string) {
+  return request<RepositoryAutomationStatus>(`/repositories/${id}/automation/reconcile`, {
+    accessToken,
+    method: "POST"
+  });
+}
+
+export function disableRepositoryAutomation(accessToken: string, id: string) {
+  return request<RepositoryAutomationStatus>(`/repositories/${id}/automation/disable`, {
+    accessToken,
+    method: "POST"
   });
 }
 
@@ -88,4 +151,14 @@ export function syncRepository(accessToken: string, repositoryId: string) {
   });
 }
 
-export type { AvailableGitHubRepository, RepositorySummary };
+export type {
+  AvailableGitHubRepository,
+  ConnectRepositoryResponse,
+  ProjectContextResponse,
+  RepositoryAutomationStatus,
+  RepositoryCurrentUpdateResponse,
+  RepositoryUpdateHistoryResponse,
+  RepositoryUpdateResponse,
+  RepositoryStateSummary,
+  RepositorySummary
+};

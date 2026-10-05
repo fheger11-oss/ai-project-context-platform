@@ -2,6 +2,12 @@ import { Inject, Injectable } from "@nestjs/common";
 import type { DashboardProjectSummary, DashboardProjectsResponse } from "@ai-context/contracts";
 
 import { PrismaService } from "../prisma/prisma.service.js";
+import { toRepositoryStateSummary } from "../repositories/dto/repository-state-response.dto.js";
+import {
+  deriveRepositoryFreshnessStatus,
+  hasValidCurrentContextProvenance,
+  type CurrentContextProvenance
+} from "../repositories/repository-state.service.js";
 
 type DashboardRepositoryRecord = {
   id: string;
@@ -52,6 +58,25 @@ type DashboardRepositoryRecord = {
       };
     }[];
   }[];
+  state: {
+    id: string;
+    repositoryId: string;
+    remoteHeadCommitSha: string | null;
+    remoteHeadCheckedAt: Date | null;
+    lastScannedCommitSha: string | null;
+    lastAnalyzedCommitSha: string | null;
+    currentProjectContextId: string | null;
+    currentContextCommitSha: string | null;
+    freshnessStatus: DashboardProjectSummary["state"] extends infer T
+      ? T extends { freshnessStatus: infer S }
+        ? S
+        : never
+      : never;
+    lastUpdateStatus: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    currentProjectContext: CurrentContextProvenance | null;
+  } | null;
 };
 
 @Injectable()
@@ -120,6 +145,43 @@ export class DashboardProjectsQueryService {
               }
             }
           }
+        },
+        state: {
+          select: {
+            id: true,
+            repositoryId: true,
+            remoteHeadCommitSha: true,
+            remoteHeadCheckedAt: true,
+            lastScannedCommitSha: true,
+            lastAnalyzedCommitSha: true,
+            currentProjectContextId: true,
+            currentContextCommitSha: true,
+            freshnessStatus: true,
+            lastUpdateStatus: true,
+            createdAt: true,
+            updatedAt: true,
+            currentProjectContext: {
+              select: {
+                id: true,
+                repositoryId: true,
+                commitSha: true,
+                scanId: true,
+                analysisId: true,
+                scan: {
+                  select: { id: true, repositoryId: true, commitSha: true, status: true }
+                },
+                analysis: {
+                  select: {
+                    id: true,
+                    scanId: true,
+                    repositoryId: true,
+                    commitSha: true,
+                    status: true
+                  }
+                }
+              }
+            }
+          }
         }
       }
     })) as DashboardRepositoryRecord[];
@@ -149,6 +211,21 @@ function toProjectSummary(repository: DashboardRepositoryRecord): DashboardProje
       isArchived: repository.isArchived,
       lastSyncedAt: repository.lastSyncedAt.toISOString()
     },
+    state: repository.state
+      ? toRepositoryStateSummary({
+          ...repository.state,
+          freshnessStatus: deriveRepositoryFreshnessStatus({
+            remoteHeadCommitSha: repository.state.remoteHeadCommitSha,
+            currentContextCommitSha: repository.state.currentContextCommitSha,
+            remoteHeadObservationValid: repository.state.remoteHeadCheckedAt !== null,
+            currentContextProvenanceValid: hasValidCurrentContextProvenance(
+              repository.state.currentProjectContext,
+              repository.id,
+              repository.state.currentContextCommitSha
+            )
+          })
+        })
+      : null,
     latestScan: latestScan
       ? {
           id: latestScan.id,

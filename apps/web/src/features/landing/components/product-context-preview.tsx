@@ -36,7 +36,7 @@ export function ProductContextPreview() {
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-primary">
             Project Context
           </p>
-          <h3 className="mt-2 text-lg font-semibold text-white">Structured project knowledge</h3>
+          <h3 className="mt-2 text-lg font-semibold text-white">Structured Project Context</h3>
         </div>
         <div className="grid size-10 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary">
           <Layers3 className="size-5" aria-hidden="true" />

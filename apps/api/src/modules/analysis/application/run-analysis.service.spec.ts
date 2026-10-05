@@ -75,7 +75,11 @@ function result(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
 }
 
 function createService(
-  options: { scan?: ScanSnapshot | null; pipelineResult?: AnalysisResult } = {}
+  options: {
+    scan?: ScanSnapshot | null;
+    pipelineResult?: AnalysisResult;
+    analysisMonthlyLimit?: number;
+  } = {}
 ) {
   const scanRepository = {
     getScan: vi.fn(async () => (Object.hasOwn(options, "scan") ? options.scan : scan()))
@@ -119,7 +123,8 @@ function createService(
       persistAnalysisResultService,
       analysisRepository,
       usageService,
-      operationLockService
+      operationLockService,
+      { analysisMonthlyLimit: options.analysisMonthlyLimit ?? 3 } as never
     ),
     scanRepository,
     ownershipVerifier,
@@ -133,6 +138,18 @@ function createService(
 }
 
 describe("RunAnalysisService", () => {
+  it("enforces the configured monthly analysis limit", async () => {
+    const { service, usageService } = createService({ analysisMonthlyLimit: 100 });
+
+    await service.run({ userId: "user_1", scanId: "scan_1" });
+
+    expect(usageService.assertMonthlyQuota).toHaveBeenCalledWith({
+      userId: "user_1",
+      resource: "analyses",
+      limit: 100
+    });
+  });
+
   it("runs the existing pipeline for an owned completed scan and persists the result", async () => {
     const {
       service,

@@ -16,6 +16,9 @@ const productionEnvironment = {
   RATE_LIMIT_GLOBAL_MAX: "300",
   RATE_LIMIT_AUTH_TTL_SECONDS: "60",
   RATE_LIMIT_AUTH_MAX: "10",
+  RATE_LIMIT_EXPENSIVE_TTL_SECONDS: "60",
+  RATE_LIMIT_EXPENSIVE_MAX: "5",
+  REQUEST_BODY_LIMIT_BYTES: "32768",
   DATABASE_URL: "postgresql://user:password@db.example.com:5432/app",
   JWT_ACCESS_SECRET: "production-access-secret-at-least-32-characters",
   JWT_REFRESH_SECRET: "production-refresh-secret-at-least-32-characters",
@@ -23,6 +26,8 @@ const productionEnvironment = {
   JWT_REFRESH_TOKEN_TTL_SECONDS: "2592000",
   GITHUB_CLIENT_ID: "github-client-id",
   GITHUB_CLIENT_SECRET: "github-client-secret",
+  GITHUB_WEBHOOK_SECRET: "production-webhook-secret-at-least-32-characters",
+  GITHUB_WEBHOOK_CALLBACK_URL: "https://api.ctxaro.com/api/v1/webhooks/github",
   GITHUB_CALLBACK_URL: "https://api.ctxaro.com/api/v1/auth/github/callback",
   WEB_AUTH_CALLBACK_URL: "https://ctxaro.com/auth/callback",
   PROVIDER_TOKEN_ENCRYPTION_KEY: "provider-token-key-at-least-32-characters"
@@ -37,9 +42,19 @@ describe("validateEnvironment", () => {
       NODE_ENV: "production",
       RATE_LIMIT_AUTH_MAX: 10,
       RATE_LIMIT_AUTH_TTL_SECONDS: 60,
+      RATE_LIMIT_EXPENSIVE_MAX: 5,
+      RATE_LIMIT_EXPENSIVE_TTL_SECONDS: 60,
       RATE_LIMIT_GLOBAL_MAX: 300,
       RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
+      SCAN_MONTHLY_LIMIT: 3,
+      ANALYSIS_MONTHLY_LIMIT: 3,
+      CONTEXT_MONTHLY_LIMIT: 3,
+      DOCUMENT_MONTHLY_LIMIT: 5,
+      AI_EXPORT_MONTHLY_LIMIT: 10,
+      REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600,
+      REQUEST_BODY_LIMIT_BYTES: 32_768,
       GITHUB_CALLBACK_URL: "https://api.ctxaro.com/api/v1/auth/github/callback",
+      GITHUB_WEBHOOK_CALLBACK_URL: "https://api.ctxaro.com/api/v1/webhooks/github",
       WEB_AUTH_CALLBACK_URL: "https://ctxaro.com/auth/callback"
     });
   });
@@ -95,10 +110,88 @@ describe("validateEnvironment", () => {
       API_TRUST_PROXY: false,
       RATE_LIMIT_AUTH_MAX: 10,
       RATE_LIMIT_AUTH_TTL_SECONDS: 60,
+      RATE_LIMIT_EXPENSIVE_MAX: 5,
+      RATE_LIMIT_EXPENSIVE_TTL_SECONDS: 60,
       RATE_LIMIT_GLOBAL_MAX: 300,
-      RATE_LIMIT_GLOBAL_TTL_SECONDS: 60
+      RATE_LIMIT_GLOBAL_TTL_SECONDS: 60,
+      SCAN_MONTHLY_LIMIT: 3,
+      ANALYSIS_MONTHLY_LIMIT: 3,
+      CONTEXT_MONTHLY_LIMIT: 3,
+      DOCUMENT_MONTHLY_LIMIT: 5,
+      AI_EXPORT_MONTHLY_LIMIT: 10,
+      REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: 21_600,
+      REQUEST_BODY_LIMIT_BYTES: 32_768
     });
   });
+
+  it("rejects request body limits above the supported application ceiling", () => {
+    expect(() =>
+      validateEnvironment({
+        ...productionEnvironment,
+        REQUEST_BODY_LIMIT_BYTES: "1048577"
+      })
+    ).toThrow(/REQUEST_BODY_LIMIT_BYTES/);
+  });
+
+  it("accepts an environment-specific monthly analysis limit", () => {
+    expect(
+      validateEnvironment({
+        ...productionEnvironment,
+        APP_ENV: "staging",
+        NODE_ENV: "development",
+        ANALYSIS_MONTHLY_LIMIT: "100"
+      }).ANALYSIS_MONTHLY_LIMIT
+    ).toBe(100);
+  });
+
+  it("accepts an environment-specific monthly scan limit", () => {
+    expect(
+      validateEnvironment({
+        ...productionEnvironment,
+        APP_ENV: "staging",
+        NODE_ENV: "development",
+        SCAN_MONTHLY_LIMIT: "100"
+      }).SCAN_MONTHLY_LIMIT
+    ).toBe(100);
+  });
+
+  it.each(["0", "-1", "1000001", "not-a-number"])(
+    "rejects invalid monthly scan limit %s",
+    (limit) => {
+      expect(() =>
+        validateEnvironment({ ...productionEnvironment, SCAN_MONTHLY_LIMIT: limit })
+      ).toThrow(/SCAN_MONTHLY_LIMIT/);
+    }
+  );
+
+  it.each(["0", "-1", "1000001", "not-a-number"])(
+    "rejects invalid monthly analysis limit %s",
+    (limit) => {
+      expect(() =>
+        validateEnvironment({ ...productionEnvironment, ANALYSIS_MONTHLY_LIMIT: limit })
+      ).toThrow(/ANALYSIS_MONTHLY_LIMIT/);
+    }
+  );
+
+  it.each(["CONTEXT_MONTHLY_LIMIT", "DOCUMENT_MONTHLY_LIMIT", "AI_EXPORT_MONTHLY_LIMIT"] as const)(
+    "accepts 100 for %s",
+    (variable) => {
+      expect(validateEnvironment({ ...productionEnvironment, [variable]: "100" })[variable]).toBe(
+        100
+      );
+    }
+  );
+
+  it.each(["CONTEXT_MONTHLY_LIMIT", "DOCUMENT_MONTHLY_LIMIT", "AI_EXPORT_MONTHLY_LIMIT"] as const)(
+    "rejects invalid values for %s",
+    (variable) => {
+      for (const value of ["0", "-1", "1000001", "not-a-number"]) {
+        expect(() => validateEnvironment({ ...productionEnvironment, [variable]: value })).toThrow(
+          new RegExp(variable)
+        );
+      }
+    }
+  );
 
   it("rejects wildcard CORS in production", () => {
     expect(() =>
@@ -107,6 +200,24 @@ describe("validateEnvironment", () => {
         CORS_ORIGINS: "*"
       })
     ).toThrow(/Wildcard CORS is not allowed in production/);
+  });
+
+  it("accepts multiple exact production CORS origins", () => {
+    expect(
+      validateEnvironment({
+        ...productionEnvironment,
+        CORS_ORIGINS: "https://ctxaro.com,https://www.ctxaro.com"
+      }).CORS_ORIGINS
+    ).toBe("https://ctxaro.com,https://www.ctxaro.com");
+  });
+
+  it("rejects production CORS entries that are URLs rather than exact origins", () => {
+    expect(() =>
+      validateEnvironment({
+        ...productionEnvironment,
+        CORS_ORIGINS: "https://ctxaro.com/app"
+      })
+    ).toThrow(/must be exact origins/);
   });
 
   it("rejects localhost defaults in production", () => {
@@ -118,6 +229,26 @@ describe("validateEnvironment", () => {
         WEB_AUTH_CALLBACK_URL: "http://localhost:5173/auth/callback"
       })
     ).toThrow(/localhost in production/);
+  });
+
+  it("requires a canonical GitHub webhook callback in production", () => {
+    const {
+      GITHUB_WEBHOOK_CALLBACK_URL: _githubWebhookCallbackUrl,
+      ...environmentWithoutWebhookCallback
+    } = productionEnvironment;
+
+    expect(() => validateEnvironment(environmentWithoutWebhookCallback)).toThrow(
+      /GITHUB_WEBHOOK_CALLBACK_URL is required in production/
+    );
+  });
+
+  it("rejects a localhost GitHub webhook callback in production", () => {
+    expect(() =>
+      validateEnvironment({
+        ...productionEnvironment,
+        GITHUB_WEBHOOK_CALLBACK_URL: "http://localhost:3000/api/v1/webhooks/github"
+      })
+    ).toThrow(/GITHUB_WEBHOOK_CALLBACK_URL.*localhost in production/);
   });
 
   it("rejects non-HTTPS public URLs in production", () => {
@@ -145,5 +276,28 @@ describe("validateEnvironment", () => {
         JWT_REFRESH_SECRET: productionEnvironment.JWT_ACCESS_SECRET
       })
     ).toThrow(/JWT refresh secret must be different from JWT access secret/);
+  });
+
+  it.each([
+    "JWT_ACCESS_SECRET",
+    "JWT_REFRESH_SECRET",
+    "GITHUB_CLIENT_ID",
+    "GITHUB_CLIENT_SECRET",
+    "PROVIDER_TOKEN_ENCRYPTION_KEY"
+  ] as const)("rejects the documented %s placeholder in production without echoing it", (field) => {
+    const placeholder = `replace_with_${field.toLowerCase()}_value`;
+
+    expect(() =>
+      validateEnvironment({
+        ...productionEnvironment,
+        [field]: placeholder
+      })
+    ).toThrow(new RegExp(`${field} must not use the documented placeholder`));
+
+    try {
+      validateEnvironment({ ...productionEnvironment, [field]: placeholder });
+    } catch (error) {
+      expect(String(error)).not.toContain(placeholder);
+    }
   });
 });

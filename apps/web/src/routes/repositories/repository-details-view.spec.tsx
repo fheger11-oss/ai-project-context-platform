@@ -4,12 +4,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   DashboardProjectSummary,
   DashboardProjectsResponse,
+  RepositoryAutomationStatus,
+  RepositoryCurrentUpdateResponse,
   RepositorySummary,
+  RepositoryUpdateHistoryResponse,
   ScanHistoryResponse
 } from "@ai-context/contracts";
 
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
-import { getRepository } from "@/features/repositories/api/repositories-api";
+import {
+  disableRepositoryAutomation,
+  getCurrentRepositoryUpdate,
+  getRepository,
+  getRepositoryAutomationStatus,
+  getRepositoryUpdateHistory,
+  ApiRequestError,
+  reconcileRepositoryAutomation,
+  refreshRepositoryState,
+  runRepositoryUpdate
+} from "@/features/repositories/api/repositories-api";
 import { getScanHistory } from "@/features/scans/api/scan-api";
 import { RepositoryDetailsView } from "./repository-details-view";
 
@@ -30,16 +43,22 @@ type QueryResult = {
 
 type MutationOptions = {
   mutationFn: () => Promise<unknown>;
-  onSuccess?: () => Promise<void>;
+  onSuccess?: (data?: unknown) => Promise<void>;
 };
 
 const queryOptions: QueryOptions[] = [];
 let accessToken = "access_token";
 let repositoryQuery: QueryResult = {};
+let automationStatusQuery: QueryResult = {};
 let latestScanQuery: QueryResult = {};
 let dashboardQuery: QueryResult = {};
-let mutationOptions: MutationOptions | null = null;
+let updateHistoryQuery: QueryResult = {};
+let currentUpdateQuery: QueryResult = {};
+const mutationOptions: MutationOptions[] = [];
+const mutationErrors: Array<unknown> = [];
 const invalidateQueries = vi.fn();
+const refetchAutomationStatus = vi.fn();
+let analysisActionPending = false;
 
 const repository: RepositorySummary = {
   id: "repository_1",
@@ -96,6 +115,17 @@ const projectSummary: DashboardProjectSummary = {
     isArchived: false,
     lastSyncedAt: "2026-08-26T10:00:00.000Z"
   },
+  state: {
+    repositoryId: "repository_1",
+    freshnessStatus: "UNKNOWN",
+    remoteHeadCommitSha: null,
+    remoteHeadCheckedAt: null,
+    lastScannedCommitSha: "abcdef1234567890",
+    lastAnalyzedCommitSha: "abcdef1234567890",
+    currentProjectContextId: "project_context_1",
+    currentContextCommitSha: "abcdef1234567890",
+    lastUpdateStatus: null
+  },
   latestScan: {
     id: "scan_1",
     status: "COMPLETED",
@@ -131,16 +161,36 @@ const projectSummary: DashboardProjectSummary = {
   }
 };
 
+const completedUpdate: RepositoryUpdateHistoryResponse["items"][number] = {
+  id: "update_completed",
+  repositoryId: "repository_1",
+  triggerType: "MANUAL",
+  status: "COMPLETED",
+  baseCommitSha: "abcdef1234567890",
+  targetCommitSha: "bcdef12345678901",
+  startedAt: "2026-08-26T10:05:00.000Z",
+  completedAt: "2026-08-26T10:08:00.000Z",
+  failedAt: null,
+  failureReason: null,
+  scanId: "scan_2",
+  analysisId: "analysis_2",
+  projectContextId: "context_2",
+  createdAt: "2026-08-26T10:04:59.000Z",
+  updatedAt: "2026-08-26T10:08:00.000Z"
+};
+
 function dashboardResponse(projects: DashboardProjectSummary[]): DashboardProjectsResponse {
   return { projects };
 }
 
 vi.mock("@tanstack/react-query", () => ({
   useMutation: (options: MutationOptions) => {
-    mutationOptions = options;
+    const error = mutationErrors[mutationOptions.length];
+    mutationOptions.push(options);
 
     return {
-      isError: false,
+      error,
+      isError: Boolean(error),
       isPending: false,
       isSuccess: false,
       mutate: vi.fn()
@@ -148,6 +198,32 @@ vi.mock("@tanstack/react-query", () => ({
   },
   useQuery: (options: QueryOptions) => {
     queryOptions.push(options);
+
+    if (options.queryKey[0] === "repositories" && options.queryKey[2] === "updates") {
+      const result = options.queryKey[3] === "current" ? currentUpdateQuery : updateHistoryQuery;
+
+      return {
+        data: result.data,
+        error: result.error,
+        isError: result.isError ?? false,
+        isFetching: result.isFetching ?? false,
+        isLoading: result.isLoading ?? false,
+        isSuccess: result.isSuccess ?? false,
+        refetch: vi.fn()
+      };
+    }
+
+    if (options.queryKey[0] === "repositories" && options.queryKey[2] === "automation") {
+      return {
+        data: automationStatusQuery.data,
+        error: automationStatusQuery.error,
+        isError: automationStatusQuery.isError ?? false,
+        isFetching: automationStatusQuery.isFetching ?? false,
+        isLoading: automationStatusQuery.isLoading ?? false,
+        isSuccess: automationStatusQuery.isSuccess ?? false,
+        refetch: refetchAutomationStatus
+      };
+    }
 
     if (options.queryKey[0] === "repositories") {
       return {
@@ -203,7 +279,14 @@ vi.mock("@/features/repositories/api/repositories-api", async (importOriginal) =
 
   return {
     ...actual,
+    disableRepositoryAutomation: vi.fn(),
+    getCurrentRepositoryUpdate: vi.fn(),
     getRepository: vi.fn(),
+    getRepositoryAutomationStatus: vi.fn(),
+    getRepositoryUpdateHistory: vi.fn(),
+    reconcileRepositoryAutomation: vi.fn(),
+    refreshRepositoryState: vi.fn(),
+    runRepositoryUpdate: vi.fn(),
     syncRepository: vi.fn()
   };
 });
@@ -227,14 +310,26 @@ vi.mock("@/features/dashboard/api/dashboard-api", async (importOriginal) => {
 });
 
 vi.mock("@/features/scans/components/repository-scan-action", () => ({
-  RepositoryScanAction: ({ repositoryId }: { repositoryId: string }) => (
-    <section>Scan action for {repositoryId}</section>
+  RepositoryScanAction: ({
+    buttonVariant,
+    repositoryId
+  }: {
+    buttonVariant?: "default" | "outline";
+    repositoryId: string;
+  }) => (
+    <section>
+      Scan action for {repositoryId}
+      <button type="button" data-variant={buttonVariant ?? "default"}>
+        Start scan
+      </button>
+    </section>
   )
 }));
 
 vi.mock("@/features/analysis/components/start-analysis-button", () => ({
   StartAnalysisButton: ({
     label,
+    pendingLabel,
     scanId
   }: {
     accessToken: string;
@@ -242,8 +337,9 @@ vi.mock("@/features/analysis/components/start-analysis-button", () => ({
     pendingLabel?: string;
     scanId: string;
   }) => (
-    <button type="button">
-      {label ?? "Analyze scan"} for {scanId}
+    <button type="button" disabled={analysisActionPending}>
+      {analysisActionPending ? (pendingLabel ?? "Analyzing") : (label ?? "Analyze scan")} for{" "}
+      {scanId}
     </button>
   )
 }));
@@ -259,6 +355,17 @@ describe("RepositoryDetailsView", () => {
     queryOptions.length = 0;
     accessToken = "access_token";
     repositoryQuery = { data: repository };
+    automationStatusQuery = {
+      data: {
+        automaticUpdates: {
+          capability: "CAN_MANAGE_WEBHOOK",
+          configuration: "ENABLED",
+          enabled: true,
+          lastOutcome: "WEBHOOK_ALREADY_CONFIGURED",
+          lastVerifiedAt: "2026-09-28T15:50:39.333Z"
+        }
+      } satisfies RepositoryAutomationStatus
+    };
     latestScanQuery = {
       data: {
         items: [scan],
@@ -271,9 +378,35 @@ describe("RepositoryDetailsView", () => {
       } satisfies ScanHistoryResponse
     };
     dashboardQuery = { data: dashboardResponse([projectSummary]) };
-    mutationOptions = null;
+    updateHistoryQuery = {
+      data: {
+        items: [completedUpdate],
+        pagination: {
+          page: 1,
+          pageSize: 5,
+          total: 1,
+          hasNextPage: false
+        }
+      } satisfies RepositoryUpdateHistoryResponse
+    };
+    currentUpdateQuery = {
+      data: {
+        update: null
+      } satisfies RepositoryCurrentUpdateResponse
+    };
+    mutationOptions.length = 0;
+    mutationErrors.length = 0;
     invalidateQueries.mockClear();
+    refetchAutomationStatus.mockClear();
+    analysisActionPending = false;
+    vi.mocked(getCurrentRepositoryUpdate).mockReset();
+    vi.mocked(disableRepositoryAutomation).mockReset();
     vi.mocked(getRepository).mockReset();
+    vi.mocked(getRepositoryAutomationStatus).mockReset();
+    vi.mocked(getRepositoryUpdateHistory).mockReset();
+    vi.mocked(refreshRepositoryState).mockReset();
+    vi.mocked(runRepositoryUpdate).mockReset();
+    vi.mocked(reconcileRepositoryAutomation).mockReset();
     vi.mocked(getScanHistory).mockReset();
     vi.mocked(listDashboardProjects).mockReset();
   });
@@ -298,13 +431,139 @@ describe("RepositoryDetailsView", () => {
     expect(markup).toContain("Project activity for repository_1");
   });
 
+  it("shows neutral RepositoryState freshness and commit information", () => {
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Freshness");
+    expect(markup).toContain("Unknown");
+    expect(markup).toContain("Remote HEAD");
+    expect(markup).toContain("Not available");
+    expect(markup).toContain("Current context");
+    expect(markup).toContain("Last scanned commit");
+    expect(markup).toContain("Last analyzed commit");
+    expect(markup).toContain("abcdef123456");
+    expect(markup).toContain("Update repository");
+    expect(markup).not.toContain("Up to date");
+  });
+
+  it("renders current update status and recent update history", () => {
+    currentUpdateQuery = {
+      data: {
+        update: {
+          ...completedUpdate,
+          id: "update_running",
+          status: "RUNNING",
+          startedAt: "2026-08-26T10:10:00.000Z",
+          completedAt: null,
+          targetCommitSha: "runningabcdef123456"
+        }
+      } satisfies RepositoryCurrentUpdateResponse
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Updates");
+    expect(markup).toContain("Current update");
+    expect(markup).toContain("Running");
+    expect(markup).toContain("runningabcde");
+    expect(markup).toContain("Completed");
+    expect(markup).toContain("bcdef1234567");
+  });
+
+  it("renders failed update history without exposing the internal failure reason", () => {
+    updateHistoryQuery = {
+      data: {
+        items: [
+          {
+            ...completedUpdate,
+            id: "update_failed",
+            status: "FAILED",
+            completedAt: null,
+            failedAt: "2026-08-26T10:09:00.000Z",
+            failureReason: "CONTEXT_GENERATION_FAILED",
+            projectContextId: null
+          }
+        ],
+        pagination: {
+          page: 1,
+          pageSize: 5,
+          total: 1,
+          hasNextPage: false
+        }
+      } satisfies RepositoryUpdateHistoryResponse
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Failed");
+    expect(markup).toContain("Any previously valid Project Context was not replaced.");
+    expect(markup).not.toContain("CONTEXT_GENERATION_FAILED");
+  });
+
+  it("renders empty update history", () => {
+    updateHistoryQuery = {
+      data: {
+        items: [],
+        pagination: {
+          page: 1,
+          pageSize: 5,
+          total: 0,
+          hasNextPage: false
+        }
+      } satisfies RepositoryUpdateHistoryResponse
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("No update in progress");
+    expect(markup).toContain("No repository updates yet");
+  });
+
+  it("renders update history loading and error states", () => {
+    updateHistoryQuery = { isLoading: true };
+    currentUpdateQuery = { isLoading: true };
+
+    expect(renderToStaticMarkup(<RepositoryDetailsView />)).toContain("Loading update status");
+
+    updateHistoryQuery = { isError: true };
+    currentUpdateQuery = { data: { update: null } satisfies RepositoryCurrentUpdateResponse };
+
+    expect(renderToStaticMarkup(<RepositoryDetailsView />)).toContain("Updates unavailable");
+  });
+
+  it.each([
+    ["FRESH", "Fresh"],
+    ["STALE", "Stale"],
+    ["UNKNOWN", "Unknown"]
+  ] as const)("renders %s freshness from RepositoryState", (freshnessStatus, label) => {
+    dashboardQuery = {
+      data: dashboardResponse([
+        {
+          ...projectSummary,
+          state: {
+            ...projectSummary.state!,
+            freshnessStatus,
+            remoteHeadCommitSha: "remoteabcdef123456",
+            currentContextCommitSha:
+              freshnessStatus === "FRESH" ? "remoteabcdef123456" : "contextabcdef123456"
+          }
+        }
+      ])
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain(label);
+    expect(markup).toContain("remoteabcdef");
+  });
+
   it("shows analysis access when analysis exists", () => {
     const markup = renderToStaticMarkup(<RepositoryDetailsView />);
 
     expect(markup).toContain("Analysis");
     expect(markup).toContain("Completed analysis available");
     expect(markup).toContain("Open analysis");
-    expect(markup).toContain("/analyses/analysis_1");
+    expect(markup).toContain('href="/analyses/analysis_1"');
     expect(markup).not.toContain("Analyze latest scan for scan_1");
   });
 
@@ -320,9 +579,125 @@ describe("RepositoryDetailsView", () => {
 
     const markup = renderToStaticMarkup(<RepositoryDetailsView />);
 
-    expect(markup).toContain("Latest scan is ready");
-    expect(markup).toContain("Analyze this completed scan to continue the project workflow.");
-    expect(markup).toContain("Analyze latest scan for scan_1");
+    expect(markup).toContain("Understand this project");
+    expect(markup).toContain("Analyze project for scan_1");
+  });
+
+  it("makes Start scan the one primary recommendation when no scan exists", () => {
+    latestScanQuery = {
+      data: {
+        items: [],
+        pagination: { page: 1, pageSize: 1, totalItems: 0, totalPages: 0 }
+      } satisfies ScanHistoryResponse
+    };
+    dashboardQuery = {
+      data: dashboardResponse([
+        { ...projectSummary, latestScan: null, latestAnalysis: null, latestContext: null }
+      ])
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Start with a repository scan");
+    expect(markup).toContain("Start scan");
+    expect(markup.match(/data-workflow-primary="true"/g)).toHaveLength(1);
+  });
+
+  it("shows authoritative scan activity without another Start scan action", () => {
+    latestScanQuery = {
+      data: {
+        items: [{ ...scan, status: "RUNNING", completedAt: null }],
+        pagination: { page: 1, pageSize: 1, totalItems: 1, totalPages: 1 }
+      } satisfies ScanHistoryResponse
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Scanning repository");
+    expect(markup).toContain("leave this page and return later");
+    expect(markup).not.toContain("Start scan");
+    expect(markup).not.toContain('data-workflow-primary="true"');
+  });
+
+  it("shows analysis as running without offering another Analyze project action", () => {
+    dashboardQuery = {
+      data: dashboardResponse([{ ...projectSummary, latestAnalysis: null }])
+    };
+    analysisActionPending = true;
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Understanding project for scan_1");
+    expect(markup).not.toContain("Analyze project for scan_1");
+    expect(markup.match(/data-workflow-primary="true"/g)).toHaveLength(1);
+  });
+
+  it("makes Generate Project Context primary after analysis completes", () => {
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Analysis is complete");
+    expect(markup).toContain('href="/analyses/analysis_1#project-context"');
+    expect(markup.match(/data-workflow-primary="true"/g)).toHaveLength(1);
+  });
+
+  it("makes AI Export primary and Documents secondary as soon as Context exists", () => {
+    dashboardQuery = {
+      data: dashboardResponse([
+        {
+          ...projectSummary,
+          latestContext: {
+            id: "project_context_1",
+            contextId: "context_1",
+            contextVersion: "context-engine@1",
+            generatedAt: "2026-08-26T10:04:00.000Z",
+            createdAt: "2026-08-26T10:04:01.000Z"
+          },
+          documents: { available: false, count: 0 },
+          aiExport: { available: true }
+        }
+      ])
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("The Project Context is ready to package for your AI tools.");
+    expect(markup).toContain('href="/analyses/analysis_1#ai-export"');
+    expect(markup).toContain("Open AI Export");
+    expect(markup).toContain('href="/analyses/analysis_1#documents"');
+    expect(markup).toContain("Generate documents");
+    expect(markup.match(/data-workflow-primary="true"/g)).toHaveLength(1);
+  });
+
+  it("prioritizes an active update without contradicting the persistent status", () => {
+    currentUpdateQuery = {
+      data: {
+        update: { ...completedUpdate, status: "RUNNING", completedAt: null }
+      } satisfies RepositoryCurrentUpdateResponse
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Updating Project Context");
+    expect(markup).not.toContain("Ready to use with AI");
+    expect(markup).not.toContain('data-workflow-primary="true"');
+  });
+
+  it("prioritizes safe update recovery without claiming the project is ready", () => {
+    dashboardQuery = {
+      data: dashboardResponse([
+        {
+          ...projectSummary,
+          state: { ...projectSummary.state!, freshnessStatus: "UPDATE_FAILED" }
+        }
+      ])
+    };
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Project update needs attention");
+    expect(markup).toContain("Review recovery options");
+    expect(markup).not.toContain("Ready to use with AI");
+    expect(markup.match(/data-workflow-primary="true"/g)).toHaveLength(1);
   });
 
   it("shows Context workflow access when analysis exists but Context is missing", () => {
@@ -331,7 +706,8 @@ describe("RepositoryDetailsView", () => {
     expect(markup).toContain("Project Context");
     expect(markup).toContain("Generated from analysis");
     expect(markup).toContain("Open Context workflow");
-    expect(markup).toContain("/analyses/analysis_1");
+    expect(markup).toContain('href="/analyses/analysis_1#project-context"');
+    expect(markup).not.toContain("/analyses/undefined");
   });
 
   it("shows Documents and AI Export access when Context exists", () => {
@@ -366,10 +742,13 @@ describe("RepositoryDetailsView", () => {
     expect(markup).toContain("AI Export");
     expect(markup).toContain("Available from Project Context");
     expect(markup).toContain("Open AI Export");
-    expect(markup).toContain("/analyses/analysis_1");
+    expect(markup).toContain('href="/analyses/analysis_1#project-context"');
+    expect(markup).toContain('href="/analyses/analysis_1#documents"');
+    expect(markup).toContain('href="/analyses/analysis_1#ai-export"');
+    expect(markup).not.toContain("/analyses/undefined");
   });
 
-  it("does not add per-project engine API requests beyond the existing workspace queries", async () => {
+  it("uses the dedicated automation-status query with the existing workspace queries", async () => {
     vi.mocked(getRepository).mockResolvedValue(repository);
     vi.mocked(getScanHistory).mockResolvedValue({
       items: [scan],
@@ -380,6 +759,9 @@ describe("RepositoryDetailsView", () => {
         totalPages: 1
       }
     });
+    vi.mocked(getRepositoryAutomationStatus).mockResolvedValue(
+      automationStatusQuery.data as RepositoryAutomationStatus
+    );
     vi.mocked(listDashboardProjects).mockResolvedValue(dashboardResponse([projectSummary]));
     renderToStaticMarkup(<RepositoryDetailsView />);
 
@@ -387,18 +769,82 @@ describe("RepositoryDetailsView", () => {
 
     expect(queryOptions.map((option) => option.queryKey)).toEqual([
       ["repositories", "repository_1"],
+      ["repositories", "repository_1", "automation"],
       ["scan-history", "repository_1", 1, 1],
-      ["dashboard", "projects"]
+      ["dashboard", "projects"],
+      ["repositories", "repository_1", "updates", 1, 5],
+      ["repositories", "repository_1", "updates", "current"]
     ]);
     expect(getRepository).toHaveBeenCalledTimes(1);
+    expect(getRepositoryAutomationStatus).toHaveBeenCalledWith("access_token", "repository_1");
     expect(getScanHistory).toHaveBeenCalledTimes(1);
     expect(listDashboardProjects).toHaveBeenCalledTimes(1);
+    expect(getRepositoryUpdateHistory).toHaveBeenCalledTimes(1);
+    expect(getCurrentRepositoryUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders the backend automatic-update status in the repository workspace", () => {
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Automatic Updates");
+    expect(markup).toContain(">Enabled<");
+    expect(markup).toContain(
+      "Your repository is automatically updated when changes are pushed to GitHub."
+    );
+  });
+
+  it("reconciles automation through the existing API client and refreshes relevant state", async () => {
+    vi.mocked(reconcileRepositoryAutomation).mockResolvedValue({
+      automaticUpdates: {
+        capability: "CAN_MANAGE_WEBHOOK",
+        configuration: "ENABLED",
+        enabled: true,
+        lastOutcome: "WEBHOOK_CREATED",
+        lastVerifiedAt: "2026-09-29T10:00:00.000Z"
+      }
+    });
+    renderToStaticMarkup(<RepositoryDetailsView />);
+
+    await mutationOptions[3]?.mutationFn();
+    await mutationOptions[3]?.onSuccess?.();
+
+    expect(reconcileRepositoryAutomation).toHaveBeenCalledWith("access_token", "repository_1");
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1", "automation"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1"]
+    });
+  });
+
+  it("disables automation through the existing API client and refreshes relevant state", async () => {
+    vi.mocked(disableRepositoryAutomation).mockResolvedValue({
+      automaticUpdates: {
+        capability: "CAN_MANAGE_WEBHOOK",
+        configuration: "NOT_CONFIGURED",
+        enabled: false,
+        lastOutcome: "WEBHOOK_DELETED",
+        lastVerifiedAt: "2026-09-29T14:00:00.000Z"
+      }
+    });
+    renderToStaticMarkup(<RepositoryDetailsView />);
+
+    await mutationOptions[4]?.mutationFn();
+    await mutationOptions[4]?.onSuccess?.();
+
+    expect(disableRepositoryAutomation).toHaveBeenCalledWith("access_token", "repository_1");
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1", "automation"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1"]
+    });
   });
 
   it("refreshes repository and dashboard state after metadata sync succeeds", async () => {
     renderToStaticMarkup(<RepositoryDetailsView />);
 
-    await mutationOptions?.onSuccess?.();
+    await mutationOptions[0]?.onSuccess?.();
 
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["dashboard", "projects"]
@@ -409,5 +855,93 @@ describe("RepositoryDetailsView", () => {
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["repositories", "repository_1"]
     });
+  });
+
+  it("refreshes repository freshness without triggering scan APIs", async () => {
+    vi.mocked(refreshRepositoryState).mockResolvedValue({
+      ...projectSummary.state!,
+      freshnessStatus: "FRESH",
+      remoteHeadCommitSha: "abcdef1234567890",
+      remoteHeadCheckedAt: "2026-09-22T12:30:00.000Z"
+    });
+    renderToStaticMarkup(<RepositoryDetailsView />);
+
+    await mutationOptions[1]?.mutationFn();
+    await mutationOptions[1]?.onSuccess?.();
+
+    expect(refreshRepositoryState).toHaveBeenCalledWith("access_token", "repository_1");
+    expect(getScanHistory).not.toHaveBeenCalled();
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1", "state"]
+    });
+  });
+
+  it("runs a manual repository update and refreshes repository state views", async () => {
+    vi.mocked(runRepositoryUpdate).mockResolvedValue({
+      noop: false,
+      updateId: "update_1",
+      status: "COMPLETED",
+      triggerType: "MANUAL",
+      baseCommitSha: "abcdef1234567890",
+      targetCommitSha: "bcdef12345678901",
+      scanId: "scan_2",
+      analysisId: "analysis_2",
+      projectContextId: "context_2",
+      freshnessStatus: "FRESH"
+    });
+    renderToStaticMarkup(<RepositoryDetailsView />);
+
+    await mutationOptions[2]?.mutationFn();
+    await mutationOptions[2]?.onSuccess?.({
+      noop: false,
+      updateId: "update_1",
+      status: "COMPLETED",
+      triggerType: "MANUAL",
+      baseCommitSha: "abcdef1234567890",
+      targetCommitSha: "bcdef12345678901",
+      scanId: "scan_2",
+      analysisId: "analysis_2",
+      projectContextId: "context_2",
+      freshnessStatus: "FRESH"
+    });
+
+    expect(runRepositoryUpdate).toHaveBeenCalledWith("access_token", "repository_1");
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "projects"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1", "state"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["scan-history", "repository_1"]
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["repositories", "repository_1", "updates"]
+    });
+  });
+
+  it("shows the structured monthly analysis quota reason for a failed repository update", () => {
+    mutationErrors[2] = new ApiRequestError("You have reached your monthly analysis limit.", 429, {
+      statusCode: 429,
+      error: "Quota Exceeded",
+      message: "You have reached your monthly analysis limit.",
+      quota: {
+        resource: "analyses",
+        limit: 3,
+        currentUsage: 3,
+        resetAt: "2026-10-01T00:00:00.000Z"
+      }
+    });
+
+    const markup = renderToStaticMarkup(<RepositoryDetailsView />);
+
+    expect(markup).toContain("Monthly analysis limit reached");
+    expect(markup).toContain("Your allowance will reset on October 1.");
+    expect(markup).not.toContain("Repository update failed.");
+    expect(markup).toContain("Update repository");
+    expect(markup).not.toContain("Updating");
   });
 });

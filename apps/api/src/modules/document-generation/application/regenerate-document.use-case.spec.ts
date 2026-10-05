@@ -49,7 +49,9 @@ const persistedRegeneratedDocument: PersistedGeneratedDocument = {
   ...regeneratedDocument
 };
 
-function createUseCase(options: { original?: PersistedGeneratedDocument | null } = {}) {
+function createUseCase(
+  options: { original?: PersistedGeneratedDocument | null; documentMonthlyLimit?: number } = {}
+) {
   const projectContextReader: ProjectContextReader = {
     readProjectContext: vi.fn(async () => ({
       projectContextId: "project_context_1",
@@ -84,12 +86,25 @@ function createUseCase(options: { original?: PersistedGeneratedDocument | null }
       documentGenerator,
       documentRepository,
       usageService,
-      operationLockService
+      operationLockService,
+      { documentMonthlyLimit: options.documentMonthlyLimit ?? 5 } as never
     )
   };
 }
 
 describe("RegenerateDocumentUseCase", () => {
+  it("enforces the configured monthly document limit when regenerating", async () => {
+    const { useCase, usageService } = createUseCase({ documentMonthlyLimit: 100 });
+
+    await useCase.execute({ userId: "user_1", documentId: "document_1" });
+
+    expect(usageService.assertMonthlyQuota).toHaveBeenCalledWith({
+      userId: "user_1",
+      resource: "documents",
+      limit: 100
+    });
+  });
+
   it("creates a new immutable artifact from the original document ProjectContext", async () => {
     const { useCase, projectContextReader, documentGenerator, documentRepository } =
       createUseCase();

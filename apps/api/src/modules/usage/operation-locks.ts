@@ -33,6 +33,14 @@ export function repositoryScanLock(repositoryId: string): OperationLockSpec {
   };
 }
 
+export function repositoryUpdateLock(repositoryId: string): OperationLockSpec {
+  return {
+    key: `repository:${repositoryId}:update`,
+    operationType: "repository.update",
+    leaseMs: V1_USAGE_LIMITS.lockLeaseMs.scan
+  };
+}
+
 export function scanAnalysisLock(scanId: string): OperationLockSpec {
   return {
     key: `scan:${scanId}:analysis`,
@@ -45,6 +53,14 @@ export function repositoryConnectLock(userId: string): OperationLockSpec {
   return {
     key: `user:${userId}:repository-connect`,
     operationType: "repository.connect",
+    leaseMs: V1_USAGE_LIMITS.lockLeaseMs.repositoryConnect
+  };
+}
+
+export function repositoryAutomationLock(repositoryId: string): OperationLockSpec {
+  return {
+    key: `repository:${repositoryId}:automation`,
+    operationType: "repository.automation",
     leaseMs: V1_USAGE_LIMITS.lockLeaseMs.repositoryConnect
   };
 }

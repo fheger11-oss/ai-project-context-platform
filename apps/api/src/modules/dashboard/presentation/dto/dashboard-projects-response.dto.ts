@@ -7,7 +7,8 @@ import type {
   DashboardProjectLatestScanSummary,
   DashboardProjectRepositorySummary,
   DashboardProjectSummary,
-  DashboardProjectsResponse
+  DashboardProjectsResponse,
+  RepositoryStateSummary
 } from "@ai-context/contracts";
 
 export type { DashboardProjectsResponse };
@@ -141,9 +142,41 @@ export class DashboardProjectAiExportSummaryDto implements DashboardProjectAiExp
   available!: boolean;
 }
 
+export class DashboardProjectRepositoryStateSummaryDto implements RepositoryStateSummary {
+  @ApiProperty()
+  repositoryId!: string;
+
+  @ApiProperty({ enum: ["UNKNOWN", "FRESH", "STALE", "UPDATE_FAILED"] })
+  freshnessStatus!: RepositoryStateSummary["freshnessStatus"];
+
+  @ApiProperty({ nullable: true })
+  remoteHeadCommitSha!: string | null;
+
+  @ApiProperty({ format: "date-time", nullable: true })
+  remoteHeadCheckedAt!: string | null;
+
+  @ApiProperty({ nullable: true })
+  lastScannedCommitSha!: string | null;
+
+  @ApiProperty({ nullable: true })
+  lastAnalyzedCommitSha!: string | null;
+
+  @ApiProperty({ nullable: true })
+  currentProjectContextId!: string | null;
+
+  @ApiProperty({ nullable: true })
+  currentContextCommitSha!: string | null;
+
+  @ApiProperty({ nullable: true })
+  lastUpdateStatus!: string | null;
+}
+
 export class DashboardProjectSummaryDto implements DashboardProjectSummary {
   @ApiProperty({ type: DashboardProjectRepositorySummaryDto })
   repository!: DashboardProjectRepositorySummaryDto;
+
+  @ApiProperty({ type: DashboardProjectRepositoryStateSummaryDto, nullable: true })
+  state!: DashboardProjectRepositoryStateSummaryDto | null;
 
   @ApiProperty({ type: DashboardProjectLatestScanSummaryDto, nullable: true })
   latestScan!: DashboardProjectLatestScanSummaryDto | null;

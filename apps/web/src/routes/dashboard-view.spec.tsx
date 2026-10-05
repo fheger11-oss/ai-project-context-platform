@@ -49,6 +49,7 @@ function project(
       isArchived: false,
       lastSyncedAt: "2026-08-26T10:00:00.000Z"
     },
+    state: null,
     latestScan: null,
     latestAnalysis: null,
     latestContext: null,
@@ -314,6 +315,69 @@ describe("DashboardView", () => {
     expect(markup).toContain("Start scan");
   });
 
+  it("displays repository freshness without inventing remote status", () => {
+    queryState = {
+      data: {
+        projects: [
+          project({
+            state: {
+              repositoryId: "repository_1",
+              freshnessStatus: "UNKNOWN",
+              remoteHeadCommitSha: null,
+              remoteHeadCheckedAt: null,
+              lastScannedCommitSha: "abcdef1234567890",
+              lastAnalyzedCommitSha: "abcdef1234567890",
+              currentProjectContextId: "project_context_1",
+              currentContextCommitSha: "abcdef1234567890",
+              lastUpdateStatus: null
+            }
+          })
+        ]
+      },
+      isSuccess: true
+    };
+
+    const markup = renderToStaticMarkup(<DashboardView />);
+
+    expect(markup).toContain("Freshness");
+    expect(markup).toContain("Unknown");
+    expect(markup).toContain("Context commit");
+    expect(markup).toContain("abcdef123456");
+    expect(markup).not.toContain("Up to date");
+  });
+
+  it.each([
+    ["FRESH", "Fresh"],
+    ["STALE", "Stale"],
+    ["UNKNOWN", "Unknown"]
+  ] as const)("displays %s dashboard freshness from RepositoryState", (freshnessStatus, label) => {
+    queryState = {
+      data: {
+        projects: [
+          project({
+            state: {
+              repositoryId: "repository_1",
+              freshnessStatus,
+              remoteHeadCommitSha: "abcdef1234567890",
+              remoteHeadCheckedAt: "2026-09-22T12:30:00.000Z",
+              lastScannedCommitSha: "abcdef1234567890",
+              lastAnalyzedCommitSha: "abcdef1234567890",
+              currentProjectContextId: "project_context_1",
+              currentContextCommitSha: "abcdef1234567890",
+              lastUpdateStatus: null
+            }
+          })
+        ]
+      },
+      isSuccess: true
+    };
+
+    const markup = renderToStaticMarkup(<DashboardView />);
+
+    expect(markup).toContain("Freshness");
+    expect(markup).toContain(label);
+  });
+
   it("displays analysis availability from the summary response", () => {
     queryState = {
       data: { projects: [project({ latestAnalysis, latestScan })] },
@@ -392,13 +456,13 @@ describe("DashboardView", () => {
       "with analysis but no context",
       project({ latestAnalysis, latestScan }),
       "Generate Context",
-      "/analyses/analysis_1"
+      "/analyses/analysis_1#project-context"
     ],
     [
       "with context",
       project({ latestAnalysis, latestContext, latestScan }),
       "Open Project Context",
-      "/analyses/analysis_1"
+      "/analyses/analysis_1#project-context"
     ]
   ])("sets primary next action for %s", (_label, summary, actionLabel, href) => {
     queryState = { data: { projects: [summary] }, isSuccess: true };

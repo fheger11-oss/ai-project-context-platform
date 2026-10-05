@@ -15,9 +15,10 @@ import { AuthModule } from "../auth/auth.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { RepositoriesModule } from "../repositories/repositories.module.js";
 import { UsageModule } from "../usage/usage.module.js";
+import { AppConfigModule } from "../config/app-config.module.js";
 
 @Module({
-  imports: [AuthModule, PrismaModule, RepositoriesModule, UsageModule],
+  imports: [AppConfigModule, AuthModule, PrismaModule, RepositoriesModule, UsageModule],
   controllers: [ScanController],
   providers: [
     ScanService,
@@ -39,6 +40,6 @@ import { UsageModule } from "../usage/usage.module.js";
       useClass: GitHubRepositoryContentProvider
     }
   ],
-  exports: [SCAN_REPOSITORY, REPOSITORY_OWNERSHIP_VERIFIER]
+  exports: [ScanService, SCAN_REPOSITORY, REPOSITORY_OWNERSHIP_VERIFIER]
 })
 export class ScanModule {}

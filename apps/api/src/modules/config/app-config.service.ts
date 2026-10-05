@@ -40,7 +40,11 @@ export class AppConfigService {
   }
 
   get swaggerEnabled() {
-    return this.nodeEnv !== "production" && this.appEnv !== "production";
+    return !this.isProduction;
+  }
+
+  get isProduction() {
+    return this.nodeEnv === "production" || this.appEnv === "production";
   }
 
   get databaseUrl() {
@@ -75,6 +79,31 @@ export class AppConfigService {
     return this.config.get("GITHUB_CALLBACK_URL", { infer: true });
   }
 
+  get githubWebhookSecret() {
+    return this.config.get("GITHUB_WEBHOOK_SECRET", { infer: true });
+  }
+  get githubWebhookCallbackUrl() {
+    return this.config.get("GITHUB_WEBHOOK_CALLBACK_URL", { infer: true });
+  }
+  get githubWebhookBodyLimitBytes() {
+    return this.config.get("GITHUB_WEBHOOK_BODY_LIMIT_BYTES", { infer: true });
+  }
+  get repositoryUpdateWorkerEnabled() {
+    return this.config.get("REPOSITORY_UPDATE_WORKER_ENABLED", { infer: true });
+  }
+  get repositoryUpdateWorkerPollIntervalMilliseconds() {
+    return this.config.get("REPOSITORY_UPDATE_WORKER_POLL_INTERVAL_MS", { infer: true });
+  }
+  get repositoryUpdateWorkerLeaseMilliseconds() {
+    return this.config.get("REPOSITORY_UPDATE_WORKER_LEASE_SECONDS", { infer: true }) * 1000;
+  }
+  get repositoryUpdateWorkerMaxAttempts() {
+    return this.config.get("REPOSITORY_UPDATE_WORKER_MAX_ATTEMPTS", { infer: true });
+  }
+  get repositoryUpdateWorkerBackoffBaseMilliseconds() {
+    return this.config.get("REPOSITORY_UPDATE_WORKER_BACKOFF_BASE_SECONDS", { infer: true }) * 1000;
+  }
+
   get webAuthCallbackUrl() {
     return this.config.get("WEB_AUTH_CALLBACK_URL", { infer: true });
   }
@@ -93,6 +122,10 @@ export class AppConfigService {
     return origins.split(",").map((origin) => origin.trim());
   }
 
+  get requestBodyLimitBytes() {
+    return this.config.get("REQUEST_BODY_LIMIT_BYTES", { infer: true });
+  }
+
   get rateLimitGlobalTtlMilliseconds() {
     return this.config.get("RATE_LIMIT_GLOBAL_TTL_SECONDS", { infer: true }) * 1000;
   }
@@ -107,5 +140,29 @@ export class AppConfigService {
 
   get rateLimitAuthMax() {
     return this.config.get("RATE_LIMIT_AUTH_MAX", { infer: true });
+  }
+
+  get scanMonthlyLimit() {
+    return this.config.get("SCAN_MONTHLY_LIMIT", { infer: true });
+  }
+
+  get analysisMonthlyLimit() {
+    return this.config.get("ANALYSIS_MONTHLY_LIMIT", { infer: true });
+  }
+
+  get contextMonthlyLimit() {
+    return this.config.get("CONTEXT_MONTHLY_LIMIT", { infer: true });
+  }
+
+  get documentMonthlyLimit() {
+    return this.config.get("DOCUMENT_MONTHLY_LIMIT", { infer: true });
+  }
+
+  get aiExportMonthlyLimit() {
+    return this.config.get("AI_EXPORT_MONTHLY_LIMIT", { infer: true });
+  }
+
+  get repositoryUpdateStaleThresholdMilliseconds() {
+    return this.config.get("REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS", { infer: true }) * 1000;
   }
 }

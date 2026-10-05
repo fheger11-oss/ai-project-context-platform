@@ -1,6 +1,7 @@
 import { ApiProperty } from "@nestjs/swagger";
 
 import { RepositoryVisibility } from "../../../generated/prisma/enums.js";
+import { RepositoryAutomationStatusResponseDto } from "./repository-automation-status-response.dto.js";
 
 export class RepositoryResponseDto {
   @ApiProperty({ type: String })
@@ -55,4 +56,9 @@ export class RepositoryResponseDto {
 export class RepositoryListResponseDto {
   @ApiProperty({ type: () => RepositoryResponseDto, isArray: true })
   repositories!: RepositoryResponseDto[];
+}
+
+export class ConnectRepositoryResponseDto extends RepositoryResponseDto {
+  @ApiProperty({ type: () => RepositoryAutomationStatusResponseDto })
+  automaticUpdates!: RepositoryAutomationStatusResponseDto["automaticUpdates"];
 }

@@ -54,7 +54,8 @@ describe("GenerateAndPersistProjectContextService", () => {
       readContextInputService,
       contextGenerator,
       usageService,
-      operationLockService
+      operationLockService,
+      { contextMonthlyLimit: 100 } as never
     );
 
     await expect(service.generate({ userId: "user_1", analysisId: "analysis_1" })).resolves.toBe(
@@ -67,7 +68,7 @@ describe("GenerateAndPersistProjectContextService", () => {
     expect(usageService.assertMonthlyQuota).toHaveBeenCalledWith({
       userId: "user_1",
       resource: "contexts",
-      limit: 3
+      limit: 100
     });
     expect(persistProjectContextService.save).toHaveBeenCalledWith(context);
   });

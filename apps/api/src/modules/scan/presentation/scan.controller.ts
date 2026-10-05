@@ -18,10 +18,12 @@ import {
   ApiQuery,
   ApiTags
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 
 import { Auth } from "../../auth/decorators/auth.decorator.js";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
+import { EXPENSIVE_OPERATION_RATE_LIMIT } from "../../config/rate-limit.config.js";
 import { ScanHistoryAnalysisQueryService } from "../application/scan-history-analysis-query.service.js";
 import { ScanService } from "../application/scan.service.js";
 import type { ScanSnapshot } from "../domain/contracts/scan-repository.contract.js";
@@ -89,6 +91,7 @@ export class ScanController {
   ) {}
 
   @Post("start")
+  @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
   @ApiCreatedResponse({
     description: "Repository scan snapshot created and completed.",
     schema: {

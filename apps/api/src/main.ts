@@ -1,16 +1,22 @@
 import "reflect-metadata";
 
-import { Logger, ValidationPipe, VersioningType } from "@nestjs/common";
+import { Logger, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import helmet from "helmet";
 
 import { AppModule } from "./modules/app/app.module.js";
 import { AppConfigService } from "./modules/config/app-config.service.js";
 import { GlobalExceptionFilter } from "./shared/filters/global-exception.filter.js";
+import { configureApiRouting, githubWebhookPath } from "./shared/http/api-routing.js";
+import {
+  createRequestBodyParsers,
+  createWebhookRawBodyParser
+} from "./shared/http/request-body-parsers.js";
+import { createSecurityHeadersMiddleware } from "./shared/http/security-headers.js";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
+    bodyParser: false,
     bufferLogs: true
   });
 
@@ -18,18 +24,19 @@ async function bootstrap() {
   const config = app.get(AppConfigService);
 
   app.useLogger(["error", "warn", "log", "debug", "verbose"]);
+  configureApiRouting(app, config);
+  app.use(
+    githubWebhookPath(config),
+    createWebhookRawBodyParser(config.githubWebhookBodyLimitBytes)
+  );
+  app.use(...createRequestBodyParsers(config.requestBodyLimitBytes));
   app.getHttpAdapter().getInstance().set("trust proxy", config.trustProxy);
-  app.use(helmet());
+  app.use(createSecurityHeadersMiddleware());
   app.enableCors({
     origin: config.corsOrigins,
     credentials: true
   });
   app.enableShutdownHooks();
-  app.setGlobalPrefix(config.apiPrefix);
-  app.enableVersioning({
-    type: VersioningType.URI,
-    defaultVersion: config.apiVersion
-  });
   app.useGlobalPipes(
     new ValidationPipe({
       forbidNonWhitelisted: true,
@@ -37,7 +44,7 @@ async function bootstrap() {
       whitelist: true
     })
   );
-  app.useGlobalFilters(new GlobalExceptionFilter());
+  app.useGlobalFilters(new GlobalExceptionFilter(config.isProduction));
 
   if (config.swaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()
@@ -65,6 +72,11 @@ async function bootstrap() {
 
   await app.listen(config.port, config.host);
 
+  logger.log(`Configuration: scanMonthlyLimit=${config.scanMonthlyLimit}`);
+  logger.log(`Configuration: analysisMonthlyLimit=${config.analysisMonthlyLimit}`);
+  logger.log(`Configuration: contextMonthlyLimit=${config.contextMonthlyLimit}`);
+  logger.log(`Configuration: documentMonthlyLimit=${config.documentMonthlyLimit}`);
+  logger.log(`Configuration: aiExportMonthlyLimit=${config.aiExportMonthlyLimit}`);
   logger.log(
     `API listening on http://${config.host}:${config.port}/${config.apiPrefix}/v${config.apiVersion}`
   );

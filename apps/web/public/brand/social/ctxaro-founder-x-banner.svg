@@ -1,0 +1,42 @@
+<svg width="1500" height="500" viewBox="0 0 1500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Building Ctxaro — Project context for AI coding tools.</title>
+  <defs>
+    <pattern id="grid" width="54" height="54" patternUnits="userSpaceOnUse">
+      <path d="M54 0H0V54" fill="none" stroke="#FFFFFF" stroke-opacity="0.032"/>
+    </pattern>
+    <radialGradient id="ambient" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1175 -42) rotate(105) scale(430 620)">
+      <stop stop-color="#45D39A" stop-opacity="0.105"/>
+      <stop offset="1" stop-color="#45D39A" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="edge" x1="430" y1="0" x2="660" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#45D39A"/>
+      <stop offset="1" stop-color="#45D39A" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1500" height="500" fill="#050706"/>
+  <rect width="1500" height="500" fill="url(#grid)"/>
+  <rect width="1500" height="500" fill="url(#ambient)"/>
+
+  <!-- Content begins beyond the desktop avatar overlap and stays inside X's central crop. -->
+  <g transform="translate(430 88)">
+    <g opacity="0.82" color="#45D39A" transform="translate(0 0)">
+      <rect width="48" height="48" rx="8" fill="#45D39A" fill-opacity="0.08"/>
+      <rect x="0.5" y="0.5" width="47" height="47" rx="7.5" stroke="#45D39A" stroke-opacity="0.18"/>
+      <g transform="translate(8 8)">
+        <path d="M16 4.5 25.5 10v12L16 27.5 6.5 22V10L16 4.5Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"/>
+        <path d="M16 10.5 21 13.35v5.3l-5 2.85-5-2.85v-5.3l5-2.85Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1"/>
+        <path d="M6.5 10 11 13.35M25.5 10 21 13.35M16 21.5v6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1"/>
+        <circle cx="16" cy="4.5" r="1.7" fill="currentColor"/>
+        <circle cx="6.5" cy="22" r="1.7" fill="currentColor"/>
+        <circle cx="25.5" cy="22" r="1.7" fill="currentColor"/>
+      </g>
+    </g>
+
+    <rect y="84" width="230" height="2" rx="1" fill="url(#edge)"/>
+    <text x="0" y="187" fill="#F7FAF8" font-family="Inter, ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="72" font-weight="600" letter-spacing="-2.8">Building Ctxaro</text>
+    <text x="2" y="249" fill="#AAB5B0" font-family="Inter, ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="28" font-weight="400" letter-spacing="-0.25">Project context for AI coding tools.</text>
+  </g>
+
+  <path d="M1499.5 0V500" stroke="#45D39A" stroke-opacity="0.16"/>
+</svg>

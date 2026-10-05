@@ -5,6 +5,8 @@ import { PROJECT_CONTEXT_READER } from "../context/domain/contracts/project-cont
 import { OperationLockService } from "../usage/operation-lock.service.js";
 import { UsageService } from "../usage/usage.service.js";
 import { UsageModule } from "../usage/usage.module.js";
+import { AppConfigModule } from "../config/app-config.module.js";
+import { AppConfigService } from "../config/app-config.service.js";
 import { GenerateAiExportUseCase } from "./application/generate-ai-export.use-case.js";
 import { ProjectContextAiExportProjector } from "./application/project-context-ai-export.projector.js";
 import {
@@ -18,7 +20,7 @@ import { PlainTextAiExportSerializer } from "./infrastructure/serializers/plain-
 import { AiExportController } from "./presentation/ai-export.controller.js";
 
 @Module({
-  imports: [ContextModule, UsageModule],
+  imports: [AppConfigModule, ContextModule, UsageModule],
   controllers: [AiExportController],
   providers: [
     {
@@ -41,21 +43,24 @@ import { AiExportController } from "./presentation/ai-export.controller.js";
         aiExportProjector: AiExportProjector,
         serializerRouter: AiExportSerializerRouter,
         usageService: UsageService,
-        operationLockService: OperationLockService
+        operationLockService: OperationLockService,
+        config: AppConfigService
       ) =>
         new GenerateAiExportUseCase(
           projectContextReader,
           aiExportProjector,
           serializerRouter,
           usageService,
-          operationLockService
+          operationLockService,
+          config
         ),
       inject: [
         PROJECT_CONTEXT_READER,
         AI_EXPORT_PROJECTOR,
         AiExportSerializerRouter,
         UsageService,
-        OperationLockService
+        OperationLockService,
+        AppConfigService
       ]
     }
   ],

@@ -26,6 +26,7 @@ import { ScanAnalysisHistoryController } from "./presentation/scan-analysis-hist
 import { ScanRepositoryCompletedScanResolver } from "./infrastructure/scan-repository-completed-scan.resolver.js";
 import { TypeScriptSourceParser } from "./infrastructure/typescript-source.parser.js";
 import { AuthModule } from "../auth/auth.module.js";
+import { AppConfigModule } from "../config/app-config.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { ScanModule } from "../scan/scan.module.js";
 import { UsageModule } from "../usage/usage.module.js";
@@ -41,6 +42,7 @@ describe("AnalysisModule", () => {
       ScanAnalysisHistoryController
     ]);
     expect(Reflect.getMetadata(MODULE_IMPORTS_METADATA, AnalysisModule) ?? []).toEqual([
+      AppConfigModule,
       AuthModule,
       PrismaModule,
       ScanModule,

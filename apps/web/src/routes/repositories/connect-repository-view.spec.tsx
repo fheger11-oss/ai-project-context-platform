@@ -1,5 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ConnectRepositoryResponse } from "@ai-context/contracts";
 
 import type { AvailableGitHubRepository } from "@/features/repositories/api/repositories-api";
 import {
@@ -7,6 +9,7 @@ import {
   disconnectRepository,
   listAvailableGitHubRepositories
 } from "@/features/repositories/api/repositories-api";
+import { startScan } from "@/features/scans/api/scan-api";
 import { ConnectRepositoryView } from "./connect-repository-view";
 
 type MutationOptions = {
@@ -23,6 +26,8 @@ type QueryOptions = {
 const invalidateQueries = vi.fn(async () => undefined);
 const refetch = vi.fn(async () => undefined);
 const mutationOptions: MutationOptions[] = [];
+let connectionResult: ConnectRepositoryResponse | undefined;
+let connectionSucceeded = false;
 
 const repository: AvailableGitHubRepository = {
   githubId: "github_1",
@@ -43,14 +48,30 @@ const repository: AvailableGitHubRepository = {
   isConnected: true
 };
 
+const connectedRepository: ConnectRepositoryResponse = {
+  ...repository,
+  id: "returned_repository_42",
+  githubId: repository.githubId,
+  lastSyncedAt: "2026-08-26T10:00:00.000Z",
+  automaticUpdates: {
+    capability: "CAN_MANAGE_WEBHOOK",
+    configuration: "ENABLED",
+    enabled: true,
+    lastOutcome: "WEBHOOK_CREATED",
+    lastVerifiedAt: "2026-08-26T10:00:00.000Z"
+  }
+};
+
 vi.mock("@tanstack/react-query", () => ({
   useMutation: (options: MutationOptions) => {
+    const isConnectionMutation = mutationOptions.length === 0;
     mutationOptions.push(options);
 
     return {
+      data: isConnectionMutation ? connectionResult : undefined,
       isError: false,
       isPending: false,
-      isSuccess: false,
+      isSuccess: isConnectionMutation && connectionSucceeded,
       mutate: vi.fn(),
       variables: undefined
     };
@@ -83,6 +104,16 @@ vi.mock("@/features/repositories/api/repositories-api", async (importOriginal) =
   };
 });
 
+vi.mock("@/features/scans/api/scan-api", () => ({
+  startScan: vi.fn()
+}));
+
+function LocationProbe() {
+  const location = useLocation();
+
+  return <span data-location={location.pathname} />;
+}
+
 describe("ConnectRepositoryView", () => {
   beforeEach(() => {
     mutationOptions.length = 0;
@@ -91,17 +122,29 @@ describe("ConnectRepositoryView", () => {
     vi.mocked(connectRepository).mockReset();
     vi.mocked(disconnectRepository).mockReset();
     vi.mocked(listAvailableGitHubRepositories).mockReset();
+    vi.mocked(startScan).mockReset();
+    connectionResult = undefined;
+    connectionSucceeded = false;
   });
 
+  function renderView() {
+    return renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/repositories/connect"]}>
+        <ConnectRepositoryView />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+  }
+
   it("renders available GitHub repositories", () => {
-    const markup = renderToStaticMarkup(<ConnectRepositoryView />);
+    const markup = renderView();
 
     expect(markup).toContain("owner/project");
     expect(markup).toContain("Disconnect");
   });
 
   it("discloses repository source storage before connection actions", () => {
-    const markup = renderToStaticMarkup(<ConnectRepositoryView />);
+    const markup = renderView();
 
     expect(markup).toContain("Repository data notice");
     expect(markup).toContain("store relevant non-binary source content");
@@ -109,7 +152,7 @@ describe("ConnectRepositoryView", () => {
   });
 
   it("refreshes dashboard and repository state after connect succeeds", async () => {
-    renderToStaticMarkup(<ConnectRepositoryView />);
+    renderView();
 
     await mutationOptions[0]?.onSuccess?.();
 
@@ -123,7 +166,7 @@ describe("ConnectRepositoryView", () => {
   });
 
   it("refreshes dashboard and repository state after disconnect succeeds", async () => {
-    renderToStaticMarkup(<ConnectRepositoryView />);
+    renderView();
 
     await mutationOptions[1]?.onSuccess?.();
 
@@ -134,5 +177,30 @@ describe("ConnectRepositoryView", () => {
       queryKey: ["repositories"]
     });
     expect(refetch).toHaveBeenCalled();
+  });
+
+  it("uses the connected repository response for the explicit Open project action", () => {
+    connectionResult = connectedRepository;
+    connectionSucceeded = true;
+
+    const markup = renderView();
+
+    expect(markup).toContain("Repository connected");
+    expect(markup).toContain("Repository metadata is stored and ready for scanning.");
+    expect(markup).toContain("Open project");
+    expect(markup).toContain('href="/repositories/returned_repository_42"');
+    expect(markup).toContain('data-location="/repositories/connect"');
+    expect(connectRepository).not.toHaveBeenCalled();
+    expect(startScan).not.toHaveBeenCalled();
+  });
+
+  it("falls back to Projects without producing an invalid repository URL", () => {
+    connectionSucceeded = true;
+
+    const markup = renderView();
+
+    expect(markup).toContain("View projects");
+    expect(markup).toContain('href="/repositories"');
+    expect(markup).not.toContain("/repositories/undefined");
   });
 });

@@ -14,6 +14,8 @@ type ErrorResponse = {
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
+  constructor(private readonly production = false) {}
+
   catch(exception: unknown, host: ArgumentsHost) {
     const context = host.switchToHttp();
     const request = context.getRequest<Request>();
@@ -24,10 +26,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const payload = this.toPayload(exception, status);
 
     if (status >= 500) {
-      this.logger.error(
-        `${request.method} ${safeRequestPath(request)} ${status}`,
-        exception instanceof Error ? exception.stack : undefined
-      );
+      const errorName = exception instanceof Error ? exception.name : typeof exception;
+      this.logger.error(`${request.method} ${safeRequestPath(request)} ${status} ${errorName}`);
     }
 
     response.status(status).json({
@@ -38,6 +38,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   }
 
   private toPayload(exception: unknown, status: number): ErrorResponse {
+    if (this.production && status >= 500) {
+      return {
+        statusCode: status,
+        message: "Internal server error",
+        error: "Internal Server Error"
+      };
+    }
+
     if (exception instanceof HttpException) {
       const response = exception.getResponse();
 

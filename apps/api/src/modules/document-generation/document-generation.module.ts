@@ -6,6 +6,8 @@ import { PrismaModule } from "../prisma/prisma.module.js";
 import { OperationLockService } from "../usage/operation-lock.service.js";
 import { UsageService } from "../usage/usage.service.js";
 import { UsageModule } from "../usage/usage.module.js";
+import { AppConfigModule } from "../config/app-config.module.js";
+import { AppConfigService } from "../config/app-config.service.js";
 import { ArchitectureDocumentationGenerator } from "./application/architecture-documentation.generator.js";
 import { GenerateDocumentUseCase } from "./application/generate-document.use-case.js";
 import { GetDocumentUseCase } from "./application/get-document.use-case.js";
@@ -34,7 +36,7 @@ import { PrismaDocumentRepository } from "./infrastructure/prisma-document.repos
 import { DocumentController } from "./presentation/document.controller.js";
 
 @Module({
-  imports: [ContextModule, PrismaModule, UsageModule],
+  imports: [AppConfigModule, ContextModule, PrismaModule, UsageModule],
   controllers: [DocumentController],
   providers: [
     {
@@ -64,21 +66,24 @@ import { DocumentController } from "./presentation/document.controller.js";
         documentGenerator: DocumentGenerator,
         documentRepository: DocumentRepository,
         usageService: UsageService,
-        operationLockService: OperationLockService
+        operationLockService: OperationLockService,
+        config: AppConfigService
       ) =>
         createGenerateDocumentUseCase(
           projectContextReader,
           documentGenerator,
           documentRepository,
           usageService,
-          operationLockService
+          operationLockService,
+          config
         ),
       inject: [
         PROJECT_CONTEXT_READER,
         DOCUMENT_GENERATOR,
         DOCUMENT_REPOSITORY,
         UsageService,
-        OperationLockService
+        OperationLockService,
+        AppConfigService
       ]
     },
     {
@@ -104,21 +109,24 @@ import { DocumentController } from "./presentation/document.controller.js";
         documentGenerator: DocumentGenerator,
         documentRepository: DocumentRepository,
         usageService: UsageService,
-        operationLockService: OperationLockService
+        operationLockService: OperationLockService,
+        config: AppConfigService
       ) =>
         new RegenerateDocumentUseCase(
           projectContextReader,
           documentGenerator,
           documentRepository,
           usageService,
-          operationLockService
+          operationLockService,
+          config
         ),
       inject: [
         PROJECT_CONTEXT_READER,
         DOCUMENT_GENERATOR,
         DOCUMENT_REPOSITORY,
         UsageService,
-        OperationLockService
+        OperationLockService,
+        AppConfigService
       ]
     }
   ],
@@ -139,13 +147,15 @@ function createGenerateDocumentUseCase(
   documentGenerator: DocumentGenerator,
   documentRepository: DocumentRepository,
   usageService: UsageService,
-  operationLockService: OperationLockService
+  operationLockService: OperationLockService,
+  config: AppConfigService
 ): GenerateDocumentUseCase {
   return new GenerateDocumentUseCase(
     projectContextReader,
     documentGenerator,
     documentRepository,
     usageService,
-    operationLockService
+    operationLockService,
+    config
   );
 }

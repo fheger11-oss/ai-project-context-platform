@@ -1,4 +1,10 @@
-import { ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException
+} from "@nestjs/common";
 
 import type { RepositoryModel } from "../../generated/prisma/models.js";
 import { PrismaService } from "../prisma/prisma.service.js";
@@ -10,6 +16,11 @@ import type { AuthenticatedUser } from "../auth/types/authenticated-user.js";
 import type { RepositoryResponseDto } from "./dto/repository-response.dto.js";
 import { GitHubRepositoryProvider } from "./providers/github-repository.provider.js";
 import type { GitHubRepositoryMetadata } from "./providers/github-repository.provider.js";
+import {
+  repositoryAutomationStatus,
+  type RepositoryAutomationStatus
+} from "./domain/repository-automation-status.js";
+import { RepositoryWebhookProvisioningService } from "./application/repository-webhook-provisioning.service.js";
 
 export type RepositoryScanAccessMetadata = {
   id: string;
@@ -30,7 +41,9 @@ export class RepositoriesService {
     @Inject(UsageService)
     private readonly usageService: UsageService,
     @Inject(OperationLockService)
-    private readonly operationLockService: OperationLockService
+    private readonly operationLockService: OperationLockService,
+    @Inject(RepositoryWebhookProvisioningService)
+    private readonly webhookProvisioning: RepositoryWebhookProvisioningService
   ) {}
 
   async listAvailableGitHubRepositories(user: AuthenticatedUser) {
@@ -67,7 +80,27 @@ export class RepositoriesService {
         githubId: repository.githubId
       });
 
-      return this.upsertRepository(user.id, repository);
+      const storedRepository = await this.upsertRepository(user.id, repository);
+      let automationStatus: RepositoryAutomationStatus;
+
+      try {
+        automationStatus = await this.webhookProvisioning.reconcile(
+          user,
+          storedRepository.id,
+          accessToken
+        );
+      } catch {
+        // Repository access and automatic-update provisioning are intentionally independent.
+        automationStatus = repositoryAutomationStatus("PROVIDER_UNAVAILABLE", "UNAVAILABLE", {
+          lastOutcome: "WEBHOOK_UNKNOWN_FAILURE",
+          lastVerifiedAt: null
+        });
+      }
+
+      return {
+        ...storedRepository,
+        ...automationStatus
+      };
     });
   }
 
@@ -93,6 +126,21 @@ export class RepositoriesService {
     }
 
     return this.toResponse(repository);
+  }
+
+  async getAutomationStatus(
+    user: AuthenticatedUser,
+    id: string
+  ): Promise<RepositoryAutomationStatus> {
+    return this.webhookProvisioning.getStatus(user, id);
+  }
+
+  reconcileAutomation(user: AuthenticatedUser, id: string): Promise<RepositoryAutomationStatus> {
+    return this.webhookProvisioning.reconcile(user, id);
+  }
+
+  disableAutomation(user: AuthenticatedUser, id: string): Promise<RepositoryAutomationStatus> {
+    return this.webhookProvisioning.disable(user, id);
   }
 
   async getScanAccessMetadataForUser(
@@ -137,9 +185,24 @@ export class RepositoriesService {
       throw new ForbiddenException("Repository belongs to another user");
     }
 
-    await this.prisma.repository.delete({
-      where: { id: repository.id }
-    });
+    const cleanupCompleted = await this.webhookProvisioning.cleanup(user, repository.id);
+
+    if (!cleanupCompleted) {
+      throw new ServiceUnavailableException(
+        "Automatic-update cleanup is pending; try disconnecting again"
+      );
+    }
+
+    // RepositoryContextHistory protects ProjectContext rows with RESTRICT. Remove only this
+    // repository's history rows first so the existing repository-owned cascade can complete.
+    await this.prisma.$transaction([
+      this.prisma.repositoryContextHistory.deleteMany({
+        where: { repositoryId: repository.id }
+      }),
+      this.prisma.repository.delete({
+        where: { id: repository.id }
+      })
+    ]);
   }
 
   async sync(user: AuthenticatedUser, id: string) {

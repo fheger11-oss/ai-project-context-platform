@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { getScanHistory, getScanLimits } from "@/features/scans/api/scan-api";
 import { ScanUsagePill } from "@/features/scans/components/scan-usage";
 import type { ShellContext } from "@/layouts/shell-context";
-import { repositoryDisplayName, repositoryOwner } from "@/layouts/shell-context";
+import { repositoryDisplayName } from "@/layouts/shell-context";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { useLayoutStore } from "@/stores/layout-store";
 
@@ -47,16 +47,6 @@ export function Topbar({ shellContext }: TopbarProps) {
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <div className="grid min-w-0 flex-1 gap-0.5">
           <Breadcrumbs shellContext={shellContext} />
-          <div className="flex min-w-0 items-center gap-2 md:hidden">
-            <span className="truncate text-sm font-medium text-foreground">
-              {repository ? repositoryDisplayName(repository) : shellContext.section}
-            </span>
-            {repository ? (
-              <span className="truncate text-xs text-muted-foreground">
-                {repositoryOwner(repository)}
-              </span>
-            ) : null}
-          </div>
         </div>
         <Separator orientation="vertical" className="hidden h-5 lg:block" />
         {repository ? <ProjectPill shellContext={shellContext} /> : null}
@@ -69,11 +59,14 @@ export function Topbar({ shellContext }: TopbarProps) {
   );
 }
 
-function Breadcrumbs({ shellContext }: { shellContext: ShellContext }) {
+export function Breadcrumbs({ shellContext }: { shellContext: ShellContext }) {
   const breadcrumbs = shellContext.breadcrumbs;
 
   return (
-    <nav className="hidden min-w-0 items-center gap-1 text-sm md:flex" aria-label="Breadcrumb">
+    <nav
+      className="flex min-w-0 items-center gap-1 overflow-hidden text-sm"
+      aria-label="Breadcrumb"
+    >
       <ol className="flex min-w-0 items-center gap-1">
         {breadcrumbs.map((breadcrumb, index) => {
           const isLast = index === breadcrumbs.length - 1;

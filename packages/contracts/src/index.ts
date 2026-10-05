@@ -81,6 +81,111 @@ export type {
 
 export type RepositoryVisibility = "PUBLIC" | "PRIVATE" | "INTERNAL";
 
+export type RepositoryAutomationCapability =
+  | "CAN_MANAGE_WEBHOOK"
+  | "CANNOT_MANAGE_WEBHOOK"
+  | "PROVIDER_ACCESS_DENIED"
+  | "PROVIDER_REPOSITORY_NOT_FOUND"
+  | "PROVIDER_AUTHORIZATION_REQUIRED"
+  | "PROVIDER_UNAVAILABLE";
+
+export type RepositoryAutomationStatus = {
+  automaticUpdates: {
+    capability: RepositoryAutomationCapability;
+    configuration:
+      | "NOT_CONFIGURED"
+      | "PROVISIONING"
+      | "ENABLED"
+      | "REQUIRES_ADMIN"
+      | "REQUIRES_AUTHORIZATION"
+      | "UNAVAILABLE"
+      | "FAILED"
+      | "CLEANUP_PENDING";
+    enabled: boolean;
+    lastOutcome:
+      | "WEBHOOK_CREATED"
+      | "WEBHOOK_ALREADY_CONFIGURED"
+      | "WEBHOOK_UPDATED"
+      | "WEBHOOK_NOT_AUTHORIZED"
+      | "WEBHOOK_PROVIDER_UNAVAILABLE"
+      | "WEBHOOK_CONFIGURATION_INVALID"
+      | "WEBHOOK_NOT_FOUND"
+      | "WEBHOOK_UNKNOWN_FAILURE"
+      | "WEBHOOK_DELETED"
+      | "WEBHOOK_ALREADY_DELETED"
+      | "WEBHOOK_CLEANUP_PENDING"
+      | null;
+    lastVerifiedAt: string | null;
+  };
+};
+
+export type RepositoryFreshnessStatus = "UNKNOWN" | "FRESH" | "STALE" | "UPDATE_FAILED";
+
+export type RepositoryUpdateStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
+
+export type RepositoryUpdateTriggerType = "MANUAL" | "WEBHOOK" | "SYSTEM";
+
+export type RunRepositoryUpdateRequest = Record<string, never>;
+
+export type RepositoryStateSummary = {
+  repositoryId: string;
+  freshnessStatus: RepositoryFreshnessStatus;
+  remoteHeadCommitSha: string | null;
+  remoteHeadCheckedAt: string | null;
+  lastScannedCommitSha: string | null;
+  lastAnalyzedCommitSha: string | null;
+  currentProjectContextId: string | null;
+  currentContextCommitSha: string | null;
+  lastUpdateStatus: string | null;
+};
+
+export type RepositoryUpdateResponse = {
+  noop: boolean;
+  updateId: string | null;
+  status: RepositoryUpdateStatus | null;
+  triggerType: RepositoryUpdateTriggerType;
+  baseCommitSha: string | null;
+  targetCommitSha: string;
+  scanId: string | null;
+  analysisId: string | null;
+  projectContextId: string | null;
+  freshnessStatus: RepositoryFreshnessStatus;
+};
+
+export type RepositoryUpdateSummary = {
+  id: string;
+  repositoryId: string;
+  triggerType: RepositoryUpdateTriggerType;
+  status: RepositoryUpdateStatus;
+  baseCommitSha: string | null;
+  targetCommitSha: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  failedAt: string | null;
+  failureReason: string | null;
+  scanId: string | null;
+  analysisId: string | null;
+  projectContextId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RepositoryUpdateDetail = RepositoryUpdateSummary;
+
+export type RepositoryUpdateHistoryResponse = {
+  items: RepositoryUpdateSummary[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    hasNextPage: boolean;
+  };
+};
+
+export type RepositoryCurrentUpdateResponse = {
+  update: RepositoryUpdateSummary | null;
+};
+
 export type RepositorySummary = {
   id: string;
   githubId: string;
@@ -99,6 +204,8 @@ export type RepositorySummary = {
   githubUpdatedAt: string;
   lastSyncedAt: string;
 };
+
+export type ConnectRepositoryResponse = RepositorySummary & RepositoryAutomationStatus;
 
 export type AvailableGitHubRepository = Omit<RepositorySummary, "id" | "lastSyncedAt"> & {
   connectedRepositoryId: string | null;

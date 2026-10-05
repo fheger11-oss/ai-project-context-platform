@@ -45,17 +45,17 @@ export function FinalCtaSection() {
       <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] p-4 shadow-[0_28px_100px_rgba(0,0,0,0.36)] sm:p-6 lg:grid lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:gap-10 lg:p-8">
         <div className="relative z-10">
           <p className="font-mono text-xs font-medium uppercase tracking-[0.24em] text-primary">
-            Ready to see your codebase differently?
+            Keep repository context current
           </p>
           <h2
             id="final-cta-title"
             className="mt-4 max-w-2xl text-4xl font-semibold leading-tight text-white sm:text-5xl lg:text-6xl"
           >
-            Turn your repository into context.
+            Build Project Context that can evolve with your repository.
           </h2>
           <p className="mt-5 max-w-xl text-base leading-8 text-muted-foreground">
-            Connect a GitHub repository and let Ctxaro turn its structure into reusable project
-            context, documentation, and AI-ready exports.
+            Connect a GitHub repository to build Project Context. Enable Automatic Updates when you
+            want eligible default-branch pushes to trigger verified context updates.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button asChild size="lg" className="landing-final-button h-11 px-5">
@@ -63,7 +63,7 @@ export function FinalCtaSection() {
                 href={githubLoginUrl}
                 onClick={() => analytics.track("github_login_started", { method: "github" })}
               >
-                Explore your repository
+                Connect your repository
                 <ArrowRight />
               </a>
             </Button>

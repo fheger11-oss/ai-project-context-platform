@@ -3,9 +3,11 @@ import { randomUUID } from "node:crypto";
 
 import { Analysis } from "../domain/analysis.js";
 import type { AnalysisResult } from "../domain/contracts/analysis-result.contract.js";
+import type { SourceFileStructure } from "../domain/source-structure/source-file-structure.js";
 import { ANALYSIS_ENGINE_VERSION } from "./analysis-engine-version.js";
 import { AnalysisInputService } from "./analysis-input.service.js";
 import { AnalysisPipelineService } from "./analysis-pipeline.service.js";
+import type { SourceStructureProcessingObserver } from "./source-structure-analysis.service.js";
 import { PersistAnalysisResultService } from "./persist-analysis-result.service.js";
 import {
   ANALYSIS_REPOSITORY,
@@ -27,6 +29,7 @@ import {
 } from "../../usage/operation-locks.js";
 import { UsageService } from "../../usage/usage.service.js";
 import { V1_USAGE_LIMITS } from "../../usage/v1-usage-limits.js";
+import { AppConfigService } from "../../config/app-config.service.js";
 
 export type RunAnalysisCommand = {
   userId: string;
@@ -51,10 +54,29 @@ export class RunAnalysisService {
     @Inject(UsageService)
     private readonly usageService: UsageService,
     @Inject(OperationLockService)
-    private readonly operationLockService: OperationLockService
+    private readonly operationLockService: OperationLockService,
+    @Inject(AppConfigService)
+    private readonly config: AppConfigService
   ) {}
 
   async run(command: RunAnalysisCommand): Promise<AnalysisResult> {
+    return this.execute(command);
+  }
+
+  // Internal incremental entry point; the caller has verified reuse against both snapshots.
+  async runWithSourceStructureReuse(
+    command: RunAnalysisCommand,
+    reusableSourceStructures: ReadonlyMap<string, SourceFileStructure>,
+    observer?: SourceStructureProcessingObserver
+  ): Promise<AnalysisResult> {
+    return this.execute(command, reusableSourceStructures, observer);
+  }
+
+  private async execute(
+    command: RunAnalysisCommand,
+    reusableSourceStructures?: ReadonlyMap<string, SourceFileStructure>,
+    observer?: SourceStructureProcessingObserver
+  ): Promise<AnalysisResult> {
     const scan = await this.scanRepository.getScan(command.scanId);
 
     if (!scan) {
@@ -73,7 +95,7 @@ export class RunAnalysisService {
     await this.usageService.assertMonthlyQuota({
       userId: command.userId,
       resource: "analyses",
-      limit: V1_USAGE_LIMITS.analysesPerMonth
+      limit: this.config.analysisMonthlyLimit
     });
 
     return this.operationLockService.withRenewingLocks(
@@ -97,7 +119,9 @@ export class RunAnalysisService {
           const result = await this.analysisPipelineService.analyze({
             analysis: acceptedAnalysis,
             input: analysisInput,
-            generatedAt: new Date()
+            generatedAt: new Date(),
+            ...(reusableSourceStructures ? { reusableSourceStructures } : {}),
+            ...(observer ? { sourceStructureProcessingObserver: observer } : {})
           });
 
           return await this.persistAnalysisResultService.save(result);

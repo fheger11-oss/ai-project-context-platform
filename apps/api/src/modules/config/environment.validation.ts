@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const LOCALHOST_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
+const PRODUCTION_PLACEHOLDER_PREFIX = "replace_with_";
 
 const environmentSchema = z
   .object({
@@ -16,10 +17,19 @@ const environmentSchema = z
     API_VERSION: z.string().regex(/^\d+$/).default("1"),
     SWAGGER_PATH: z.string().min(1).default("docs"),
     CORS_ORIGINS: z.string().min(1).default("http://localhost:5173,http://127.0.0.1:5173"),
+    REQUEST_BODY_LIMIT_BYTES: z.coerce.number().int().positive().max(1_048_576).default(32_768),
     RATE_LIMIT_GLOBAL_TTL_SECONDS: z.coerce.number().int().positive().default(60),
     RATE_LIMIT_GLOBAL_MAX: z.coerce.number().int().positive().default(300),
     RATE_LIMIT_AUTH_TTL_SECONDS: z.coerce.number().int().positive().default(60),
     RATE_LIMIT_AUTH_MAX: z.coerce.number().int().positive().default(10),
+    RATE_LIMIT_EXPENSIVE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
+    RATE_LIMIT_EXPENSIVE_MAX: z.coerce.number().int().positive().default(5),
+    SCAN_MONTHLY_LIMIT: z.coerce.number().int().positive().max(1_000_000).default(3),
+    ANALYSIS_MONTHLY_LIMIT: z.coerce.number().int().positive().max(1_000_000).default(3),
+    CONTEXT_MONTHLY_LIMIT: z.coerce.number().int().positive().max(1_000_000).default(3),
+    DOCUMENT_MONTHLY_LIMIT: z.coerce.number().int().positive().max(1_000_000).default(5),
+    AI_EXPORT_MONTHLY_LIMIT: z.coerce.number().int().positive().max(1_000_000).default(10),
+    REPOSITORY_UPDATE_STALE_THRESHOLD_SECONDS: z.coerce.number().int().positive().default(21_600),
     DATABASE_URL: z.string().url(),
     JWT_ACCESS_SECRET: z.string().min(32),
     JWT_REFRESH_SECRET: z.string().min(32),
@@ -28,6 +38,27 @@ const environmentSchema = z
     GITHUB_CLIENT_ID: z.string().min(1),
     GITHUB_CLIENT_SECRET: z.string().min(1),
     GITHUB_CALLBACK_URL: z.string().url(),
+    GITHUB_WEBHOOK_SECRET: z.string().min(32).optional(),
+    GITHUB_WEBHOOK_CALLBACK_URL: z.string().url().optional(),
+    GITHUB_WEBHOOK_BODY_LIMIT_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(1_048_576)
+      .default(262_144),
+    REPOSITORY_UPDATE_WORKER_ENABLED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+    REPOSITORY_UPDATE_WORKER_POLL_INTERVAL_MS: z.coerce.number().int().min(250).default(2_000),
+    REPOSITORY_UPDATE_WORKER_LEASE_SECONDS: z.coerce.number().int().min(30).default(900),
+    REPOSITORY_UPDATE_WORKER_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+    REPOSITORY_UPDATE_WORKER_BACKOFF_BASE_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(3600)
+      .default(30),
     WEB_AUTH_CALLBACK_URL: z.string().url().default("http://localhost:5173/auth/callback"),
     PROVIDER_TOKEN_ENCRYPTION_KEY: z.string().min(32)
   })
@@ -44,6 +75,22 @@ const environmentSchema = z
 
     if (!isProduction) {
       return;
+    }
+
+    if (!config.GITHUB_WEBHOOK_SECRET) {
+      context.addIssue({
+        code: "custom",
+        path: ["GITHUB_WEBHOOK_SECRET"],
+        message: "GITHUB_WEBHOOK_SECRET is required in production"
+      });
+    }
+
+    if (!config.GITHUB_WEBHOOK_CALLBACK_URL) {
+      context.addIssue({
+        code: "custom",
+        path: ["GITHUB_WEBHOOK_CALLBACK_URL"],
+        message: "GITHUB_WEBHOOK_CALLBACK_URL is required in production"
+      });
     }
 
     if (config.NODE_ENV !== "production") {
@@ -70,11 +117,35 @@ const environmentSchema = z
       });
     }
 
+    for (const field of [
+      "JWT_ACCESS_SECRET",
+      "JWT_REFRESH_SECRET",
+      "GITHUB_CLIENT_ID",
+      "GITHUB_CLIENT_SECRET",
+      "GITHUB_WEBHOOK_SECRET",
+      "PROVIDER_TOKEN_ENCRYPTION_KEY"
+    ] as const) {
+      if (config[field]?.toLowerCase().startsWith(PRODUCTION_PLACEHOLDER_PREFIX)) {
+        context.addIssue({
+          code: "custom",
+          path: [field],
+          message: `${field} must not use the documented placeholder in production`
+        });
+      }
+    }
+
     for (const origin of config.CORS_ORIGINS.split(",").map((value) => value.trim())) {
       assertProductionUrl(context, "CORS_ORIGINS", origin);
     }
 
     assertProductionUrl(context, "GITHUB_CALLBACK_URL", config.GITHUB_CALLBACK_URL);
+    if (config.GITHUB_WEBHOOK_CALLBACK_URL) {
+      assertProductionUrl(
+        context,
+        "GITHUB_WEBHOOK_CALLBACK_URL",
+        config.GITHUB_WEBHOOK_CALLBACK_URL
+      );
+    }
     assertProductionUrl(context, "WEB_AUTH_CALLBACK_URL", config.WEB_AUTH_CALLBACK_URL);
     assertProductionUrl(context, "DATABASE_URL", config.DATABASE_URL);
   });
@@ -108,7 +179,12 @@ function normalizePlatformPort(config: Record<string, unknown>) {
 
 function assertProductionUrl(
   context: z.RefinementCtx,
-  field: "CORS_ORIGINS" | "DATABASE_URL" | "GITHUB_CALLBACK_URL" | "WEB_AUTH_CALLBACK_URL",
+  field:
+    | "CORS_ORIGINS"
+    | "DATABASE_URL"
+    | "GITHUB_CALLBACK_URL"
+    | "GITHUB_WEBHOOK_CALLBACK_URL"
+    | "WEB_AUTH_CALLBACK_URL",
   value: string
 ) {
   let url: URL;
@@ -145,6 +221,18 @@ function assertProductionUrl(
       code: "custom",
       path: [field],
       message: `${field} cannot use localhost in production`
+    });
+  }
+
+  if (
+    field === "CORS_ORIGINS" &&
+    (url.origin !== value || url.username !== "" || url.password !== "")
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: [field],
+      message:
+        "CORS_ORIGINS entries must be exact origins without paths, credentials, queries, or fragments"
     });
   }
 }

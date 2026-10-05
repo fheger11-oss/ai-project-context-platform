@@ -34,4 +34,16 @@ describe("resolveApiUrl", () => {
       "https://api.ctxaro.com/api/v1"
     );
   });
+
+  it("rejects production URLs without the versioned API base path", () => {
+    expect(() => resolveApiUrl({ PROD: true, VITE_API_URL: "https://api.ctxaro.com" })).toThrow(
+      /must end with \/api\/v1/
+    );
+  });
+
+  it("rejects public production configuration containing URL credentials", () => {
+    expect(() =>
+      resolveApiUrl({ PROD: true, VITE_API_URL: "https://user:secret@api.ctxaro.com/api/v1" })
+    ).toThrow(/must not contain credentials/);
+  });
 });

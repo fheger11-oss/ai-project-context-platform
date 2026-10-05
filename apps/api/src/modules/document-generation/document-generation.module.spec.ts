@@ -10,6 +10,8 @@ import { PrismaModule } from "../prisma/prisma.module.js";
 import { OperationLockService } from "../usage/operation-lock.service.js";
 import { UsageService } from "../usage/usage.service.js";
 import { UsageModule } from "../usage/usage.module.js";
+import { AppConfigModule } from "../config/app-config.module.js";
+import { AppConfigService } from "../config/app-config.service.js";
 import { GenerateDocumentUseCase } from "./application/generate-document.use-case.js";
 import { GetDocumentUseCase } from "./application/get-document.use-case.js";
 import { ListDocumentHistoryUseCase } from "./application/list-document-history.use-case.js";
@@ -37,6 +39,7 @@ const MODULE_EXPORTS_METADATA = "exports";
 describe("DocumentGenerationModule", () => {
   it("registers the Document Generation API, generator, renderer, and persistence boundaries", () => {
     expect(Reflect.getMetadata(MODULE_IMPORTS_METADATA, DocumentGenerationModule) ?? []).toEqual([
+      AppConfigModule,
       ContextModule,
       PrismaModule,
       UsageModule
@@ -66,7 +69,8 @@ describe("DocumentGenerationModule", () => {
           DOCUMENT_GENERATOR,
           DOCUMENT_REPOSITORY,
           UsageService,
-          OperationLockService
+          OperationLockService,
+          AppConfigService
         ]
       },
       {
@@ -87,7 +91,8 @@ describe("DocumentGenerationModule", () => {
           DOCUMENT_GENERATOR,
           DOCUMENT_REPOSITORY,
           UsageService,
-          OperationLockService
+          OperationLockService,
+          AppConfigService
         ]
       }
     ]);

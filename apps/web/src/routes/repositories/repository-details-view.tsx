@@ -14,10 +14,12 @@ import {
   Star
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { StatePanel } from "@/components/shared/state-panel";
+import { ErrorNotice } from "@/components/shared/error-notice";
 import { StatusDot } from "@/components/shared/status-dot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,8 +27,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
-import { getRepository, syncRepository } from "@/features/repositories/api/repositories-api";
+import {
+  disableRepositoryAutomation,
+  getCurrentRepositoryUpdate,
+  getRepository,
+  getRepositoryAutomationStatus,
+  getRepositoryUpdateHistory,
+  reconcileRepositoryAutomation,
+  refreshRepositoryState,
+  runRepositoryUpdate,
+  syncRepository
+} from "@/features/repositories/api/repositories-api";
 import type { RepositorySummary } from "@/features/repositories/api/repositories-api";
+import { AutomaticUpdatesPanel } from "@/features/repositories/components/automatic-updates-panel";
 import { getScanHistory, type ScanSnapshot } from "@/features/scans/api/scan-api";
 import { StartAnalysisButton } from "@/features/analysis/components/start-analysis-button";
 import { RepositoryScanAction } from "@/features/scans/components/repository-scan-action";
@@ -34,8 +47,13 @@ import { ScanHistory } from "@/features/scans/components/scan-history";
 import { limitReasonLabel } from "@/features/scans/utils/scan-usage";
 import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
 import { analytics } from "@/lib/analytics";
+import { userFacingError } from "@/lib/api-error";
 import { productPipelineStages, type ProductPipelineStageKey } from "@/lib/product-pipeline";
-import type { DashboardProjectSummary } from "@ai-context/contracts";
+import type {
+  DashboardProjectSummary,
+  RepositoryUpdateResponse,
+  RepositoryUpdateSummary
+} from "@ai-context/contracts";
 
 function repositoryName(fullName: string): string {
   const parts = fullName.split("/");
@@ -47,6 +65,22 @@ function displayDate(value: string): string {
   return new Date(value).toLocaleString();
 }
 
+function shortCommit(value: string): string {
+  return value.length > 12 ? value.slice(0, 12) : value;
+}
+
+function freshnessLabel(value: DashboardProjectSummary["state"] | null): string {
+  if (!value) {
+    return "Unknown";
+  }
+
+  if (value.freshnessStatus === "UPDATE_FAILED") {
+    return "Update failed";
+  }
+
+  return value.freshnessStatus.toLowerCase().replace(/^\w/, (char) => char.toUpperCase());
+}
+
 export function RepositoryDetailsView() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -54,6 +88,11 @@ export function RepositoryDetailsView() {
   const repositoryQuery = useQuery({
     queryKey: ["repositories", id],
     queryFn: () => getRepository(apiAccessToken, id ?? ""),
+    enabled: Boolean(apiAccessToken && id)
+  });
+  const automationStatusQuery = useQuery({
+    queryKey: ["repositories", id, "automation"],
+    queryFn: () => getRepositoryAutomationStatus(apiAccessToken, id ?? ""),
     enabled: Boolean(apiAccessToken && id)
   });
   const latestScanQuery = useQuery({
@@ -64,6 +103,16 @@ export function RepositoryDetailsView() {
   const dashboardProjectsQuery = useQuery({
     queryKey: ["dashboard", "projects"],
     queryFn: () => listDashboardProjects(apiAccessToken),
+    enabled: Boolean(apiAccessToken && id)
+  });
+  const updateHistoryQuery = useQuery({
+    queryKey: ["repositories", id, "updates", 1, 5],
+    queryFn: () => getRepositoryUpdateHistory(apiAccessToken, id ?? "", 1, 5),
+    enabled: Boolean(apiAccessToken && id)
+  });
+  const currentUpdateQuery = useQuery({
+    queryKey: ["repositories", id, "updates", "current"],
+    queryFn: () => getCurrentRepositoryUpdate(apiAccessToken, id ?? ""),
     enabled: Boolean(apiAccessToken && id)
   });
   const syncMutation = useMutation({
@@ -80,10 +129,57 @@ export function RepositoryDetailsView() {
       analytics.track("repository_sync_failed", { reason: "UNKNOWN" });
     }
   });
+  const refreshStateMutation = useMutation({
+    mutationFn: () => refreshRepositoryState(apiAccessToken, id ?? ""),
+    onSuccess: async () => {
+      analytics.track("repository_state_refresh_completed");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["repositories", id, "state"] })
+      ]);
+    },
+    onError: () => {
+      analytics.track("repository_state_refresh_failed", { reason: "UNKNOWN" });
+    }
+  });
+  const repositoryUpdateMutation = useMutation({
+    mutationFn: () => runRepositoryUpdate(apiAccessToken, id ?? ""),
+    onSuccess: async (result) => {
+      analytics.track("repository_update_completed", { noop: result.noop });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "projects"] }),
+        queryClient.invalidateQueries({ queryKey: ["repositories", id, "state"] }),
+        queryClient.invalidateQueries({ queryKey: ["scan-history", id] }),
+        queryClient.invalidateQueries({ queryKey: ["repositories", id, "updates"] })
+      ]);
+    },
+    onError: () => {
+      analytics.track("repository_update_failed", { reason: "UNKNOWN" });
+    }
+  });
+  const reconcileAutomationMutation = useMutation({
+    mutationFn: () => reconcileRepositoryAutomation(apiAccessToken, id ?? ""),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["repositories", id, "automation"] }),
+        queryClient.invalidateQueries({ queryKey: ["repositories", id] })
+      ]);
+    }
+  });
+  const disableAutomationMutation = useMutation({
+    mutationFn: () => disableRepositoryAutomation(apiAccessToken, id ?? ""),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["repositories", id, "automation"] }),
+        queryClient.invalidateQueries({ queryKey: ["repositories", id] })
+      ]);
+    }
+  });
   const repository = repositoryQuery.data;
   const latestScan = latestScanQuery.data?.items[0] ?? null;
   const projectSummary =
     dashboardProjectsQuery.data?.projects.find((project) => project.repository.id === id) ?? null;
+  const currentUpdate = currentUpdateQuery.data?.update ?? null;
 
   function handleSyncRepository() {
     if (syncMutation.isPending) {
@@ -160,8 +256,20 @@ export function RepositoryDetailsView() {
   }
 
   return (
-    <section className="grid gap-5">
+    <section id="overview" className="grid scroll-mt-40 gap-5">
       <ProjectHeader repository={repository} />
+      <ProjectWorkflowRecommendation
+        accessToken={apiAccessToken}
+        currentUpdate={currentUpdate}
+        isLoading={
+          latestScanQuery.isLoading ||
+          dashboardProjectsQuery.isLoading ||
+          currentUpdateQuery.isLoading
+        }
+        latestScan={latestScan}
+        projectSummary={projectSummary}
+        repositoryId={repository.id}
+      />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="grid gap-4">
@@ -170,19 +278,42 @@ export function RepositoryDetailsView() {
             projectSummary={projectSummary}
             repositoryLoaded
           />
+          <RepositoryUpdatesPanel
+            currentUpdate={currentUpdate}
+            history={updateHistoryQuery.data?.items ?? []}
+            isError={updateHistoryQuery.isError || currentUpdateQuery.isError}
+            isLoading={updateHistoryQuery.isLoading || currentUpdateQuery.isLoading}
+          />
           <ScanHistory accessToken={apiAccessToken} repositoryId={repository.id} />
           <ProjectMetadata repository={repository} />
         </div>
 
         <aside className="grid content-start gap-3" aria-label="Project actions">
-          <RepositoryScanAction accessToken={apiAccessToken} repositoryId={repository.id} />
+          {latestScan?.status === "COMPLETED" ? (
+            <RepositoryScanAction
+              accessToken={apiAccessToken}
+              buttonVariant="outline"
+              repositoryId={repository.id}
+            />
+          ) : null}
+          <AutomaticUpdatesPanel
+            disableError={disableAutomationMutation.error}
+            error={automationStatusQuery.error}
+            isDisabling={disableAutomationMutation.isPending}
+            isLoading={automationStatusQuery.isLoading}
+            isReconciling={reconcileAutomationMutation.isPending}
+            isRetryingStatus={automationStatusQuery.isFetching}
+            onDisable={(onSuccess) => disableAutomationMutation.mutate(undefined, { onSuccess })}
+            onReconcile={() => reconcileAutomationMutation.mutate()}
+            onRetryStatus={() => void automationStatusQuery.refetch()}
+            reconcileError={reconcileAutomationMutation.error}
+            status={automationStatusQuery.data}
+          />
           <WorkflowAccess
             isLoading={dashboardProjectsQuery.isLoading}
             isError={dashboardProjectsQuery.isError}
-            latestScan={latestScan}
             projectSummary={projectSummary}
             repositoryId={repository.id}
-            accessToken={apiAccessToken}
           />
           <Card>
             <CardHeader>
@@ -226,7 +357,19 @@ export function RepositoryDetailsView() {
               </div>
             </CardContent>
           </Card>
-          <CurrentState repository={repository} latestScan={latestScan} />
+          <CurrentState
+            repository={repository}
+            latestScan={latestScan}
+            projectSummary={projectSummary}
+            isRefreshing={refreshStateMutation.isPending}
+            isUpdating={repositoryUpdateMutation.isPending}
+            refreshError={refreshStateMutation.error}
+            refreshSucceeded={refreshStateMutation.isSuccess}
+            updateError={repositoryUpdateMutation.error}
+            updateResult={repositoryUpdateMutation.data ?? null}
+            onRefresh={() => refreshStateMutation.mutate()}
+            onUpdate={() => repositoryUpdateMutation.mutate()}
+          />
         </aside>
       </div>
     </section>
@@ -272,6 +415,114 @@ function ProjectHeader({ repository }: { repository: RepositorySummary }) {
         </div>
       </div>
     </header>
+  );
+}
+
+function ProjectWorkflowRecommendation({
+  accessToken,
+  currentUpdate,
+  isLoading,
+  latestScan,
+  projectSummary,
+  repositoryId
+}: {
+  accessToken: string;
+  currentUpdate: RepositoryUpdateSummary | null;
+  isLoading: boolean;
+  latestScan: ScanSnapshot | null;
+  projectSummary: DashboardProjectSummary | null;
+  repositoryId: string;
+}) {
+  const analysisHref = projectSummary?.latestAnalysis
+    ? `/analyses/${encodeURIComponent(projectSummary.latestAnalysis.analysisId)}`
+    : null;
+  const updateIsActive = currentUpdate?.status === "PENDING" || currentUpdate?.status === "RUNNING";
+  const updateFailed =
+    currentUpdate?.status === "FAILED" ||
+    projectSummary?.state?.freshnessStatus === "UPDATE_FAILED";
+  const scanIsActive = latestScan?.status === "PENDING" || latestScan?.status === "RUNNING";
+  const scanIsComplete = latestScan?.status === "COMPLETED";
+
+  let title = "Loading next step";
+  let description = "Checking the current project workflow state.";
+  let action: ReactNode = null;
+  let secondaryAction: ReactNode = null;
+
+  if (!isLoading && updateIsActive) {
+    title = "Updating Project Context";
+    description = projectSummary?.latestContext
+      ? "Ctxaro is processing repository changes. Your current Project Context remains available while the update completes."
+      : "Ctxaro is processing repository changes. You can leave this page and return later.";
+  } else if (!isLoading && updateFailed) {
+    title = "Project update needs attention";
+    description = projectSummary?.latestContext
+      ? "The latest update did not complete. Your previous Project Context remains available."
+      : "The latest update did not complete. Review the existing recovery options before continuing.";
+    action = (
+      <Button asChild>
+        <Link to="#project-state">Review recovery options</Link>
+      </Button>
+    );
+  } else if (!isLoading && scanIsActive) {
+    title = "Scanning repository";
+    description =
+      "Ctxaro is capturing the project for analysis. You can leave this page and return later.";
+  } else if (!isLoading && !scanIsComplete) {
+    title = "Start with a repository scan";
+    description = "Capture the repository so Ctxaro can understand its structure and dependencies.";
+    action = <RepositoryScanAction accessToken={accessToken} repositoryId={repositoryId} />;
+  } else if (!isLoading && !projectSummary?.latestAnalysis && latestScan) {
+    title = "Understand this project";
+    description =
+      "The repository snapshot is ready. Analyze it to build structured project understanding.";
+    action = (
+      <StartAnalysisButton
+        accessToken={accessToken}
+        label="Analyze project"
+        pendingLabel="Understanding project"
+        scanId={latestScan.id}
+      />
+    );
+  } else if (!isLoading && analysisHref && !projectSummary?.latestContext) {
+    title = "Generate Project Context";
+    description =
+      "Analysis is complete. Turn the project understanding into reusable Project Context.";
+    action = (
+      <Button asChild>
+        <Link to={`${analysisHref}#project-context`}>Generate Project Context</Link>
+      </Button>
+    );
+  } else if (!isLoading && analysisHref && projectSummary?.latestContext) {
+    title = "Ready to use with AI";
+    description = "The Project Context is ready to package for your AI tools.";
+    action = (
+      <Button asChild>
+        <Link to={`${analysisHref}#ai-export`}>Open AI Export</Link>
+      </Button>
+    );
+    secondaryAction = (
+      <Button asChild variant="outline">
+        <Link to={`${analysisHref}#documents`}>Generate documents</Link>
+      </Button>
+    );
+  }
+
+  return (
+    <Card aria-label="Project next step" emphasis="primary">
+      <CardContent className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:justify-between md:p-5">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase text-primary">Next step</p>
+          <h2 className="mt-1 text-lg font-semibold text-foreground">{title}</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>
+        </div>
+        {action || secondaryAction ? (
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {action ? <div data-workflow-primary="true">{action}</div> : null}
+            {secondaryAction}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -321,6 +572,139 @@ function ProjectPipeline({
       </CardContent>
     </Card>
   );
+}
+
+function RepositoryUpdatesPanel({
+  currentUpdate,
+  history,
+  isError,
+  isLoading
+}: {
+  currentUpdate: RepositoryUpdateSummary | null;
+  history: RepositoryUpdateSummary[];
+  isError: boolean;
+  isLoading: boolean;
+}) {
+  return (
+    <Card id="updates" className="scroll-mt-40">
+      <CardHeader>
+        <CardTitle>Updates</CardTitle>
+        <CardDescription>
+          Manual repository update status and recent update attempts.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        <div className="rounded-md border bg-surface/60 p-3">
+          <p className="text-sm font-medium text-foreground">Current update</p>
+          {isLoading ? (
+            <p className="mt-1 text-xs text-muted-foreground">Loading update status.</p>
+          ) : currentUpdate ? (
+            <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-2">
+                <Badge tone="warning">{repositoryUpdateStatusLabel(currentUpdate.status)}</Badge>
+                <span title={currentUpdate.targetCommitSha}>
+                  Target {shortCommit(currentUpdate.targetCommitSha)}
+                </span>
+              </span>
+              <span>
+                {currentUpdate.startedAt
+                  ? `Started ${displayDate(currentUpdate.startedAt)}`
+                  : `Created ${displayDate(currentUpdate.createdAt)}`}
+              </span>
+            </div>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">No update in progress.</p>
+          )}
+        </div>
+
+        {isError ? (
+          <StatePanel
+            className="p-3"
+            description="Repository update history could not be loaded."
+            title="Updates unavailable"
+            tone="error"
+          />
+        ) : null}
+
+        {!isLoading && !isError && history.length === 0 ? (
+          <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+            No repository updates yet.
+          </p>
+        ) : null}
+
+        {!isError && history.length > 0 ? (
+          <ol className="grid gap-2">
+            {history.map((update) => (
+              <li key={update.id} className="rounded-md border bg-card/70 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge tone={repositoryUpdateStatusTone(update.status)}>
+                      {repositoryUpdateStatusLabel(update.status)}
+                    </Badge>
+                    <span className="text-xs uppercase text-muted-foreground">
+                      {update.triggerType.toLowerCase()}
+                    </span>
+                  </div>
+                  <span
+                    className="font-mono text-xs text-subtle-foreground"
+                    title={update.targetCommitSha}
+                  >
+                    {shortCommit(update.targetCommitSha)}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {repositoryUpdateTimestamp(update)}
+                </p>
+                {update.status === "FAILED" ? (
+                  <p className="mt-1 text-xs text-destructive">
+                    Update did not complete. Any previously valid Project Context was not replaced.
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function repositoryUpdateStatusLabel(status: RepositoryUpdateSummary["status"]): string {
+  return status.toLowerCase().replace(/^\w/, (char) => char.toUpperCase());
+}
+
+function repositoryUpdateStatusTone(
+  status: RepositoryUpdateSummary["status"]
+): "success" | "warning" | "error" | "muted" {
+  if (status === "COMPLETED") {
+    return "success";
+  }
+
+  if (status === "FAILED") {
+    return "error";
+  }
+
+  if (status === "RUNNING" || status === "PENDING") {
+    return "warning";
+  }
+
+  return "muted";
+}
+
+function repositoryUpdateTimestamp(update: RepositoryUpdateSummary): string {
+  if (update.completedAt) {
+    return `Completed ${displayDate(update.completedAt)}`;
+  }
+
+  if (update.failedAt) {
+    return `Failed ${displayDate(update.failedAt)}`;
+  }
+
+  if (update.startedAt) {
+    return `Started ${displayDate(update.startedAt)}`;
+  }
+
+  return `Created ${displayDate(update.createdAt)}`;
 }
 
 function stageState(
@@ -415,27 +799,22 @@ function stageDescription(
 }
 
 function WorkflowAccess({
-  accessToken,
   isError,
   isLoading,
-  latestScan,
   projectSummary,
   repositoryId
 }: {
-  accessToken: string;
   isError: boolean;
   isLoading: boolean;
-  latestScan: ScanSnapshot | null;
   projectSummary: DashboardProjectSummary | null;
   repositoryId: string;
 }) {
   const analysisHref = projectSummary?.latestAnalysis
     ? `/analyses/${encodeURIComponent(projectSummary.latestAnalysis.analysisId)}`
     : null;
-  const canAnalyzeLatestScan = Boolean(
-    latestScan?.status === "COMPLETED" && !projectSummary?.latestAnalysis
-  );
-
+  const contextHref = analysisHref ? `${analysisHref}#project-context` : null;
+  const documentsHref = analysisHref ? `${analysisHref}#documents` : null;
+  const aiExportHref = analysisHref ? `${analysisHref}#ai-export` : null;
   return (
     <Card>
       <CardHeader>
@@ -477,20 +856,6 @@ function WorkflowAccess({
               href={analysisHref}
               actionLabel="Open analysis"
             />
-            {canAnalyzeLatestScan && latestScan ? (
-              <div className="grid gap-2 rounded-md border border-dashed p-3">
-                <p className="text-sm font-medium text-foreground">Latest scan is ready</p>
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Analyze this completed scan to continue the project workflow.
-                </p>
-                <StartAnalysisButton
-                  accessToken={accessToken}
-                  label="Analyze latest scan"
-                  pendingLabel="Analyzing latest scan"
-                  scanId={latestScan.id}
-                />
-              </div>
-            ) : null}
             <WorkflowRow
               available={Boolean(projectSummary?.latestContext)}
               icon={Layers3}
@@ -501,7 +866,7 @@ function WorkflowAccess({
                   ? "Generated from analysis"
                   : "Waiting for analysis")
               }
-              href={analysisHref}
+              href={contextHref}
               actionLabel={projectSummary?.latestContext ? "Open Context" : "Open Context workflow"}
             />
             <WorkflowRow
@@ -509,7 +874,7 @@ function WorkflowAccess({
               icon={FileText}
               label="Documents"
               value={`${projectSummary?.documents.count ?? 0} generated`}
-              href={projectSummary?.latestContext ? analysisHref : null}
+              href={projectSummary?.latestContext ? documentsHref : null}
               actionLabel="Open Documents"
             />
             <WorkflowRow
@@ -521,7 +886,7 @@ function WorkflowAccess({
                   ? "Available from Project Context"
                   : "Available after Context exists"
               }
-              href={projectSummary?.latestContext ? analysisHref : null}
+              href={projectSummary?.latestContext ? aiExportHref : null}
               actionLabel="Open AI Export"
             />
           </>
@@ -580,17 +945,37 @@ function WorkflowRow({
 }
 
 function CurrentState({
+  isRefreshing,
+  isUpdating,
   latestScan,
+  onRefresh,
+  onUpdate,
+  projectSummary,
+  refreshError,
+  refreshSucceeded,
+  updateError,
+  updateResult,
   repository
 }: {
+  isRefreshing: boolean;
+  isUpdating: boolean;
   latestScan: ScanSnapshot | null;
+  onRefresh: () => void;
+  onUpdate: () => void;
+  projectSummary: DashboardProjectSummary | null;
+  refreshError: unknown;
+  refreshSucceeded: boolean;
+  updateError: unknown;
+  updateResult: RepositoryUpdateResponse | null;
   repository: RepositorySummary;
 }) {
+  const repositoryState = projectSummary?.state ?? null;
+
   return (
-    <Card>
+    <Card id="project-state" className="scroll-mt-40">
       <CardHeader>
         <CardTitle>Current state</CardTitle>
-        <CardDescription>Based on repository metadata and latest scan history.</CardDescription>
+        <CardDescription>Based on stored repository state and scan history.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-3 text-sm">
         <div className="flex items-center justify-between gap-3">
@@ -616,8 +1001,105 @@ function CurrentState({
             <span className="text-xs text-muted-foreground">No scan yet</span>
           )}
         </div>
+        <StateRow label="Freshness" value={freshnessLabel(repositoryState)} />
+        <StateRow
+          label="Remote HEAD"
+          title={repositoryState?.remoteHeadCommitSha ?? undefined}
+          value={
+            repositoryState?.remoteHeadCommitSha
+              ? shortCommit(repositoryState.remoteHeadCommitSha)
+              : "Not available"
+          }
+        />
+        <StateRow
+          label="Current context"
+          title={repositoryState?.currentContextCommitSha ?? undefined}
+          value={
+            repositoryState?.currentContextCommitSha
+              ? shortCommit(repositoryState.currentContextCommitSha)
+              : "Not available"
+          }
+        />
+        <StateRow
+          label="Last scanned commit"
+          title={repositoryState?.lastScannedCommitSha ?? undefined}
+          value={
+            repositoryState?.lastScannedCommitSha
+              ? shortCommit(repositoryState.lastScannedCommitSha)
+              : "Not available"
+          }
+        />
+        <StateRow
+          label="Last analyzed commit"
+          title={repositoryState?.lastAnalyzedCommitSha ?? undefined}
+          value={
+            repositoryState?.lastAnalyzedCommitSha
+              ? shortCommit(repositoryState.lastAnalyzedCommitSha)
+              : "Not available"
+          }
+        />
+        <div className="grid gap-2 border-t border-border/70 pt-3">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isRefreshing || isUpdating}
+            aria-busy={isRefreshing}
+            onClick={onRefresh}
+          >
+            <RefreshCw className={isRefreshing ? "animate-spin" : undefined} />
+            {isRefreshing ? "Refreshing" : "Refresh freshness"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isUpdating || isRefreshing}
+            aria-busy={isUpdating}
+            onClick={onUpdate}
+          >
+            <RefreshCw className={isUpdating ? "animate-spin" : undefined} />
+            {isUpdating ? "Updating" : "Update repository"}
+          </Button>
+          <div aria-live="polite">
+            {refreshSucceeded ? (
+              <p className="text-xs text-primary">Repository freshness refreshed.</p>
+            ) : null}
+            {updateResult ? (
+              <p className="text-xs text-primary">
+                {updateResult.noop
+                  ? "Repository context is already current."
+                  : "Repository context updated."}
+              </p>
+            ) : null}
+            {refreshError ? <ErrorNotice error={userFacingError(refreshError)} /> : null}
+            {updateError ? (
+              <ErrorNotice error={userFacingError(updateError, "repositoryUpdate")} />
+            ) : null}
+          </div>
+        </div>
       </CardContent>
     </Card>
+  );
+}
+
+function StateRow({
+  label,
+  title,
+  value
+}: {
+  label: string;
+  title?: string | undefined;
+  value: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span
+        className="truncate text-right font-mono text-xs text-subtle-foreground"
+        title={title ?? value}
+      >
+        {value}
+      </span>
+    </div>
   );
 }
 

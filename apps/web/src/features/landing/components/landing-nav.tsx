@@ -7,9 +7,9 @@ import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { analytics } from "@/lib/analytics";
 
 const navLinks = [
+  { label: "What's new", href: "#continuous-context" },
   { label: "How it works", href: "#how-it-works" },
-  { label: "Product", href: "#product-proof" },
-  { label: "Why Ctxaro", href: "#why-ctxaro" },
+  { label: "Outputs", href: "#product-proof" },
   { label: "FAQ", href: "#faq" }
 ];
 
@@ -17,10 +17,10 @@ export function LandingNav() {
   const githubLoginUrl = getGitHubLoginUrl();
 
   return (
-    <header className="sticky top-0 z-30 w-screen max-w-[100vw] overflow-hidden border-b border-white/[0.07] bg-[#050706]/82 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 w-full overflow-hidden border-b border-white/[0.07] bg-[#050706]/82 backdrop-blur-xl">
       <nav
         aria-label="Marketing navigation"
-        className="mx-auto flex h-16 w-screen max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
+        className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
       >
         <Link
           to="/"
@@ -56,13 +56,13 @@ export function LandingNav() {
               Sign in
             </a>
           </Button>
-          <Button asChild className="hidden h-9 px-3 text-xs sm:inline-flex sm:text-sm">
+          <Button asChild className="h-9 px-3 text-xs sm:text-sm">
             <a
               href={githubLoginUrl}
               onClick={() => analytics.track("github_login_started", { method: "github" })}
             >
-              Start for free
-              <GitBranch />
+              Get started
+              <GitBranch className="hidden sm:block" />
             </a>
           </Button>
         </div>

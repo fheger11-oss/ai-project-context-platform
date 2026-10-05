@@ -21,10 +21,12 @@ import {
   ApiQuery,
   ApiTags
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 
 import { Auth } from "../../auth/decorators/auth.decorator.js";
 import { CurrentUser } from "../../auth/decorators/current-user.decorator.js";
 import type { AuthenticatedUser } from "../../auth/types/authenticated-user.js";
+import { EXPENSIVE_OPERATION_RATE_LIMIT } from "../../config/rate-limit.config.js";
 import { DocumentNotFoundError } from "../application/errors/document-not-found.error.js";
 import { ProjectContextNotFoundForDocumentGenerationError } from "../application/errors/project-context-not-found-for-document-generation.error.js";
 import { GenerateDocumentUseCase } from "../application/generate-document.use-case.js";
@@ -96,6 +98,7 @@ export class DocumentController {
   }
 
   @Post()
+  @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
   @HttpCode(HttpStatus.CREATED)
   @ApiCreatedResponse({
     description: "Generated document artifact.",
@@ -149,6 +152,7 @@ export class DocumentController {
   }
 
   @Post(":documentId/regenerate")
+  @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
   @HttpCode(HttpStatus.CREATED)
   @ApiParam({ name: "documentId", type: "string" })
   @ApiCreatedResponse({

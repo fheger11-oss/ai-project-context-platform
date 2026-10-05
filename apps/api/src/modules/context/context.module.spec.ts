@@ -23,6 +23,7 @@ import { ProjectContextController } from "./presentation/project-context.control
 import { PrismaModule } from "../prisma/prisma.module.js";
 import { ScanModule } from "../scan/scan.module.js";
 import { UsageModule } from "../usage/usage.module.js";
+import { AppConfigModule } from "../config/app-config.module.js";
 
 const MODULE_IMPORTS_METADATA = "imports";
 const MODULE_CONTROLLERS_METADATA = "controllers";
@@ -33,6 +34,7 @@ describe("ContextModule", () => {
   it("registers Context generation and persistence without API providers", () => {
     expect(Reflect.getMetadata(MODULE_IMPORTS_METADATA, ContextModule) ?? []).toEqual([
       AnalysisModule,
+      AppConfigModule,
       PrismaModule,
       ScanModule,
       UsageModule

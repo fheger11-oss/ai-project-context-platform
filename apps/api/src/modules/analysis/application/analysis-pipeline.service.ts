@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import type { Analysis } from "../domain/analysis.js";
+import type { SourceFileStructure } from "../domain/source-structure/source-file-structure.js";
 import type { AnalysisInput } from "../domain/contracts/analysis-input.contract.js";
 import type {
   AnalysisResult,
@@ -11,12 +12,17 @@ import { AnalysisResultAggregationService } from "./analysis-result-aggregation.
 import { FileClassificationService } from "./file-classification.service.js";
 import { ProjectDetectionService } from "./project-detection.service.js";
 import { RelationshipAnalysisService } from "./relationship-analysis.service.js";
-import { SourceStructureAnalysisService } from "./source-structure-analysis.service.js";
+import {
+  SourceStructureAnalysisService,
+  type SourceStructureProcessingObserver
+} from "./source-structure-analysis.service.js";
 
 export type AnalysisPipelineInput = {
   analysis: Analysis;
   input: AnalysisInput;
   generatedAt: Date;
+  reusableSourceStructures?: ReadonlyMap<string, SourceFileStructure>;
+  sourceStructureProcessingObserver?: SourceStructureProcessingObserver;
 };
 
 @Injectable()
@@ -42,9 +48,14 @@ export class AnalysisPipelineService {
     const context = this.context(input.input);
     const files = await this.fileClassificationService.classifyFiles(input.input);
     const project = await this.projectDetectionService.detectProject(input.input);
-    const sourceStructures = await this.sourceStructureAnalysisService.analyzeSourceStructure(
-      input.input
-    );
+    const sourceStructures =
+      input.reusableSourceStructures || input.sourceStructureProcessingObserver
+        ? await this.sourceStructureAnalysisService.analyzeSourceStructure(
+            input.input,
+            input.reusableSourceStructures,
+            input.sourceStructureProcessingObserver
+          )
+        : await this.sourceStructureAnalysisService.analyzeSourceStructure(input.input);
     const relationships = this.relationshipAnalysisService.analyzeRelationshipsFromResults({
       sourceStructures,
       projectProfile: project

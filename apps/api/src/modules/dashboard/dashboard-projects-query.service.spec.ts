@@ -50,18 +50,55 @@ const analysis = {
   projectContexts: [] as (typeof context)[]
 };
 
+const state = {
+  id: "repository_state_1",
+  repositoryId: "repository_1",
+  remoteHeadCommitSha: null as string | null,
+  remoteHeadCheckedAt: null as Date | null,
+  lastScannedCommitSha: "abc123",
+  lastAnalyzedCommitSha: "abc123",
+  currentProjectContextId: "project_context_1",
+  currentContextCommitSha: "abc123",
+  freshnessStatus: "UNKNOWN" as "UNKNOWN" | "FRESH" | "STALE" | "UPDATE_FAILED",
+  lastUpdateStatus: null,
+  createdAt: new Date("2026-08-26T10:05:00.000Z"),
+  updatedAt: new Date("2026-08-26T10:05:00.000Z"),
+  currentProjectContext: {
+    id: "project_context_1",
+    repositoryId: "repository_1",
+    commitSha: "abc123",
+    scanId: "scan_1",
+    analysisId: "analysis_1",
+    scan: {
+      id: "scan_1",
+      repositoryId: "repository_1",
+      commitSha: "abc123",
+      status: "COMPLETED"
+    },
+    analysis: {
+      id: "analysis_1",
+      scanId: "scan_1",
+      repositoryId: "repository_1",
+      commitSha: "abc123",
+      status: "COMPLETED"
+    }
+  }
+};
+
 function repository(
   overrides: {
     analyses?: (typeof analysis)[];
     id?: string;
     scans?: (typeof scan)[];
+    state?: typeof state | null;
   } = {}
 ) {
   return {
     ...baseRepository,
     id: overrides.id ?? baseRepository.id,
     scans: overrides.scans ?? [],
-    analyses: overrides.analyses ?? []
+    analyses: overrides.analyses ?? [],
+    state: overrides.state ?? null
   };
 }
 
@@ -102,6 +139,44 @@ describe("DashboardProjectsQueryService", () => {
     );
   });
 
+  it("derives dashboard freshness from commit equality and valid current-context provenance", async () => {
+    const { service } = createService([
+      repository({
+        state: {
+          ...state,
+          remoteHeadCommitSha: "abc123",
+          remoteHeadCheckedAt: new Date("2026-08-26T10:06:00.000Z"),
+          freshnessStatus: "STALE"
+        }
+      })
+    ]);
+
+    const response = await service.listProjects("user_1");
+
+    expect(response.projects[0]?.state?.freshnessStatus).toBe("FRESH");
+  });
+
+  it("reports UNKNOWN on the dashboard when stored current-context provenance is invalid", async () => {
+    const { service } = createService([
+      repository({
+        state: {
+          ...state,
+          remoteHeadCommitSha: "abc123",
+          remoteHeadCheckedAt: new Date("2026-08-26T10:06:00.000Z"),
+          freshnessStatus: "FRESH",
+          currentProjectContext: {
+            ...state.currentProjectContext,
+            repositoryId: "another_repository"
+          }
+        }
+      })
+    ]);
+
+    const response = await service.listProjects("user_1");
+
+    expect(response.projects[0]?.state?.freshnessStatus).toBe("UNKNOWN");
+  });
+
   it("does not return another user's repository from the scoped read", async () => {
     const { service } = createService([repository(), repository({ id: "other_user_repository" })]);
 
@@ -128,6 +203,7 @@ describe("DashboardProjectsQueryService", () => {
         isArchived: false,
         lastSyncedAt: "2026-08-26T10:00:00.000Z"
       },
+      state: null,
       latestScan: null,
       latestAnalysis: null,
       latestContext: null,
@@ -213,6 +289,25 @@ describe("DashboardProjectsQueryService", () => {
     expect(response.projects[0]?.aiExport).toEqual({
       available: true
     });
+  });
+
+  it("exposes repository state summaries without internal state row identity", async () => {
+    const { service } = createService([repository({ state })]);
+
+    const response = await service.listProjects("user_1");
+
+    expect(response.projects[0]?.state).toEqual({
+      repositoryId: "repository_1",
+      freshnessStatus: "UNKNOWN",
+      remoteHeadCommitSha: null,
+      remoteHeadCheckedAt: null,
+      lastScannedCommitSha: "abc123",
+      lastAnalyzedCommitSha: "abc123",
+      currentProjectContextId: "project_context_1",
+      currentContextCommitSha: "abc123",
+      lastUpdateStatus: null
+    });
+    expect(response.projects[0]?.state).not.toHaveProperty("id");
   });
 
   it("uses one database projection instead of per-repository reads", async () => {

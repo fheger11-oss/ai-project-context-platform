@@ -1,5 +1,6 @@
-import { GitBranch, Loader2, Plus, Unlink } from "lucide-react";
+import { ArrowRight, GitBranch, Loader2, Plus, Unlink } from "lucide-react";
 import { useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeading } from "@/components/typography/page-heading";
@@ -55,6 +56,7 @@ export function ConnectRepositoryView() {
   });
   const repositories = availableQuery.data?.repositories ?? [];
   const isRepositoryMutationPending = connectMutation.isPending || disconnectMutation.isPending;
+  const connectedRepositoryId = connectMutation.data?.id;
 
   useEffect(() => {
     analytics.track("repository_connect_started", { provider: "github" });
@@ -200,6 +202,20 @@ export function ConnectRepositoryView() {
         <RepositoryState
           title="Repository connected"
           description="Repository metadata is stored and ready for scanning."
+          action={
+            <Button asChild>
+              <Link
+                to={
+                  connectedRepositoryId
+                    ? `/repositories/${encodeURIComponent(connectedRepositoryId)}`
+                    : "/repositories"
+                }
+              >
+                {connectedRepositoryId ? "Open project" : "View projects"}
+                <ArrowRight />
+              </Link>
+            </Button>
+          }
         />
       ) : null}
 

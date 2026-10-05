@@ -3,6 +3,7 @@ import type { OperationLockService } from "../../usage/operation-lock.service.js
 import { userHeavyOperationLock } from "../../usage/operation-locks.js";
 import type { UsageService } from "../../usage/usage.service.js";
 import { V1_USAGE_LIMITS } from "../../usage/v1-usage-limits.js";
+import type { AppConfigService } from "../../config/app-config.service.js";
 import type { DocumentGenerator } from "../domain/contracts/document-generator.contract.js";
 import type {
   DocumentRepository,
@@ -26,7 +27,8 @@ export class GenerateDocumentUseCase {
     private readonly documentGenerator: DocumentGenerator,
     private readonly documentRepository: DocumentRepository,
     private readonly usageService: UsageService,
-    private readonly operationLockService: OperationLockService
+    private readonly operationLockService: OperationLockService,
+    private readonly config: AppConfigService
   ) {}
 
   async execute(command: GenerateDocumentCommand): Promise<PersistedGeneratedDocument> {
@@ -42,7 +44,7 @@ export class GenerateDocumentUseCase {
     await this.usageService.assertMonthlyQuota({
       userId: command.userId,
       resource: "documents",
-      limit: V1_USAGE_LIMITS.documentsPerMonth
+      limit: this.config.documentMonthlyLimit
     });
 
     return this.operationLockService.withRenewingLocks(
