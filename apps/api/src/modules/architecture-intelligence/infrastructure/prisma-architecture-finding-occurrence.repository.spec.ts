@@ -19,7 +19,9 @@ const occurrence = {
     {
       kind: "MODULE_RELATIONSHIP",
       sourceModuleId: "module:a",
-      targetModuleId: "module:b"
+      targetModuleId: "module:b",
+      relationshipCount: 1,
+      confidence: "HIGH"
     }
   ],
   createdAt: now

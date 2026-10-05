@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AppConfigService } from "../../config/app-config.service.js";
 import type { ArchitectureProcessingRequestRepository } from "../domain/contracts/architecture-processing-request-repository.contract.js";
+import { InvalidArchitectureProcessingInputError } from "../domain/errors/invalid-architecture-processing-input.error.js";
 import type { ArchitectureProcessingRequestProcessor } from "./architecture-processing-request-processor.contract.js";
 import { ArchitectureProcessingWorker } from "./architecture-processing.worker.js";
 
@@ -90,6 +91,23 @@ describe("ArchitectureProcessingWorker", () => {
       workerId: expect.any(String),
       now,
       failureCategory: "ARCHITECTURE_PROCESSING_FAILURE"
+    });
+    expect(h.requests.retry).not.toHaveBeenCalled();
+  });
+
+  it("marks malformed architecture input as a deterministic terminal failure", async () => {
+    const h = createHarness({
+      processorError: new InvalidArchitectureProcessingInputError("malformed claim")
+    });
+
+    await h.worker.processOne();
+
+    expect(h.requests.fail).toHaveBeenCalledWith({
+      id: "request-1",
+      repositoryId: "repository-1",
+      workerId: expect.any(String),
+      now,
+      failureCategory: "INVALID_ARCHITECTURE_INPUT"
     });
     expect(h.requests.retry).not.toHaveBeenCalled();
   });

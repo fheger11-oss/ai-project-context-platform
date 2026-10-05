@@ -107,35 +107,43 @@ function readEvidence(id: string, value: unknown): ArchitectureFindingEvidence[]
 
 function readEvidenceItem(id: string, value: unknown): ArchitectureFindingEvidence {
   const evidence = record(value);
-  if (evidence?.kind === "MODULE" && string(evidence.moduleId)) {
-    return { kind: "MODULE", moduleId: evidence.moduleId };
+  if (evidence?.kind === "MODULE" && string(evidence.moduleId) && confidence(evidence.confidence)) {
+    return { kind: "MODULE", moduleId: evidence.moduleId, confidence: evidence.confidence };
   }
   if (
     evidence?.kind === "MODULE_RELATIONSHIP" &&
     string(evidence.sourceModuleId) &&
-    string(evidence.targetModuleId)
+    string(evidence.targetModuleId) &&
+    positiveInteger(evidence.relationshipCount) &&
+    confidence(evidence.confidence)
   ) {
     return {
       kind: "MODULE_RELATIONSHIP",
       sourceModuleId: evidence.sourceModuleId,
-      targetModuleId: evidence.targetModuleId
+      targetModuleId: evidence.targetModuleId,
+      relationshipCount: evidence.relationshipCount,
+      confidence: evidence.confidence
     };
   }
   if (
     evidence?.kind === "ANALYSIS_RELATIONSHIP" &&
+    string(evidence.sourceModuleId) &&
+    string(evidence.targetModuleId) &&
     string(evidence.sourcePath) &&
     string(evidence.targetPath) &&
     (evidence.relationshipKind === "IMPORTS" || evidence.relationshipKind === "RE_EXPORTS") &&
     string(evidence.specifier) &&
-    sourceLocation(evidence.location)
+    (evidence.location === undefined || sourceLocation(evidence.location))
   ) {
     return {
       kind: "ANALYSIS_RELATIONSHIP",
+      sourceModuleId: evidence.sourceModuleId,
+      targetModuleId: evidence.targetModuleId,
       sourcePath: evidence.sourcePath,
       targetPath: evidence.targetPath,
       relationshipKind: evidence.relationshipKind,
       specifier: evidence.specifier,
-      location: evidence.location
+      ...(evidence.location ? { location: evidence.location } : {})
     };
   }
   throw new Error(`ArchitectureFindingOccurrence ${id} has invalid evidence.`);
@@ -149,6 +157,14 @@ function record(value: unknown): Record<string, unknown> | null {
 
 function string(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
+}
+
+function confidence(value: unknown): value is "HIGH" | "MEDIUM" | "LOW" {
+  return value === "HIGH" || value === "MEDIUM" || value === "LOW";
+}
+
+function positiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
 function sourceLocation(value: unknown): value is ArchitectureSourceLocation {

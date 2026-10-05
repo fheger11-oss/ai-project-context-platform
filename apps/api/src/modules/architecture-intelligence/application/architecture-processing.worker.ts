@@ -10,6 +10,7 @@ import { randomUUID } from "node:crypto";
 import { AppConfigService } from "../../config/app-config.service.js";
 import type { ArchitectureProcessingRequestRepository } from "../domain/contracts/architecture-processing-request-repository.contract.js";
 import { ARCHITECTURE_PROCESSING_REQUEST_REPOSITORY } from "../domain/contracts/architecture-processing-request-repository.contract.js";
+import { InvalidArchitectureProcessingInputError } from "../domain/errors/invalid-architecture-processing-input.error.js";
 import {
   ARCHITECTURE_PROCESSING_REQUEST_PROCESSOR,
   type ArchitectureProcessingRequestProcessor
@@ -103,15 +104,20 @@ export class ArchitectureProcessingWorker implements OnModuleInit, OnModuleDestr
           `architecture.processing ownership lost requestId=${request.id} repositoryId=${request.repositoryId}`
         );
       }
-    } catch {
+    } catch (error) {
       const transitionAt = new Date();
-      if (request.attemptCount >= this.config.architectureProcessingWorkerMaxAttempts) {
+      const invalidInput = error instanceof InvalidArchitectureProcessingInputError;
+      const failureCategory = invalidInput ? "INVALID_ARCHITECTURE_INPUT" : FAILURE_CATEGORY;
+      if (
+        invalidInput ||
+        request.attemptCount >= this.config.architectureProcessingWorkerMaxAttempts
+      ) {
         await this.requests.fail({
           id: request.id,
           repositoryId: request.repositoryId,
           workerId: this.workerId,
           now: transitionAt,
-          failureCategory: FAILURE_CATEGORY
+          failureCategory
         });
       } else {
         const delay =
@@ -123,7 +129,7 @@ export class ArchitectureProcessingWorker implements OnModuleInit, OnModuleDestr
           workerId: this.workerId,
           now: transitionAt,
           nextAttemptAt: new Date(transitionAt.getTime() + delay),
-          failureCategory: FAILURE_CATEGORY
+          failureCategory
         });
       }
     } finally {
