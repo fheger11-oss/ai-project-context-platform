@@ -61,6 +61,23 @@ const environmentSchema = z
       .positive()
       .max(3600)
       .default(30),
+    ARCHITECTURE_PROCESSING_WORKER_ENABLED: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+    ARCHITECTURE_PROCESSING_WORKER_POLL_INTERVAL_MS: z.coerce
+      .number()
+      .int()
+      .min(250)
+      .default(2_000),
+    ARCHITECTURE_PROCESSING_WORKER_LEASE_SECONDS: z.coerce.number().int().min(30).default(900),
+    ARCHITECTURE_PROCESSING_WORKER_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+    ARCHITECTURE_PROCESSING_WORKER_BACKOFF_BASE_SECONDS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .max(3600)
+      .default(30),
     WEB_AUTH_CALLBACK_URL: z.string().url().default("http://localhost:5173/auth/callback"),
     PROVIDER_TOKEN_ENCRYPTION_KEY: z.string().min(32)
   })

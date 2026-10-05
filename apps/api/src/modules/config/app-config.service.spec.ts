@@ -82,6 +82,24 @@ describe("AppConfigService", () => {
     expect(config.repositoryUpdateStaleThresholdMilliseconds).toBe(21_600_000);
   });
 
+  it("exposes architecture processing worker timing and attempt configuration", () => {
+    const config = createConfigService({
+      APP_ENV: "production",
+      NODE_ENV: "production",
+      ARCHITECTURE_PROCESSING_WORKER_ENABLED: true,
+      ARCHITECTURE_PROCESSING_WORKER_POLL_INTERVAL_MS: 2_000,
+      ARCHITECTURE_PROCESSING_WORKER_LEASE_SECONDS: 90,
+      ARCHITECTURE_PROCESSING_WORKER_MAX_ATTEMPTS: 3,
+      ARCHITECTURE_PROCESSING_WORKER_BACKOFF_BASE_SECONDS: 30
+    });
+
+    expect(config.architectureProcessingWorkerEnabled).toBe(true);
+    expect(config.architectureProcessingWorkerPollIntervalMilliseconds).toBe(2_000);
+    expect(config.architectureProcessingWorkerLeaseMilliseconds).toBe(90_000);
+    expect(config.architectureProcessingWorkerMaxAttempts).toBe(3);
+    expect(config.architectureProcessingWorkerBackoffBaseMilliseconds).toBe(30_000);
+  });
+
   it("exposes the canonical GitHub webhook callback URL", () => {
     const config = createConfigService({
       APP_ENV: "production",

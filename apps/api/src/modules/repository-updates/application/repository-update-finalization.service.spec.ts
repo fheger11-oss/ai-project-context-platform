@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  ArchitectureProcessingStatus,
   RepositoryFreshnessStatus,
   RepositoryUpdateStatus,
   RepositoryUpdateTriggerType
 } from "../../../generated/prisma/enums.js";
 import type { PrismaService } from "../../prisma/prisma.service.js";
 import type { RepositoriesService } from "../../repositories/repositories.service.js";
+import { ARCHITECTURE_PROCESSOR_VERSION } from "../../architecture-intelligence/application/architecture-processor-version.js";
 import { RepositoryUpdateFinalizationService } from "./repository-update-finalization.service.js";
 
 const now = new Date("2026-09-24T12:00:00.000Z");
@@ -80,6 +82,7 @@ function createHarness(
     context?: ReturnType<typeof context> | null;
     historyError?: Error;
     stateError?: Error;
+    architectureRequestError?: Error;
     completionCount?: number;
   } = {}
 ) {
@@ -95,6 +98,10 @@ function createHarness(
   const repositoryStateUpdate = vi.fn(async (args: { data: Record<string, unknown> }) => {
     if (options.stateError) throw options.stateError;
     return state(args.data);
+  });
+  const architectureProcessingRequestUpsert = vi.fn(async () => {
+    if (options.architectureRequestError) throw options.architectureRequestError;
+    return {};
   });
   const repositoryUpdateUpdateMany = vi.fn(async () => ({
     count: options.completionCount ?? 1
@@ -113,7 +120,8 @@ function createHarness(
       findUnique: repositoryStateFindUnique,
       update: repositoryStateUpdate
     },
-    repositoryContextHistory: { upsert: historyUpsert }
+    repositoryContextHistory: { upsert: historyUpsert },
+    architectureProcessingRequest: { upsert: architectureProcessingRequestUpsert }
   };
   const transaction = vi.fn(async (operation: (tx: typeof transactionClient) => unknown) =>
     operation(transactionClient)
@@ -132,6 +140,7 @@ function createHarness(
     transaction,
     projectContextFindUnique,
     historyUpsert,
+    architectureProcessingRequestUpsert,
     repositoryStateUpdate,
     repositoryUpdateUpdateMany,
     repositoryUpdateFindUniqueOrThrow,
@@ -169,6 +178,28 @@ describe("RepositoryUpdateFinalizationService", () => {
     expect(h.projectContextFindUnique).toHaveBeenCalledTimes(2);
     expect(h.transaction).toHaveBeenCalledTimes(1);
     expect(h.historyUpsert).toHaveBeenCalledTimes(1);
+    expect(h.architectureProcessingRequestUpsert).toHaveBeenCalledWith({
+      where: {
+        projectContextId_processorVersion: {
+          projectContextId: "context_b",
+          processorVersion: ARCHITECTURE_PROCESSOR_VERSION
+        }
+      },
+      update: {},
+      create: {
+        repositoryId: "repository_1",
+        projectContextId: "context_b",
+        processorVersion: ARCHITECTURE_PROCESSOR_VERSION,
+        status: ArchitectureProcessingStatus.PENDING,
+        attemptCount: 0,
+        nextAttemptAt: now,
+        claimedBy: null,
+        leaseUntil: null,
+        startedAt: null,
+        completedAt: null,
+        lastFailureCategory: null
+      }
+    });
     expect(h.repositoryStateUpdate).toHaveBeenCalledTimes(1);
     expect(h.repositoryUpdateUpdateMany).toHaveBeenCalledWith({
       where: {
@@ -214,6 +245,37 @@ describe("RepositoryUpdateFinalizationService", () => {
     await expect(h.service.finalize(input)).rejects.toThrow("state write failed");
     expect(h.repositoryUpdateUpdateMany).not.toHaveBeenCalled();
     expect(h.repositoryUpdateFindUniqueOrThrow).not.toHaveBeenCalled();
+  });
+
+  it("rolls back promotion when architecture request scheduling fails", async () => {
+    const h = createHarness({
+      architectureRequestError: new Error("architecture request write failed")
+    });
+
+    await expect(h.service.finalize(input)).rejects.toThrow("architecture request write failed");
+    expect(h.historyUpsert).toHaveBeenCalledTimes(1);
+    expect(h.repositoryStateUpdate).not.toHaveBeenCalled();
+    expect(h.repositoryUpdateUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("uses idempotent context and processor identity when finalization is retried", async () => {
+    const h = createHarness();
+
+    await h.service.finalize(input);
+    await h.service.finalize(input);
+
+    expect(h.architectureProcessingRequestUpsert).toHaveBeenCalledTimes(2);
+    expect(h.architectureProcessingRequestUpsert).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        where: {
+          projectContextId_processorVersion: {
+            projectContextId: "context_b",
+            processorVersion: ARCHITECTURE_PROCESSOR_VERSION
+          }
+        },
+        update: {}
+      })
+    );
   });
 
   it("rejects a lost completion transition so Prisma rolls back history and promotion", async () => {

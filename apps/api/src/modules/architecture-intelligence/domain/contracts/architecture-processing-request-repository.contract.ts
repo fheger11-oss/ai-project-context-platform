@@ -38,6 +38,22 @@ export type UpdateArchitectureProcessingRequestStatusInput = {
   lastFailureCategory?: string | null;
 };
 
+export type OwnedArchitectureProcessingRequestInput = {
+  repositoryId: string;
+  id: string;
+  workerId: string;
+  now: Date;
+};
+
+export type RetryArchitectureProcessingRequestInput = OwnedArchitectureProcessingRequestInput & {
+  nextAttemptAt: Date;
+  failureCategory: string;
+};
+
+export type FailArchitectureProcessingRequestInput = OwnedArchitectureProcessingRequestInput & {
+  failureCategory: string;
+};
+
 export interface ArchitectureProcessingRequestRepository {
   create(
     input: CreateArchitectureProcessingRequestInput
@@ -54,4 +70,14 @@ export interface ArchitectureProcessingRequestRepository {
   updateStatus(
     input: UpdateArchitectureProcessingRequestStatusInput
   ): Promise<ArchitectureProcessingRequestRecord | null>;
+  claim(
+    workerId: string,
+    now: Date,
+    leaseUntil: Date
+  ): Promise<ArchitectureProcessingRequestRecord | null>;
+  renewLease(input: OwnedArchitectureProcessingRequestInput, leaseUntil: Date): Promise<boolean>;
+  complete(input: OwnedArchitectureProcessingRequestInput): Promise<boolean>;
+  retry(input: RetryArchitectureProcessingRequestInput): Promise<boolean>;
+  fail(input: FailArchitectureProcessingRequestInput): Promise<boolean>;
+  markIncompatible(input: OwnedArchitectureProcessingRequestInput): Promise<boolean>;
 }

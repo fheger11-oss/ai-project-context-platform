@@ -1,7 +1,11 @@
 import { Inject, Injectable } from "@nestjs/common";
 
-import { RepositoryUpdateStatus } from "../../../generated/prisma/enums.js";
+import {
+  ArchitectureProcessingStatus,
+  RepositoryUpdateStatus
+} from "../../../generated/prisma/enums.js";
 import type { RepositoryUpdateModel } from "../../../generated/prisma/models.js";
+import { ARCHITECTURE_PROCESSOR_VERSION } from "../../architecture-intelligence/application/architecture-processor-version.js";
 import { InvalidPersistedProjectContextError } from "../../context/domain/errors/invalid-persisted-project-context.error.js";
 import { PrismaService } from "../../prisma/prisma.service.js";
 import { RepositoriesService } from "../../repositories/repositories.service.js";
@@ -38,6 +42,7 @@ export class RepositoryUpdateFinalizationService {
   async finalize(input: FinalizeRepositoryUpdateInput): Promise<FinalizeRepositoryUpdateResult> {
     await this.repositoriesService.getScanAccessMetadataForUser(input.userId, input.repositoryId);
     await this.validateFinalArtifacts(input);
+    const completedAt = input.completedAt ?? new Date();
 
     return this.prisma.$transaction(async (transaction) => {
       const update = await transaction.repositoryUpdate.findFirst({
@@ -90,6 +95,29 @@ export class RepositoryUpdateFinalizationService {
         }
       });
 
+      await transaction.architectureProcessingRequest.upsert({
+        where: {
+          projectContextId_processorVersion: {
+            projectContextId: input.projectContextId,
+            processorVersion: ARCHITECTURE_PROCESSOR_VERSION
+          }
+        },
+        update: {},
+        create: {
+          repositoryId: input.repositoryId,
+          projectContextId: input.projectContextId,
+          processorVersion: ARCHITECTURE_PROCESSOR_VERSION,
+          status: ArchitectureProcessingStatus.PENDING,
+          attemptCount: 0,
+          nextAttemptAt: completedAt,
+          claimedBy: null,
+          leaseUntil: null,
+          startedAt: null,
+          completedAt: null,
+          lastFailureCategory: null
+        }
+      });
+
       const promotedState = await transaction.repositoryState.update({
         where: { repositoryId: input.repositoryId },
         data: {
@@ -118,7 +146,7 @@ export class RepositoryUpdateFinalizationService {
         },
         data: {
           status: RepositoryUpdateStatus.COMPLETED,
-          completedAt: input.completedAt ?? new Date(),
+          completedAt,
           failedAt: null,
           failureReason: null
         }

@@ -1,6 +1,10 @@
 import { Module } from "@nestjs/common";
 
+import { AppConfigModule } from "../config/app-config.module.js";
 import { PrismaModule } from "../prisma/prisma.module.js";
+import { ARCHITECTURE_PROCESSING_REQUEST_PROCESSOR } from "./application/architecture-processing-request-processor.contract.js";
+import { ArchitectureProcessingWorker } from "./application/architecture-processing.worker.js";
+import { PlaceholderArchitectureProcessingService } from "./application/placeholder-architecture-processing.service.js";
 import { ARCHITECTURE_FINDING_OCCURRENCE_REPOSITORY } from "./domain/contracts/architecture-finding-occurrence-repository.contract.js";
 import { ARCHITECTURE_MODULE_MEASUREMENT_REPOSITORY } from "./domain/contracts/architecture-module-measurement-repository.contract.js";
 import { ARCHITECTURE_PROCESSING_REQUEST_REPOSITORY } from "./domain/contracts/architecture-processing-request-repository.contract.js";
@@ -9,8 +13,13 @@ import { PrismaArchitectureModuleMeasurementRepository } from "./infrastructure/
 import { PrismaArchitectureProcessingRequestRepository } from "./infrastructure/prisma-architecture-processing-request.repository.js";
 
 @Module({
-  imports: [PrismaModule],
+  imports: [AppConfigModule, PrismaModule],
   providers: [
+    ArchitectureProcessingWorker,
+    {
+      provide: ARCHITECTURE_PROCESSING_REQUEST_PROCESSOR,
+      useClass: PlaceholderArchitectureProcessingService
+    },
     {
       provide: ARCHITECTURE_PROCESSING_REQUEST_REPOSITORY,
       useClass: PrismaArchitectureProcessingRequestRepository

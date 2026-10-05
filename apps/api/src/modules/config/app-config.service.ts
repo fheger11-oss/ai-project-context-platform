@@ -109,6 +109,23 @@ export class AppConfigService {
   get repositoryUpdateWorkerBackoffBaseMilliseconds() {
     return this.config.get("REPOSITORY_UPDATE_WORKER_BACKOFF_BASE_SECONDS", { infer: true }) * 1000;
   }
+  get architectureProcessingWorkerEnabled() {
+    return this.config.get("ARCHITECTURE_PROCESSING_WORKER_ENABLED", { infer: true });
+  }
+  get architectureProcessingWorkerPollIntervalMilliseconds() {
+    return this.config.get("ARCHITECTURE_PROCESSING_WORKER_POLL_INTERVAL_MS", { infer: true });
+  }
+  get architectureProcessingWorkerLeaseMilliseconds() {
+    return this.config.get("ARCHITECTURE_PROCESSING_WORKER_LEASE_SECONDS", { infer: true }) * 1000;
+  }
+  get architectureProcessingWorkerMaxAttempts() {
+    return this.config.get("ARCHITECTURE_PROCESSING_WORKER_MAX_ATTEMPTS", { infer: true });
+  }
+  get architectureProcessingWorkerBackoffBaseMilliseconds() {
+    return (
+      this.config.get("ARCHITECTURE_PROCESSING_WORKER_BACKOFF_BASE_SECONDS", { infer: true }) * 1000
+    );
+  }
 
   get webAuthCallbackUrl() {
     return this.config.get("WEB_AUTH_CALLBACK_URL", { infer: true });
