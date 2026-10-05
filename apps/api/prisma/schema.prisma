@@ -127,6 +127,20 @@ enum RepositoryUpdateDispatchStatus {
   FAILED
 }
 
+enum ArchitectureProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  INCOMPATIBLE
+}
+
+enum ArchitectureConfidence {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 enum RepositoryWebhookProvisioningStatus {
   NOT_CONFIGURED
   PROVISIONING
@@ -231,17 +245,20 @@ model Repository {
   createdAt       DateTime             @default(now()) @map("created_at")
   updatedAt       DateTime             @updatedAt @map("updated_at")
 
-  user             User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  scans            Scan[]
-  analyses         Analysis[]
-  projectContexts  ProjectContext[]
-  state            RepositoryState?
-  updates          RepositoryUpdate[]
-  contextHistory   RepositoryContextHistory[]
-  updateDispatches RepositoryUpdateDispatch[]
-  webhook          RepositoryWebhook?
-  projectDecisions ProjectDecision[]
-  projectKnowledge ProjectKnowledge[]
+  user                           User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scans                          Scan[]
+  analyses                       Analysis[]
+  projectContexts                ProjectContext[]
+  state                          RepositoryState?
+  updates                        RepositoryUpdate[]
+  contextHistory                 RepositoryContextHistory[]
+  updateDispatches               RepositoryUpdateDispatch[]
+  webhook                        RepositoryWebhook?
+  projectDecisions               ProjectDecision[]
+  projectKnowledge               ProjectKnowledge[]
+  architectureProcessingRequests ArchitectureProcessingRequest[]
+  architectureFindingOccurrences ArchitectureFindingOccurrence[]
+  architectureModuleMeasurements ArchitectureModuleMeasurement[]
 
   @@unique([userId, githubId])
   @@index([userId])
@@ -444,15 +461,18 @@ model ProjectContext {
   snapshot       Json
   createdAt      DateTime @default(now()) @map("created_at")
 
-  analysis                   Analysis                   @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  scan                       Scan                       @relation(fields: [scanId], references: [id], onDelete: Cascade)
-  repository                 Repository                 @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  documents                  Document[]
-  currentForRepositoryStates RepositoryState[]          @relation("RepositoryStateCurrentProjectContext")
-  repositoryUpdates          RepositoryUpdate[]         @relation("RepositoryUpdateProjectContext")
-  repositoryContextHistory   RepositoryContextHistory[] @relation("RepositoryContextHistoryProjectContext")
-  sourceForProjectDecisions  ProjectDecision[]          @relation("ProjectDecisionSourceProjectContext")
-  sourceForProjectKnowledge  ProjectKnowledge[]         @relation("ProjectKnowledgeSourceProjectContext")
+  analysis                       Analysis                        @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  scan                           Scan                            @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  repository                     Repository                      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  documents                      Document[]
+  currentForRepositoryStates     RepositoryState[]               @relation("RepositoryStateCurrentProjectContext")
+  repositoryUpdates              RepositoryUpdate[]              @relation("RepositoryUpdateProjectContext")
+  repositoryContextHistory       RepositoryContextHistory[]      @relation("RepositoryContextHistoryProjectContext")
+  sourceForProjectDecisions      ProjectDecision[]               @relation("ProjectDecisionSourceProjectContext")
+  sourceForProjectKnowledge      ProjectKnowledge[]              @relation("ProjectKnowledgeSourceProjectContext")
+  architectureProcessingRequests ArchitectureProcessingRequest[] @relation("ArchitectureProcessingRequestProjectContext")
+  architectureFindingOccurrences ArchitectureFindingOccurrence[] @relation("ArchitectureFindingOccurrenceProjectContext")
+  architectureModuleMeasurements ArchitectureModuleMeasurement[] @relation("ArchitectureModuleMeasurementProjectContext")
 
   @@unique([id, repositoryId])
   @@index([contextId])
@@ -461,6 +481,86 @@ model ProjectContext {
   @@index([repositoryId])
   @@index([contextVersion])
   @@map("project_contexts")
+}
+
+model ArchitectureProcessingRequest {
+  id                  String                       @id @default(cuid())
+  repositoryId        String                       @map("repository_id")
+  projectContextId    String                       @map("project_context_id")
+  processorVersion    String                       @map("processor_version")
+  status              ArchitectureProcessingStatus @default(PENDING)
+  attemptCount        Int                          @default(0) @map("attempt_count")
+  nextAttemptAt       DateTime                     @default(now()) @map("next_attempt_at")
+  claimedBy           String?                      @map("claimed_by")
+  leaseUntil          DateTime?                    @map("lease_until")
+  startedAt           DateTime?                    @map("started_at")
+  completedAt         DateTime?                    @map("completed_at")
+  lastFailureCategory String?                      @map("last_failure_category")
+  createdAt           DateTime                     @default(now()) @map("created_at")
+  updatedAt           DateTime                     @updatedAt @map("updated_at")
+
+  repository         Repository                      @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  projectContext     ProjectContext                  @relation("ArchitectureProcessingRequestProjectContext", fields: [projectContextId, repositoryId], references: [id, repositoryId], onDelete: Restrict)
+  findingOccurrences ArchitectureFindingOccurrence[]
+  moduleMeasurements ArchitectureModuleMeasurement[]
+
+  @@unique([projectContextId, processorVersion])
+  @@unique([id, projectContextId, repositoryId])
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseUntil])
+  @@index([repositoryId, createdAt, id])
+  @@index([repositoryId, projectContextId])
+  @@map("architecture_processing_requests")
+}
+
+model ArchitectureFindingOccurrence {
+  id                  String                 @id @default(cuid())
+  repositoryId        String                 @map("repository_id")
+  projectContextId    String                 @map("project_context_id")
+  processingRequestId String                 @map("processing_request_id")
+  fingerprint         String
+  ruleId              String                 @map("rule_id")
+  ruleVersion         String                 @map("rule_version")
+  confidence          ArchitectureConfidence
+  subject             Json
+  evidence            Json
+  createdAt           DateTime               @default(now()) @map("created_at")
+
+  repository        Repository                    @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  projectContext    ProjectContext                @relation("ArchitectureFindingOccurrenceProjectContext", fields: [projectContextId, repositoryId], references: [id, repositoryId], onDelete: Restrict)
+  processingRequest ArchitectureProcessingRequest @relation(fields: [processingRequestId, projectContextId, repositoryId], references: [id, projectContextId, repositoryId], onDelete: Cascade)
+
+  @@unique([processingRequestId, fingerprint])
+  @@index([repositoryId, projectContextId, createdAt, id])
+  @@index([processingRequestId])
+  @@index([repositoryId, fingerprint])
+  @@map("architecture_finding_occurrences")
+}
+
+model ArchitectureModuleMeasurement {
+  id                  String                 @id @default(cuid())
+  repositoryId        String                 @map("repository_id")
+  projectContextId    String                 @map("project_context_id")
+  processingRequestId String                 @map("processing_request_id")
+  moduleId            String                 @map("module_id")
+  path                String
+  confidence          ArchitectureConfidence
+  sourceFileCount     Int                    @map("source_file_count")
+  declarationCount    Int                    @map("declaration_count")
+  fanIn               Int                    @map("fan_in")
+  fanOut              Int                    @map("fan_out")
+  totalDegree         Int                    @map("total_degree")
+  relationshipCount   Int                    @map("relationship_count")
+  createdAt           DateTime               @default(now()) @map("created_at")
+
+  repository        Repository                    @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  projectContext    ProjectContext                @relation("ArchitectureModuleMeasurementProjectContext", fields: [projectContextId, repositoryId], references: [id, repositoryId], onDelete: Restrict)
+  processingRequest ArchitectureProcessingRequest @relation(fields: [processingRequestId, projectContextId, repositoryId], references: [id, projectContextId, repositoryId], onDelete: Cascade)
+
+  @@unique([processingRequestId, moduleId])
+  @@index([repositoryId, projectContextId, createdAt, id])
+  @@index([processingRequestId])
+  @@map("architecture_module_measurements")
 }
 
 model ProjectDecision {
