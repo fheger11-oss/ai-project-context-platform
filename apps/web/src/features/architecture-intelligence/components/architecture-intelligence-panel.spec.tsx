@@ -88,7 +88,9 @@ function response(status: "FAILED" | "INCOMPATIBLE"): ArchitectureIntelligenceRe
       contextVersion: "context-1",
       startedAt: null,
       completedAt: null,
-      failureCategory: status === "FAILED" ? "PROCESSOR_FAILURE" : null
+      failureCategory: status === "FAILED" ? "PROCESSOR_FAILURE" : null,
+      attemptCount: 1,
+      nextAttemptAt: "2026-10-05T12:01:00.000Z"
     },
     intelligence: null
   };
@@ -105,7 +107,9 @@ function completedResponse(): ArchitectureIntelligenceResponse {
       contextVersion: "context-1",
       startedAt: null,
       completedAt: "2026-10-05T12:00:00.000Z",
-      failureCategory: null
+      failureCategory: null,
+      attemptCount: 1,
+      nextAttemptAt: "2026-10-05T12:00:00.000Z"
     },
     intelligence: {
       compatibility: "COMPARABLE",

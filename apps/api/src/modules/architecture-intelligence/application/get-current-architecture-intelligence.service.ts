@@ -159,7 +159,9 @@ export function processingSummary(source: ArchitectureIntelligenceResultSource) 
     contextVersion: source.contextVersion,
     startedAt: request.startedAt?.toISOString() ?? null,
     completedAt: request.completedAt?.toISOString() ?? null,
-    failureCategory: request.lastFailureCategory
+    failureCategory: request.lastFailureCategory,
+    attemptCount: request.attemptCount,
+    nextAttemptAt: request.nextAttemptAt.toISOString()
   };
 }
 

@@ -173,6 +173,24 @@ describe("ArchitectureProcessingWorker", () => {
     expect(h.requests.retry).not.toHaveBeenCalled();
     expect(h.requests.fail).not.toHaveBeenCalled();
   });
+
+  it("retries safely when processing output succeeds but completion persistence fails", async () => {
+    const persistOutput = vi.fn(async () => undefined);
+    const process = vi.fn(async () => {
+      await persistOutput();
+      return "COMPLETED" as const;
+    });
+    const first = createHarness({ process, completeError: new Error("completion unavailable") });
+    await first.worker.processOne();
+    expect(first.requests.retry).toHaveBeenCalledWith(
+      expect.objectContaining({ failureCategory: "ARCHITECTURE_PROCESSING_FAILURE" })
+    );
+
+    const retry = createHarness({ process });
+    await retry.worker.processOne();
+    expect(persistOutput).toHaveBeenCalledTimes(2);
+    expect(retry.requests.complete).toHaveBeenCalledTimes(1);
+  });
 });
 
 function createHarness(
@@ -183,12 +201,16 @@ function createHarness(
     process?: ReturnType<typeof vi.fn>;
     renewResult?: boolean;
     completeResult?: boolean;
+    completeError?: Error;
   } = {}
 ) {
   const requests = {
     claim: vi.fn(async () => options.claimedRequest ?? request),
     renewLease: vi.fn(async () => options.renewResult ?? true),
-    complete: vi.fn(async () => options.completeResult ?? true),
+    complete: vi.fn(async () => {
+      if (options.completeError) throw options.completeError;
+      return options.completeResult ?? true;
+    }),
     retry: vi.fn(async () => true),
     fail: vi.fn(async () => true),
     markIncompatible: vi.fn(async () => true)

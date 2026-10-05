@@ -130,9 +130,24 @@ function parseModuleRelationship(
     throw invalid(`Relationship claim ${index} has no Analysis relationship evidence.`);
   }
 
-  const evidence = selectors.flatMap((selector) =>
-    evidenceForSelector(selector, sourceModuleId, targetModuleId, analysisRelationships)
-  );
+  // Selectors prove the persisted claim resolves to this module edge. Once proven, retain every
+  // persisted local Analysis relationship for the same directed module pair as explanation.
+  for (const selector of selectors) {
+    evidenceForSelector(selector, sourceModuleId, targetModuleId, analysisRelationships);
+  }
+  const evidence = analysisRelationships
+    .filter(
+      (relationship) =>
+        relationship.targetKind === "LOCAL_FILE" &&
+        relationship.resolved &&
+        moduleIdForSourcePath(relationship.sourcePath) === sourceModuleId &&
+        moduleIdForSourcePath(relationship.targetPath) === targetModuleId
+    )
+    .flatMap((relationship) =>
+      relationship.locations.length === 0
+        ? [toGraphEvidence(relationship)]
+        : relationship.locations.map((location) => toGraphEvidence(relationship, location))
+    );
   return {
     sourceModuleId,
     targetModuleId,

@@ -89,6 +89,27 @@ describe("projectArchitectureGraph", () => {
     expect(first).toEqual(second);
   });
 
+  it("expands all persisted Analysis relationships for a proven module edge", () => {
+    const representative = relationshipClaim("src/a", "src/b", { relationshipCount: 2 });
+    const additional = analysisRelationship(
+      "src/a/service.ts",
+      "src/b/service.ts",
+      "../b/service.js"
+    );
+    const graph = projectArchitectureGraph(
+      processingInput(
+        [moduleClaim("src/a"), moduleClaim("src/b"), representative.claim],
+        [additional, representative.analysisRelationship]
+      )
+    );
+
+    expect(graph.edges[0]?.evidence).toHaveLength(2);
+    expect(graph.edges[0]?.evidence.map((item) => item.sourcePath)).toEqual([
+      "src/a/index.ts",
+      "src/a/service.ts"
+    ]);
+  });
+
   it.each([
     ["module identity", moduleClaim("src/a", { moduleId: "module:src/other" })],
     ["numeric measurement", moduleClaim("src/a", { declarationCount: -1 })],

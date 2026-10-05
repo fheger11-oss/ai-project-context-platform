@@ -18,6 +18,8 @@ class ArchitectureProcessingSummaryDto {
   @ApiProperty({ nullable: true, format: "date-time" }) startedAt!: string | null;
   @ApiProperty({ nullable: true, format: "date-time" }) completedAt!: string | null;
   @ApiProperty({ nullable: true }) failureCategory!: string | null;
+  @ApiProperty() attemptCount!: number;
+  @ApiProperty({ format: "date-time" }) nextAttemptAt!: string;
 }
 
 class ArchitectureFindingItemDto {

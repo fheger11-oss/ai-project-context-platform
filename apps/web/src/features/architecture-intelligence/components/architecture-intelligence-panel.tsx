@@ -158,6 +158,33 @@ export function ArchitectureIntelligencePanel({
         </>
       ) : null}
       {history.data ? <History items={history.data.items} /> : null}
+      {history.isLoading ? (
+        <StatePanel
+          title="Loading processing history"
+          description="Loading promoted Architecture Intelligence results."
+          tone="loading"
+        />
+      ) : null}
+      {history.isError ? (
+        <StatePanel
+          title="Processing history unavailable"
+          description="Architecture processing history could not be loaded."
+          tone="error"
+          action={
+            <Button variant="outline" onClick={() => void history.refetch()}>
+              <RefreshCw />
+              Retry
+            </Button>
+          }
+        />
+      ) : null}
+      {!history.isLoading && !history.isError && history.data?.items.length === 0 ? (
+        <StatePanel
+          title="No processing history"
+          description="Historical results will appear after promoted contexts are processed."
+          tone="empty"
+        />
+      ) : null}
       {history.data ? (
         <Pager
           pagination={history.data.pagination}
@@ -198,6 +225,11 @@ function ProcessingCard({
           <Detail label="Processor" value={processing.processorVersion} mono />
           <Detail label="Analyzer" value={processing.analyzerVersion} mono />
           <Detail label="Context" value={processing.contextVersion} mono />
+          <Detail label="Attempts" value={String(processing.attemptCount)} />
+          <Detail
+            label="Next eligible attempt"
+            value={new Date(processing.nextAttemptAt).toLocaleString()}
+          />
           <Detail
             label="Completed"
             value={
@@ -358,40 +390,46 @@ function Measurements({
         <CardTitle>Module measurements</CardTitle>
       </CardHeader>
       <CardContent className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b">
-              {[
-                "Module",
-                "Files",
-                "Declarations",
-                "Fan-in",
-                "Fan-out",
-                "Total degree",
-                "Relationships",
-                "Confidence"
-              ].map((item) => (
-                <th key={item} className="p-2">
-                  {item}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.moduleId} className="border-b">
-                <td className="p-2 font-mono">{item.moduleId}</td>
-                <td className="p-2">{item.sourceFileCount}</td>
-                <td className="p-2">{item.declarationCount}</td>
-                <td className="p-2">{item.fanIn}</td>
-                <td className="p-2">{item.fanOut}</td>
-                <td className="p-2">{item.totalDegree}</td>
-                <td className="p-2">{item.relationshipCount}</td>
-                <td className="p-2">{item.confidence}</td>
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No inferred-module measurements are available for this processing result.
+          </p>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b">
+                {[
+                  "Module",
+                  "Files",
+                  "Declarations",
+                  "Fan-in",
+                  "Fan-out",
+                  "Total degree",
+                  "Relationships",
+                  "Confidence"
+                ].map((item) => (
+                  <th key={item} className="p-2">
+                    {item}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.moduleId} className="border-b">
+                  <td className="p-2 font-mono">{item.moduleId}</td>
+                  <td className="p-2">{item.sourceFileCount}</td>
+                  <td className="p-2">{item.declarationCount}</td>
+                  <td className="p-2">{item.fanIn}</td>
+                  <td className="p-2">{item.fanOut}</td>
+                  <td className="p-2">{item.totalDegree}</td>
+                  <td className="p-2">{item.relationshipCount}</td>
+                  <td className="p-2">{item.confidence}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </CardContent>
     </Card>
   );

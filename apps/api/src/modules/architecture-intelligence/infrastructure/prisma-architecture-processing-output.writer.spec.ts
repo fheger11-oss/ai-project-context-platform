@@ -76,6 +76,15 @@ describe("PrismaArchitectureProcessingOutputWriter", () => {
     await expect(h.writer.persist(output)).rejects.toThrow("measurement write failed");
     expect(h.findingCreateMany).not.toHaveBeenCalled();
   });
+
+  it("rejects the shared output transaction when finding persistence fails", async () => {
+    const h = harness();
+    h.findingCreateMany.mockRejectedValueOnce(new Error("finding write failed"));
+
+    await expect(h.writer.persist(output)).rejects.toThrow("finding write failed");
+    expect(h.measurementCreateMany).toHaveBeenCalledTimes(1);
+    expect(h.transaction).toHaveBeenCalledTimes(1);
+  });
 });
 
 function harness() {

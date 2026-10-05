@@ -66,6 +66,8 @@ export type ArchitectureProcessingSummary = {
   startedAt: string | null;
   completedAt: string | null;
   failureCategory: string | null;
+  attemptCount: number;
+  nextAttemptAt: string;
 };
 
 export type Pagination = { page: number; pageSize: number; total: number; hasNextPage: boolean };
