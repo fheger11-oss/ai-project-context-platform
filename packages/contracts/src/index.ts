@@ -1,6 +1,21 @@
 export type { AiExportFormat, AiExportResponse } from "./ai-export.js";
 
 export type {
+  ArchitectureFindingEvidence,
+  ArchitectureFindingItem,
+  ArchitectureFindingLifecycle,
+  ArchitectureFindingSubject,
+  ArchitectureIntelligenceCompatibility,
+  ArchitectureIntelligenceConfidence,
+  ArchitectureIntelligenceHistoryItem,
+  ArchitectureIntelligenceHistoryResponse,
+  ArchitectureIntelligenceProcessingStatus,
+  ArchitectureIntelligenceResponse,
+  ArchitectureModuleMeasurement,
+  ArchitectureProcessingSummary
+} from "./architecture-intelligence.js";
+
+export type {
   ArchitectureComparisonDiagnostic,
   ArchitectureComparisonResponse,
   ArchitectureComparisonStatus,

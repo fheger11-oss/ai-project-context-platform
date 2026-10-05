@@ -37,6 +37,8 @@ export type ArchitectureHistoryComparison =
   | { status: "NO_BASELINE" | "INCOMPATIBLE" }
   | {
       status: "COMPARABLE";
+      currentProcessingRequestId: string;
+      previousProcessingRequestId: string;
       lifecycle: readonly ArchitectureFindingLifecycleTransition[];
       addedModules: readonly string[];
       removedModules: readonly string[];
@@ -100,6 +102,8 @@ export function compareArchitectureHistory(
   const previousStructure = comparableStructure(previous.graph);
   return {
     status: "COMPARABLE",
+    currentProcessingRequestId: current.processingRequestId,
+    previousProcessingRequestId: previous.processingRequestId,
     lifecycle,
     addedModules: difference(currentStructure.modules, previousStructure.modules),
     removedModules: difference(previousStructure.modules, currentStructure.modules),

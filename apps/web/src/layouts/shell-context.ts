@@ -63,8 +63,13 @@ export function useShellContext(location: Location): ShellContext {
     { path: "/repositories/:id/architecture-history", end: true },
     pathname
   );
+  const repositoryArchitectureIntelligenceMatch = matchPath(
+    { path: "/repositories/:id/architecture-intelligence", end: true },
+    pathname
+  );
   const analysisMatch = matchPath({ path: "/analyses/:analysisId", end: true }, pathname);
   const repositoryIdFromRoute =
+    repositoryArchitectureIntelligenceMatch?.params.id ??
     repositoryArchitectureHistoryMatch?.params.id ??
     repositoryKnowledgeMatch?.params.id ??
     repositoryDecisionsMatch?.params.id ??
@@ -125,17 +130,19 @@ export function useShellContext(location: Location): ShellContext {
 
     if (repositoryIdFromRoute) {
       const label = currentRepository ? repositoryDisplayName(currentRepository) : "Repository";
-      const section = repositoryArchitectureHistoryMatch
-        ? "Architecture History"
-        : repositoryKnowledgeMatch
-          ? "Knowledge"
-          : repositoryDecisionsMatch
-            ? "Decisions"
-            : repositoryTimelineMatch
-              ? "Timeline"
-              : hash === "#updates"
-                ? "Updates"
-                : "Overview";
+      const section = repositoryArchitectureIntelligenceMatch
+        ? "Architecture Intelligence"
+        : repositoryArchitectureHistoryMatch
+          ? "Architecture History"
+          : repositoryKnowledgeMatch
+            ? "Knowledge"
+            : repositoryDecisionsMatch
+              ? "Decisions"
+              : repositoryTimelineMatch
+                ? "Timeline"
+                : hash === "#updates"
+                  ? "Updates"
+                  : "Overview";
 
       return {
         analysisId,
@@ -206,6 +213,7 @@ export function useShellContext(location: Location): ShellContext {
     repositoryId,
     repositoryIdFromRoute,
     repositoryArchitectureHistoryMatch,
+    repositoryArchitectureIntelligenceMatch,
     repositoryDecisionsMatch,
     repositoryKnowledgeMatch,
     repositoryTimelineMatch,
