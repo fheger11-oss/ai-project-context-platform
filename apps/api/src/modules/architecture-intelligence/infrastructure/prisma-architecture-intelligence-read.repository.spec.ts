@@ -5,7 +5,8 @@ import { PrismaArchitectureIntelligenceReadRepository } from "./prisma-architect
 
 describe("PrismaArchitectureIntelligenceReadRepository", () => {
   it("scopes the current context and nested history to one repository", async () => {
-    const findFirst = vi.fn(async () => ({ currentProjectContext: context() }));
+    type FindFirstArgs = NonNullable<Parameters<PrismaService["repositoryState"]["findFirst"]>[0]>;
+    const findFirst = vi.fn(async (_args: FindFirstArgs) => ({ currentProjectContext: context() }));
     const repository = new PrismaArchitectureIntelligenceReadRepository({
       repositoryState: { findFirst }
     } as unknown as PrismaService);
@@ -21,11 +22,24 @@ describe("PrismaArchitectureIntelligenceReadRepository", () => {
       select: {
         currentProjectContext: {
           select: {
-            repositoryContextHistory: { where: { repositoryId: "repository-a" } }
+            repositoryId: true,
+            repositoryContextHistory: { where: { repositoryId: "repository-a" } },
+            architectureProcessingRequests: { where: { repositoryId: "repository-a" } }
           }
         }
       }
     });
+  });
+
+  it("does not return a current context owned by another repository", async () => {
+    const findFirst = vi.fn(async (_args: unknown) => ({
+      currentProjectContext: context("repository-b")
+    }));
+    const repository = new PrismaArchitectureIntelligenceReadRepository({
+      repositoryState: { findFirst }
+    } as unknown as PrismaService);
+
+    await expect(repository.findCurrent("repository-a")).resolves.toBeNull();
   });
 
   it("uses repository scope, deterministic ordering, and bounded history pagination", async () => {
@@ -54,10 +68,11 @@ describe("PrismaArchitectureIntelligenceReadRepository", () => {
   });
 });
 
-function context() {
+function context(repositoryId = "repository-a") {
   const now = new Date("2026-10-05T12:00:00.000Z");
   return {
     id: "context-1",
+    repositoryId,
     commitSha: "abc123",
     contextVersion: "context-1",
     analysis: { analyzerVersion: "analyzer-1" },
@@ -65,7 +80,7 @@ function context() {
     architectureProcessingRequests: [
       {
         id: "request-1",
-        repositoryId: "repository-a",
+        repositoryId,
         projectContextId: "context-1",
         processorVersion: "processor-1",
         status: "COMPLETED" as const,

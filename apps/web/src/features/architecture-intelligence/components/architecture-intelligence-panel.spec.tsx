@@ -61,6 +61,10 @@ describe("ArchitectureIntelligencePanel", () => {
     current = { data: completedResponse(), isLoading: false, isError: false, isFetching: false };
     const markup = render();
     expect(markup).toContain("Circular dependencies");
+    expect(markup).toContain("Modules in cycle");
+    expect(markup).toContain("module:a, module:b, module:c");
+    expect(markup).not.toContain("module:a → module:b → module:c");
+    expect(markup).toContain("module:a → module:b");
     expect(markup).toContain("Inspect evidence");
     expect(markup).toContain("Module measurements");
     expect(markup).toContain("Added modules");
@@ -132,7 +136,7 @@ function completedResponse(): ArchitectureIntelligenceResponse {
             ruleVersion: "1.0",
             confidence: "HIGH",
             lifecycle: "NEW",
-            subject: { kind: "CYCLE", moduleIds: ["module:a", "module:b"] },
+            subject: { kind: "CYCLE", moduleIds: ["module:a", "module:b", "module:c"] },
             evidence: [
               {
                 kind: "MODULE_RELATIONSHIP",

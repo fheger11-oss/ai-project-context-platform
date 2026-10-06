@@ -356,11 +356,14 @@ function Findings({ findings }: { findings: ArchitectureFindingItem[] }) {
                 <Badge>{finding.lifecycle ?? "BOUNDARY"}</Badge>
                 <Badge tone="neutral">{finding.confidence}</Badge>
               </div>
-              <div className="mt-3 font-mono text-sm">
-                {finding.subject.kind === "CYCLE"
-                  ? finding.subject.moduleIds.join(" → ")
-                  : finding.fingerprint}
-              </div>
+              {finding.subject.kind === "CYCLE" ? (
+                <div className="mt-3 text-sm">
+                  <div className="text-xs text-muted-foreground">Modules in cycle</div>
+                  <div className="font-mono">{finding.subject.moduleIds.join(", ")}</div>
+                </div>
+              ) : (
+                <div className="mt-3 font-mono text-sm">{finding.fingerprint}</div>
+              )}
               <details className="mt-3">
                 <summary className="cursor-pointer text-sm font-medium">Inspect evidence</summary>
                 <ul className="mt-2 grid gap-2 text-xs text-muted-foreground">

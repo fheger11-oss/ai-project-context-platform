@@ -18,6 +18,7 @@ export class PrismaArchitectureIntelligenceReadRepository implements Architectur
         currentProjectContext: {
           select: {
             id: true,
+            repositoryId: true,
             commitSha: true,
             contextVersion: true,
             analysis: { select: { analyzerVersion: true } },
@@ -28,6 +29,7 @@ export class PrismaArchitectureIntelligenceReadRepository implements Architectur
               select: { id: true, createdAt: true }
             },
             architectureProcessingRequests: {
+              where: { repositoryId },
               orderBy: [{ createdAt: "desc" }, { id: "desc" }],
               take: 1
             }
@@ -36,7 +38,7 @@ export class PrismaArchitectureIntelligenceReadRepository implements Architectur
       }
     });
     const context = state?.currentProjectContext;
-    if (!context) return null;
+    if (!context || context.repositoryId !== repositoryId) return null;
     const history = context.repositoryContextHistory[0];
     return {
       historyId: history?.id ?? null,
@@ -69,6 +71,7 @@ export class PrismaArchitectureIntelligenceReadRepository implements Architectur
               contextVersion: true,
               analysis: { select: { analyzerVersion: true } },
               architectureProcessingRequests: {
+                where: { repositoryId: input.repositoryId },
                 orderBy: [{ createdAt: "desc" }, { id: "desc" }],
                 take: 1
               }
