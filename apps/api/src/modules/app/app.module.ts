@@ -14,6 +14,7 @@ import { AppConfigModule } from "../config/app-config.module.js";
 import { AppConfigService } from "../config/app-config.service.js";
 import { ContextModule } from "../context/context.module.js";
 import { DashboardModule } from "../dashboard/dashboard.module.js";
+import { DependencyIntelligenceModule } from "../dependency-intelligence/dependency-intelligence.module.js";
 import { DocumentGenerationModule } from "../document-generation/document-generation.module.js";
 import { FeedbackModule } from "../feedback/feedback.module.js";
 import { HealthModule } from "../health/health.module.js";
@@ -55,6 +56,7 @@ import { WebhooksModule } from "../webhooks/webhooks.module.js";
     AnalysisModule,
     ContextModule,
     DashboardModule,
+    DependencyIntelligenceModule,
     DocumentGenerationModule,
     AiExportModule,
     FeedbackModule,
