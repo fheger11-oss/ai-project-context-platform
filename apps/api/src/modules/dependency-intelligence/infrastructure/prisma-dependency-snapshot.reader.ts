@@ -42,42 +42,101 @@ export class PrismaDependencySnapshotReader implements DependencySnapshotReader 
     const context = state?.currentProjectContext;
     if (!context) return null;
 
-    const analysis = context.analysis;
-    if (
-      context.repositoryId !== repositoryId ||
-      context.repositoryContextHistory.length === 0 ||
-      analysis.id !== context.analysisId ||
-      analysis.repositoryId !== repositoryId ||
-      analysis.commitSha !== context.commitSha ||
-      analysis.status !== "COMPLETED"
-    ) {
-      throw invalid("Current ProjectContext and Analysis provenance is inconsistent.");
-    }
-    for (const [field, value] of [
-      ["projectContextId", context.id],
-      ["analysisId", context.analysisId],
-      ["commitSha", context.commitSha],
-      ["contextVersion", context.contextVersion],
-      ["analyzerVersion", analysis.analyzerVersion]
-    ] as const) {
-      if (value.length === 0) throw invalid(`${field} is missing.`);
-    }
-
-    const project = record(analysis.project, "Analysis.project");
-    const declarations = array(project.dependencies, "Analysis.project.dependencies")
-      .map(parseDeclaration)
-      .sort(compareDeclarations);
-
-    return {
-      repositoryId,
-      projectContextId: context.id,
-      analysisId: context.analysisId,
-      commitSha: context.commitSha,
-      analyzerVersion: analysis.analyzerVersion,
-      contextVersion: context.contextVersion,
-      declarations
-    };
+    return toSnapshot(context, repositoryId);
   }
+
+  async readPromoted(repositoryId: string, projectContextId: string): Promise<DependencySnapshot> {
+    const context = await this.prisma.projectContext.findFirst({
+      where: { id: projectContextId, repositoryId },
+      select: dependencyContextSelect(repositoryId)
+    });
+    if (!context) {
+      throw invalid(
+        `Promoted ProjectContext ${projectContextId} was not found for its repository.`
+      );
+    }
+    return toSnapshot(context, repositoryId);
+  }
+}
+
+type PersistedDependencyContext = {
+  id: string;
+  repositoryId: string;
+  analysisId: string;
+  commitSha: string;
+  contextVersion: string;
+  repositoryContextHistory: readonly { id: string }[];
+  analysis: {
+    id: string;
+    repositoryId: string;
+    commitSha: string;
+    analyzerVersion: string;
+    status: string;
+    project: unknown;
+  };
+};
+
+function toSnapshot(context: PersistedDependencyContext, repositoryId: string): DependencySnapshot {
+  const analysis = context.analysis;
+  if (
+    context.repositoryId !== repositoryId ||
+    context.repositoryContextHistory.length === 0 ||
+    analysis.id !== context.analysisId ||
+    analysis.repositoryId !== repositoryId ||
+    analysis.commitSha !== context.commitSha ||
+    analysis.status !== "COMPLETED"
+  ) {
+    throw invalid("ProjectContext and Analysis provenance is inconsistent.");
+  }
+  for (const [field, value] of [
+    ["projectContextId", context.id],
+    ["analysisId", context.analysisId],
+    ["commitSha", context.commitSha],
+    ["contextVersion", context.contextVersion],
+    ["analyzerVersion", analysis.analyzerVersion]
+  ] as const) {
+    if (value.length === 0) throw invalid(`${field} is missing.`);
+  }
+
+  const project = record(analysis.project, "Analysis.project");
+  const declarations = array(project.dependencies, "Analysis.project.dependencies")
+    .map(parseDeclaration)
+    .sort(compareDeclarations);
+
+  return {
+    repositoryId,
+    projectContextId: context.id,
+    analysisId: context.analysisId,
+    commitSha: context.commitSha,
+    analyzerVersion: analysis.analyzerVersion,
+    contextVersion: context.contextVersion,
+    declarations
+  };
+}
+
+function dependencyContextSelect(repositoryId: string) {
+  return {
+    id: true,
+    repositoryId: true,
+    analysisId: true,
+    commitSha: true,
+    contextVersion: true,
+    repositoryContextHistory: {
+      where: { repositoryId },
+      select: { id: true },
+      take: 1
+    },
+    analysis: {
+      select: {
+        id: true,
+        repositoryId: true,
+        commitSha: true,
+        analyzerVersion: true,
+        status: true,
+        project: true
+      }
+    }
+  } as const;
 }
 
 function parseDeclaration(value: unknown, index: number): DependencyDeclaration {

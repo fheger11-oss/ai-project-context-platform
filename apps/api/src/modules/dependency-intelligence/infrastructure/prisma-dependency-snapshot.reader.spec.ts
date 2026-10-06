@@ -141,6 +141,28 @@ describe("PrismaDependencySnapshotReader", () => {
     const { reader } = harness([], { currentProjectContext: null });
     await expect(reader.readCurrent("repository-a")).resolves.toBeNull();
   });
+
+  it("reads a promoted historical context through repository-scoped provenance", async () => {
+    const { reader, contextFindFirst } = harness([
+      dependency("package.json", "react", "^18.2.0", "DEPENDENCY")
+    ]);
+    await expect(reader.readPromoted("repository-a", "context-1")).resolves.toMatchObject({
+      repositoryId: "repository-a",
+      projectContextId: "context-1",
+      analysisId: "analysis-1"
+    });
+    expect(contextFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "context-1", repositoryId: "repository-a" } })
+    );
+    expect(JSON.stringify(contextFindFirst.mock.calls[0]?.[0])).not.toContain("scanFile");
+  });
+
+  it("rejects a historical context/Analysis provenance mismatch", async () => {
+    const { reader } = harness([], { analysisRepositoryId: "repository-b" });
+    await expect(reader.readPromoted("repository-a", "context-1")).rejects.toBeInstanceOf(
+      InvalidDependencySnapshotInputError
+    );
+  });
 });
 
 function harness(
@@ -175,10 +197,13 @@ function harness(
           }
         };
   const findFirst = vi.fn(async (_args: unknown) => ({ currentProjectContext: context }));
+  const contextFindFirst = vi.fn(async (_args: unknown) => context);
   return {
     findFirst,
+    contextFindFirst,
     reader: new PrismaDependencySnapshotReader({
-      repositoryState: { findFirst }
+      repositoryState: { findFirst },
+      projectContext: { findFirst: contextFindFirst }
     } as unknown as PrismaService)
   };
 }
