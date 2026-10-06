@@ -14,27 +14,35 @@ import { RepositoryDetailsView } from "@/routes/repositories/repository-details-
 import { RepositoryListView } from "@/routes/repositories/repository-list-view";
 import { RepositoryTimelineView } from "@/routes/repositories/repository-timeline-view";
 import { RootEntryView } from "@/routes/root-entry-view";
+import { NotFoundView, RouteErrorView } from "@/routes/route-error-view";
+
+const globalRouteError = <RouteErrorView />;
 
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <RootEntryView />
+    element: <RootEntryView />,
+    errorElement: globalRouteError
   },
   {
     path: "/landing",
-    element: <LandingView />
+    element: <LandingView />,
+    errorElement: globalRouteError
   },
   {
     path: "/privacy",
-    element: <PrivacyView />
+    element: <PrivacyView />,
+    errorElement: globalRouteError
   },
   {
     path: "/auth/callback",
-    element: <AuthCallbackView />
+    element: <AuthCallbackView />,
+    errorElement: globalRouteError
   },
   {
     path: "/",
     element: <AppShell />,
+    errorElement: globalRouteError,
     children: [
       {
         path: "repositories",
@@ -73,5 +81,10 @@ export const router = createBrowserRouter([
         element: <AnalysisResultView />
       }
     ]
+  },
+  {
+    path: "*",
+    element: <NotFoundView />,
+    errorElement: globalRouteError
   }
 ]);

@@ -11,6 +11,7 @@ import { RepositoryDecisionsView } from "@/routes/repositories/repository-decisi
 import { RepositoryKnowledgeView } from "@/routes/repositories/repository-knowledge-view";
 import { RepositoryTimelineView } from "@/routes/repositories/repository-timeline-view";
 import { RootEntryView } from "@/routes/root-entry-view";
+import { NotFoundView, RouteErrorView } from "@/routes/route-error-view";
 
 const createBrowserRouter = vi.hoisted(() => vi.fn((routes: unknown[]) => ({ routes })));
 
@@ -24,6 +25,22 @@ vi.mock("react-router-dom", async (importOriginal) => {
 });
 
 describe("router", () => {
+  it("uses the Ctxaro error boundary and explicit not-found route", async () => {
+    const { router } = await import("@/app/router");
+    const routes = (
+      router as {
+        routes: {
+          path?: string;
+          element: ReactElement;
+          errorElement?: ReactElement;
+        }[];
+      }
+    ).routes;
+
+    expect(routes.every((route) => route.errorElement?.type === RouteErrorView)).toBe(true);
+    expect(routes.find((route) => route.path === "*")?.element.type).toBe(NotFoundView);
+  });
+
   it("mounts the public root through an auth-aware entry view", async () => {
     const { router } = await import("@/app/router");
     const routes = (
