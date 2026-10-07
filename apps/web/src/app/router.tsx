@@ -8,6 +8,7 @@ import { LandingView } from "@/routes/landing-view";
 import { PrivacyView } from "@/routes/privacy-view";
 import { RepositoryArchitectureHistoryView } from "@/routes/repositories/repository-architecture-history-view";
 import { RepositoryArchitectureIntelligenceView } from "@/routes/repositories/repository-architecture-intelligence-view";
+import { RepositoryDependencyIntelligenceView } from "@/routes/repositories/repository-dependency-intelligence-view";
 import { RepositoryDecisionsView } from "@/routes/repositories/repository-decisions-view";
 import { RepositoryKnowledgeView } from "@/routes/repositories/repository-knowledge-view";
 import { RepositoryDetailsView } from "@/routes/repositories/repository-details-view";
@@ -71,6 +72,10 @@ export const router = createBrowserRouter([
       {
         path: "repositories/:id/architecture-intelligence",
         element: <RepositoryArchitectureIntelligenceView />
+      },
+      {
+        path: "repositories/:id/dependency-intelligence",
+        element: <RepositoryDependencyIntelligenceView />
       },
       {
         path: "repositories/:id/architecture-history",

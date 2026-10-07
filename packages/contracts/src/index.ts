@@ -1,6 +1,21 @@
 export type { AiExportFormat, AiExportResponse } from "./ai-export.js";
 
 export type {
+  DependencyComparisonStatus,
+  DependencyDeclarationChangeItem,
+  DependencyDeclarationChangeType,
+  DependencyDeclarationItem,
+  DependencyFindingEvidenceItem,
+  DependencyFindingItem,
+  DependencyFindingLifecycle,
+  DependencyIntelligenceHistoryResponse,
+  DependencyIntelligenceResponse,
+  DependencyPagination,
+  DependencyProvenance,
+  DependencyType
+} from "./dependency-intelligence.js";
+
+export type {
   ArchitectureFindingEvidence,
   ArchitectureFindingItem,
   ArchitectureFindingLifecycle,

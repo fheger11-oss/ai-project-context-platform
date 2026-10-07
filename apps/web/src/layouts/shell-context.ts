@@ -67,8 +67,13 @@ export function useShellContext(location: Location): ShellContext {
     { path: "/repositories/:id/architecture-intelligence", end: true },
     pathname
   );
+  const repositoryDependencyIntelligenceMatch = matchPath(
+    { path: "/repositories/:id/dependency-intelligence", end: true },
+    pathname
+  );
   const analysisMatch = matchPath({ path: "/analyses/:analysisId", end: true }, pathname);
   const repositoryIdFromRoute =
+    repositoryDependencyIntelligenceMatch?.params.id ??
     repositoryArchitectureIntelligenceMatch?.params.id ??
     repositoryArchitectureHistoryMatch?.params.id ??
     repositoryKnowledgeMatch?.params.id ??
@@ -130,19 +135,21 @@ export function useShellContext(location: Location): ShellContext {
 
     if (repositoryIdFromRoute) {
       const label = currentRepository ? repositoryDisplayName(currentRepository) : "Repository";
-      const section = repositoryArchitectureIntelligenceMatch
-        ? "Architecture Intelligence"
-        : repositoryArchitectureHistoryMatch
-          ? "Architecture History"
-          : repositoryKnowledgeMatch
-            ? "Knowledge"
-            : repositoryDecisionsMatch
-              ? "Decisions"
-              : repositoryTimelineMatch
-                ? "Timeline"
-                : hash === "#updates"
-                  ? "Updates"
-                  : "Overview";
+      const section = repositoryDependencyIntelligenceMatch
+        ? "Dependency Intelligence"
+        : repositoryArchitectureIntelligenceMatch
+          ? "Architecture Intelligence"
+          : repositoryArchitectureHistoryMatch
+            ? "Architecture History"
+            : repositoryKnowledgeMatch
+              ? "Knowledge"
+              : repositoryDecisionsMatch
+                ? "Decisions"
+                : repositoryTimelineMatch
+                  ? "Timeline"
+                  : hash === "#updates"
+                    ? "Updates"
+                    : "Overview";
 
       return {
         analysisId,
@@ -214,6 +221,7 @@ export function useShellContext(location: Location): ShellContext {
     repositoryIdFromRoute,
     repositoryArchitectureHistoryMatch,
     repositoryArchitectureIntelligenceMatch,
+    repositoryDependencyIntelligenceMatch,
     repositoryDecisionsMatch,
     repositoryKnowledgeMatch,
     repositoryTimelineMatch,

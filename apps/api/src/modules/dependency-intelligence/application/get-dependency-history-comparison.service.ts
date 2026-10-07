@@ -19,6 +19,7 @@ import {
 
 export type CurrentDependencyIntelligence = {
   snapshot: DependencySnapshot;
+  previousSnapshot: DependencySnapshot | null;
   comparison: DependencyHistoryComparison;
 };
 
@@ -46,7 +47,11 @@ export class GetDependencyHistoryComparisonService {
     const current = dependencyHistoricalSnapshot(currentSnapshot);
     const previousReference = sequence[currentIndex - 1];
     if (!previousReference) {
-      return { snapshot: currentSnapshot, comparison: compareDependencyHistory(current, null) };
+      return {
+        snapshot: currentSnapshot,
+        previousSnapshot: null,
+        comparison: compareDependencyHistory(current, null)
+      };
     }
 
     const previous = dependencyHistoricalSnapshot(
@@ -55,6 +60,7 @@ export class GetDependencyHistoryComparisonService {
     if (!dependencyResultsAreCompatible(current.compatibility, previous.compatibility)) {
       return {
         snapshot: currentSnapshot,
+        previousSnapshot: previous.snapshot,
         comparison: compareDependencyHistory(current, previous)
       };
     }
@@ -71,6 +77,7 @@ export class GetDependencyHistoryComparisonService {
     }
     return {
       snapshot: currentSnapshot,
+      previousSnapshot: previous.snapshot,
       comparison: compareDependencyHistory(current, previous, earlier)
     };
   }

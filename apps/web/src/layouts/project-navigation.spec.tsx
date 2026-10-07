@@ -97,6 +97,7 @@ describe("ProjectNavigation", () => {
     expect(markup).toContain('href="/repositories/repository_1/timeline"');
     expect(markup).toContain('href="/analyses/analysis_24#project-context"');
     expect(markup).toContain('href="/repositories/repository_1/architecture-history"');
+    expect(markup).toContain('href="/repositories/repository_1/dependency-intelligence"');
     expect(markup).toContain('href="/repositories/repository_1#updates"');
     expect(markup).toContain('href="/analyses/analysis_24#documents"');
     expect(markup).toContain('href="/repositories/repository_1/decisions"');
@@ -111,6 +112,9 @@ describe("ProjectNavigation", () => {
     expect(activeProjectSection("/repositories/repository_1/knowledge", "")).toBe("knowledge");
     expect(activeProjectSection("/repositories/repository_1/architecture-history", "")).toBe(
       "architecture-history"
+    );
+    expect(activeProjectSection("/repositories/repository_1/dependency-intelligence", "")).toBe(
+      "dependency-intelligence"
     );
     expect(activeProjectSection("/repositories/repository_1", "")).toBe("overview");
     expect(activeProjectSection("/repositories/repository_1", "#updates")).toBe("updates");

@@ -7,6 +7,7 @@ import { LandingView } from "@/routes/landing-view";
 import { PrivacyView } from "@/routes/privacy-view";
 import { RepositoryArchitectureHistoryView } from "@/routes/repositories/repository-architecture-history-view";
 import { RepositoryArchitectureIntelligenceView } from "@/routes/repositories/repository-architecture-intelligence-view";
+import { RepositoryDependencyIntelligenceView } from "@/routes/repositories/repository-dependency-intelligence-view";
 import { RepositoryDecisionsView } from "@/routes/repositories/repository-decisions-view";
 import { RepositoryKnowledgeView } from "@/routes/repositories/repository-knowledge-view";
 import { RepositoryTimelineView } from "@/routes/repositories/repository-timeline-view";
@@ -167,6 +168,24 @@ describe("router", () => {
       (route) => route.path === "repositories/:id/architecture-intelligence"
     );
     expect(intelligenceRoute?.element.type).toBe(RepositoryArchitectureIntelligenceView);
+  });
+
+  it("registers Dependency Intelligence at the exact repository path", async () => {
+    const { router } = await import("@/app/router");
+    const routes = (
+      router as {
+        routes: {
+          path?: string;
+          element: ReactElement;
+          children?: { path?: string; element: ReactElement }[];
+        }[];
+      }
+    ).routes;
+    const appRoute = routes.find((route) => route.path === "/" && route.element.type === AppShell);
+    const intelligenceRoute = appRoute?.children?.find(
+      (route) => route.path === "repositories/:id/dependency-intelligence"
+    );
+    expect(intelligenceRoute?.element.type).toBe(RepositoryDependencyIntelligenceView);
   });
 
   it("adds the public landing page outside the authenticated application shell", async () => {

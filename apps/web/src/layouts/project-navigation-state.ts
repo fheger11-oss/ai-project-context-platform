@@ -3,6 +3,7 @@ export type ProjectSection =
   | "timeline"
   | "context"
   | "architecture-intelligence"
+  | "dependency-intelligence"
   | "architecture-history"
   | "updates"
   | "documents"
@@ -33,6 +34,10 @@ export function activeProjectSection(pathname: string, hash: string): ProjectSec
 
   if (/^\/repositories\/[^/]+\/architecture-intelligence\/?$/.test(pathname)) {
     return "architecture-intelligence";
+  }
+
+  if (/^\/repositories\/[^/]+\/dependency-intelligence\/?$/.test(pathname)) {
+    return "dependency-intelligence";
   }
 
   if (pathname.startsWith("/repositories/")) {
