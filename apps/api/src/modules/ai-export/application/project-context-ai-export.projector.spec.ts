@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ContextClaim, ContextEvidence } from "../../context/domain/context-claim.js";
 import { ProjectContext } from "../../context/domain/project-context.js";
+import type { ProjectContextSemantic } from "../../context/domain/project-context-semantic.js";
 import { AI_EXPORT_ENGINE_VERSION } from "./ai-export-engine-version.js";
 import { ProjectContextAiExportProjector } from "./project-context-ai-export.projector.js";
 
@@ -331,7 +332,9 @@ const allSectionClaims = {
   ] satisfies ContextClaim[]
 };
 
-function projectContext(overrides: Partial<typeof allSectionClaims> = {}): ProjectContext {
+function projectContext(
+  overrides: Partial<typeof allSectionClaims> & { semantic?: ProjectContextSemantic } = {}
+): ProjectContext {
   return ProjectContext.create({
     ...provenance,
     ...allSectionClaims,
@@ -404,6 +407,33 @@ describe("ProjectContextAiExportProjector", () => {
       confidence: "HIGH",
       evidence: allSectionClaims.ambiguities[0]?.evidence
     });
+  });
+
+  it("copies complete semantic records from ProjectContext without reconstruction or truncation", () => {
+    const files = Array.from({ length: 150 }, (_, index) => ({
+      id: `file:${index}`,
+      path: `src/file-${String(index).padStart(3, "0")}.ts`,
+      category: "SOURCE" as const,
+      language: "TYPESCRIPT" as const,
+      parseIssues: [],
+      symbolIds: [],
+      importIds: [],
+      exportIds: []
+    }));
+    const semantic: ProjectContextSemantic = {
+      packages: [],
+      files,
+      symbols: [],
+      imports: [],
+      exports: [],
+      relationships: []
+    };
+    const context = projectContext({ semantic });
+    const canonical = project(context);
+
+    expect(canonical.semantic).toEqual(semantic);
+    expect(canonical.semantic.files).toHaveLength(150);
+    expect(canonical.semantic).not.toBe(semantic);
   });
 
   it("does not invent claim type discriminators when source values do not provide one", () => {

@@ -32,6 +32,7 @@ type AiContextJson = {
       }
     >
   >;
+  semantic: CanonicalAiExport["semantic"];
   ambiguities: readonly CanonicalAiExportClaim[];
   summary: CanonicalAiExport["summary"];
 };
@@ -71,6 +72,7 @@ function toAiContextJson(input: CanonicalAiExport): AiContextJson {
         }
       ])
     ),
+    semantic: input.semantic,
     ambiguities: input.ambiguities,
     summary: input.summary
   };

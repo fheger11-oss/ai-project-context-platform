@@ -1,5 +1,9 @@
 import type { ContextClaim } from "./context-claim.js";
 import { InvalidProjectContextProvenanceError } from "./errors/invalid-project-context-provenance.error.js";
+import {
+  EMPTY_PROJECT_CONTEXT_SEMANTIC,
+  type ProjectContextSemantic
+} from "./project-context-semantic.js";
 
 export type ProjectContextProvenance = {
   contextId: string;
@@ -26,9 +30,17 @@ export type ProjectContextSections = {
   ambiguities: readonly ContextClaim[];
 };
 
-export type ProjectContextSnapshot = ProjectContextProvenance & ProjectContextSections;
+export type ProjectContextSnapshot = ProjectContextProvenance &
+  ProjectContextSections & {
+    semantic?: ProjectContextSemantic;
+  };
 
-export type CreateProjectContextInput = ProjectContextProvenance & Partial<ProjectContextSections>;
+export type CreateProjectContextInput = ProjectContextProvenance &
+  Partial<
+    ProjectContextSections & {
+      semantic: ProjectContextSemantic;
+    }
+  >;
 
 const EMPTY_SECTION: ContextSection = { claims: [] };
 
@@ -53,14 +65,18 @@ export class ProjectContext {
       entryPoints: input.entryPoints ?? EMPTY_SECTION,
       testing: input.testing ?? EMPTY_SECTION,
       infrastructure: input.infrastructure ?? EMPTY_SECTION,
-      ambiguities: input.ambiguities ?? []
+      ambiguities: input.ambiguities ?? [],
+      semantic: input.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC
     });
   }
 
   static fromSnapshot(snapshot: ProjectContextSnapshot): ProjectContext {
     assertRequiredProvenance(snapshot);
 
-    return new ProjectContext({ ...snapshot });
+    return new ProjectContext({
+      ...snapshot,
+      semantic: snapshot.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC
+    });
   }
 
   get contextId(): string {

@@ -7,6 +7,7 @@ import type { OperationLockService } from "../../usage/operation-lock.service.js
 import type { UsageService } from "../../usage/usage.service.js";
 import type { AiExportProjector } from "../domain/contracts/ai-export-projector.contract.js";
 import type { CanonicalAiExport } from "../domain/canonical-ai-export.js";
+import { EMPTY_PROJECT_CONTEXT_SEMANTIC } from "../../context/domain/project-context-semantic.js";
 import type { AiExportSerializerRouter } from "../infrastructure/serializers/ai-export-serializer.router.js";
 import { ProjectContextNotFoundForAiExportError } from "./errors/project-context-not-found-for-ai-export.error.js";
 import { GenerateAiExportUseCase } from "./generate-ai-export.use-case.js";
@@ -22,6 +23,7 @@ const projectContext = ProjectContext.create({
 });
 
 const canonical: CanonicalAiExport = {
+  semantic: EMPTY_PROJECT_CONTEXT_SEMANTIC,
   metadata: {
     contextId: projectContext.contextId,
     analysisId: projectContext.analysisId,

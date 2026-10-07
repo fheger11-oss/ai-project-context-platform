@@ -227,6 +227,36 @@ describe("PrismaProjectContextRepository", () => {
     expect(persisted.context.toSnapshot()).toEqual(snapshot());
   });
 
+  it("round-trips a non-empty semantic snapshot through JSON persistence", async () => {
+    const semanticContext = ProjectContext.create({
+      ...snapshot(),
+      semantic: {
+        packages: [],
+        files: [
+          {
+            id: "file:%5B%22src%2Fmain.ts%22%5D",
+            path: "src/main.ts",
+            category: "SOURCE",
+            language: "TYPESCRIPT",
+            parseIssues: [],
+            symbolIds: [],
+            importIds: [],
+            exportIds: []
+          }
+        ],
+        symbols: [],
+        imports: [],
+        exports: [],
+        relationships: []
+      }
+    });
+    const { repository } = createRepository();
+
+    const persisted = await repository.save(semanticContext);
+
+    expect(persisted.context.toSnapshot().semantic).toEqual(semanticContext.toSnapshot().semantic);
+  });
+
   it("creates immutable historical records instead of overwriting previous contexts", async () => {
     const { repository, projectContext } = createRepository();
 
@@ -242,6 +272,25 @@ describe("PrismaProjectContextRepository", () => {
     const { repository } = createRepository({ findUniqueResult: null });
 
     await expect(repository.findById("missing")).resolves.toBeNull();
+  });
+
+  it("loads old persisted snapshots without semantic data as empty semantic collections", async () => {
+    const oldSnapshot = { ...serialized() };
+    delete oldSnapshot.semantic;
+    const { repository } = createRepository({
+      findUniqueResult: stored({ snapshot: oldSnapshot })
+    });
+
+    const persisted = await repository.findById("project_context_1");
+
+    expect(persisted?.context.toSnapshot().semantic).toEqual({
+      packages: [],
+      files: [],
+      symbols: [],
+      imports: [],
+      exports: [],
+      relationships: []
+    });
   });
 
   it("lists Context history for an Analysis in deterministic latest-first order", async () => {

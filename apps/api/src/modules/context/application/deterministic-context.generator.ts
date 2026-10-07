@@ -21,6 +21,7 @@ import type { ContextGenerator } from "../domain/contracts/context-generator.con
 import type { ContextInput } from "../domain/contracts/context-input.contract.js";
 import { ProjectContext } from "../domain/project-context.js";
 import { CONTEXT_ENGINE_VERSION } from "./context-engine-version.js";
+import { projectContextSemantic } from "./project-context-semantic.projector.js";
 
 export type ProjectApplicationType = "BACKEND" | "FRONTEND" | "FULLSTACK";
 
@@ -217,7 +218,8 @@ export class DeterministicContextGenerator implements ContextGenerator {
       infrastructure: {
         claims: this.infrastructureClaims(analysis)
       },
-      ambiguities: this.ambiguityClaims(analysis)
+      ambiguities: this.ambiguityClaims(analysis),
+      semantic: projectContextSemantic(analysis)
     });
   }
 

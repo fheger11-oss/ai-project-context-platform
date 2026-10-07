@@ -512,6 +512,7 @@ describe("DeterministicContextGenerator", () => {
       commitSha: "abc123",
       contextVersion: CONTEXT_ENGINE_VERSION
     });
+    expect(context.semantic).toBeDefined();
     expect(context.project.claims).toContainEqual({
       value: { type: "APPLICATION_TYPE", applicationType: "BACKEND" },
       kind: "INFERRED",

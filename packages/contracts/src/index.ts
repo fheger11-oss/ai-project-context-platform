@@ -143,7 +143,16 @@ export type {
   GenerateProjectContextResponse,
   ProjectContextHistoryItem,
   ProjectContextHistoryResponse,
-  ProjectContextResponse
+  ProjectContextResponse,
+  ProjectContextSemantic,
+  SemanticExport,
+  SemanticFile,
+  SemanticImport,
+  SemanticPackage,
+  SemanticRelationship,
+  SemanticRelationshipEvidence,
+  SemanticSourceLocation,
+  SemanticSymbol
 } from "./context.js";
 
 export type {

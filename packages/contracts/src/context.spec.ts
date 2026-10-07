@@ -3,6 +3,7 @@ import { describe, expectTypeOf, it } from "vitest";
 import type {
   ContextClaim,
   ContextEvidence,
+  ProjectContextSemantic,
   ProjectContextHistoryResponse,
   ProjectContextResponse
 } from "./context.js";
@@ -55,5 +56,22 @@ describe("context contracts", () => {
         createdAt: string;
       }[];
     }>();
+  });
+
+  it("models explicit semantic preservation records without claim confidence", () => {
+    expectTypeOf<ProjectContextSemantic>().toMatchTypeOf<{
+      packages: readonly { id: string; manifestPath: string }[];
+      files: readonly { id: string; path: string; symbolIds: readonly string[] }[];
+      symbols: readonly { id: string; fileId: string; location: { start: number; end: number } }[];
+      imports: readonly { id: string; moduleSpecifier: string; typeOnly: boolean }[];
+      exports: readonly { id: string; moduleSpecifier: string | null }[];
+      relationships: readonly {
+        id: string;
+        kind: "IMPORTS" | "RE_EXPORTS";
+        evidence: readonly { id: string; sourceRecordId: string | null }[];
+      }[];
+    }>();
+    expectTypeOf<ProjectContextSemantic["symbols"][number]>().not.toHaveProperty("confidence");
+    expectTypeOf<ProjectContextSemantic["relationships"][number]>().not.toHaveProperty("calls");
   });
 });

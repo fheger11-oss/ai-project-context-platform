@@ -33,7 +33,38 @@ describe("ProjectContext", () => {
       entryPoints: { claims: [] },
       testing: { claims: [] },
       infrastructure: { claims: [] },
+      ambiguities: [],
+      semantic: {
+        packages: [],
+        files: [],
+        symbols: [],
+        imports: [],
+        exports: [],
+        relationships: []
+      }
+    });
+  });
+
+  it("defaults historical snapshots without semantic data to empty collections", () => {
+    const historical = ProjectContext.fromSnapshot({
+      ...provenance,
+      project: { claims: [] },
+      technology: { claims: [] },
+      structure: { claims: [] },
+      architecture: { claims: [] },
+      entryPoints: { claims: [] },
+      testing: { claims: [] },
+      infrastructure: { claims: [] },
       ambiguities: []
+    });
+
+    expect(historical.toSnapshot().semantic).toEqual({
+      packages: [],
+      files: [],
+      symbols: [],
+      imports: [],
+      exports: [],
+      relationships: []
     });
   });
 

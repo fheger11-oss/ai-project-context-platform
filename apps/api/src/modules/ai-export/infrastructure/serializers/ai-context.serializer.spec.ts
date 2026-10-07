@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { CanonicalAiExport } from "../../domain/canonical-ai-export.js";
+import { EMPTY_PROJECT_CONTEXT_SEMANTIC } from "../../../context/domain/project-context-semantic.js";
 import { AI_EXPORT_FORMAT_AI_CONTEXT } from "../../domain/ai-export-format.js";
 import { AiContextSerializer } from "./ai-context.serializer.js";
 
 const canonical: CanonicalAiExport = {
+  semantic: EMPTY_PROJECT_CONTEXT_SEMANTIC,
   metadata: {
     contextId: "context:analysis_1:context-engine@5.7.1",
     analysisId: "analysis_1",
@@ -372,6 +374,32 @@ describe("AiContextSerializer", () => {
       title: "Infrastructure",
       claims: canonical.sections[6]!.claims
     });
+  });
+
+  it("serializes the complete semantic block without truncation", () => {
+    const files = Array.from({ length: 150 }, (_, index) => ({
+      id: `file:${index}`,
+      path: `src/file-${String(index).padStart(3, "0")}.ts`,
+      category: "SOURCE" as const,
+      language: "TYPESCRIPT" as const,
+      parseIssues: [],
+      symbolIds: [],
+      importIds: [],
+      exportIds: []
+    }));
+    const parsed = parse(
+      serialize({
+        ...canonical,
+        semantic: {
+          ...EMPTY_PROJECT_CONTEXT_SEMANTIC,
+          files
+        }
+      }).content
+    );
+    const semantic = parsed.semantic as CanonicalAiExport["semantic"];
+
+    expect(semantic.files).toEqual(files);
+    expect(semantic.files).toHaveLength(150);
   });
 
   it("preserves claim values, types, observed/inferred state, confidence, and evidence", () => {

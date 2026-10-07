@@ -26,10 +26,16 @@ import type {
   ProjectDecisionStatus,
   ProjectTimelineItem,
   ProjectTimelineItemType,
-  ProjectTimelineResponse
+  ProjectTimelineResponse,
+  ProjectContextSemantic
 } from "./index.js";
 
 describe("contracts package exports", () => {
+  it("exports ProjectContext semantic preservation contracts", () => {
+    expectTypeOf<ProjectContextSemantic>().toHaveProperty("files");
+    expectTypeOf<ProjectContextSemantic>().toHaveProperty("symbols");
+    expectTypeOf<ProjectContextSemantic>().toHaveProperty("relationships");
+  });
   it("exports ProjectTimeline contracts from the public entrypoint", () => {
     expectTypeOf<ProjectTimelineItemType>().toEqualTypeOf<
       "REPOSITORY_CONNECTED" | "REPOSITORY_UPDATE" | "CONTEXT_PROMOTED" | "DECISION_EFFECTIVE"

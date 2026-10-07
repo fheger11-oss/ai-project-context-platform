@@ -6,6 +6,7 @@ import type {
 } from "@ai-context/contracts";
 
 import type { PersistedProjectContext } from "../../domain/contracts/project-context-repository.contract.js";
+import { EMPTY_PROJECT_CONTEXT_SEMANTIC } from "../../domain/project-context-semantic.js";
 
 export type { ProjectContextHistoryItem, ProjectContextHistoryResponse, ProjectContextResponse };
 
@@ -65,6 +66,9 @@ export class ProjectContextResponseDto {
 
   @ApiProperty({ type: "array", items: { type: "object", additionalProperties: true } })
   ambiguities!: unknown[];
+
+  @ApiProperty({ type: "object", additionalProperties: true })
+  semantic!: NonNullable<ProjectContextResponse["semantic"]>;
 }
 
 export class ProjectContextHistoryItemDto {
@@ -121,7 +125,8 @@ export function toProjectContextResponse(context: PersistedProjectContext): Proj
     entryPoints: snapshot.entryPoints,
     testing: snapshot.testing,
     infrastructure: snapshot.infrastructure,
-    ambiguities: snapshot.ambiguities
+    ambiguities: snapshot.ambiguities,
+    semantic: snapshot.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC
   };
 }
 
