@@ -2,7 +2,10 @@ import { NotFoundException } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 
 import type { RepositoriesService } from "../../repositories/repositories.service.js";
-import type { GetDependencyHistoryComparisonService } from "./get-dependency-history-comparison.service.js";
+import type {
+  CurrentDependencyIntelligence,
+  GetDependencyHistoryComparisonService
+} from "./get-dependency-history-comparison.service.js";
 import { GetDependencyIntelligenceReadService } from "./get-dependency-intelligence-read.service.js";
 
 describe("GetDependencyIntelligenceReadService", () => {
@@ -46,6 +49,28 @@ describe("GetDependencyIntelligenceReadService", () => {
       previousVersion: "^17",
       currentVersion: "^18"
     });
+  });
+
+  it("keeps resolved transitions in history without presenting them as current findings", async () => {
+    const value = result();
+    const finding = value.comparison.lifecycle[0]!.currentFinding!;
+    value.comparison.lifecycle = [
+      {
+        lifecycle: "RESOLVED",
+        fingerprint: finding.fingerprint,
+        packageName: finding.packageName,
+        previousFinding: finding
+      }
+    ];
+    const { service } = harness(value);
+
+    const current = await service.getCurrent(query());
+    const history = await service.getHistory(query());
+
+    expect(current.summary?.divergenceFindingCount).toBe(0);
+    expect(current.findings.items).toEqual([]);
+    expect(history.lifecycleCounts.resolved).toBe(1);
+    expect(history.findings.items[0]?.lifecycle).toBe("RESOLVED");
   });
 
   it("represents a repository without a promoted snapshot as an available=false state", async () => {
@@ -101,7 +126,7 @@ function query(
   };
 }
 
-function result() {
+function result(): CurrentDependencyIntelligence {
   const current = snapshot("current", "^18");
   const previous = snapshot("previous", "^17");
   const finding = {

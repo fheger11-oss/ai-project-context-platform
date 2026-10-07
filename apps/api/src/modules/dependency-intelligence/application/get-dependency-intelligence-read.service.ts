@@ -48,7 +48,7 @@ export class GetDependencyIntelligenceReadService {
         divergenceFindingCount: currentFindings.length
       },
       declarations: page(result.snapshot.declarations, query.page, query.pageSize),
-      findings: page(transitions, query.findingPage, query.findingPageSize)
+      findings: page(currentFindings, query.findingPage, query.findingPageSize)
     };
   }
 
