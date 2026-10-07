@@ -1,5 +1,6 @@
 import type { ContextClaim, ContextEvidence } from "../../context/domain/context-claim.js";
 import type { ProjectContext } from "../../context/domain/project-context.js";
+import { EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL } from "../../context/domain/project-context-architecture.js";
 import { EMPTY_PROJECT_CONTEXT_SEMANTIC } from "../../context/domain/project-context-semantic.js";
 import { AI_EXPORT_ENGINE_VERSION } from "./ai-export-engine-version.js";
 import {
@@ -56,6 +57,9 @@ export class ProjectContextAiExportProjector implements AiExportProjector {
       },
       sections,
       semantic: cloneUnknown(snapshot.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC),
+      architectureModel: cloneUnknown(
+        snapshot.architectureModel ?? EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL
+      ),
       ambiguities,
       summary: summarize(sections, ambiguities)
     };

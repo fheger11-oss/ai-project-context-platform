@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import type { CanonicalAiExport } from "../../domain/canonical-ai-export.js";
+import { EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL } from "../../../context/domain/project-context-architecture.js";
 import { EMPTY_PROJECT_CONTEXT_SEMANTIC } from "../../../context/domain/project-context-semantic.js";
 import { AI_EXPORT_FORMAT_AI_CONTEXT } from "../../domain/ai-export-format.js";
 import { AiContextSerializer } from "./ai-context.serializer.js";
 
 const canonical: CanonicalAiExport = {
   semantic: EMPTY_PROJECT_CONTEXT_SEMANTIC,
+  architectureModel: EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL,
   metadata: {
     contextId: "context:analysis_1:context-engine@5.7.1",
     analysisId: "analysis_1",
@@ -400,6 +402,37 @@ describe("AiContextSerializer", () => {
 
     expect(semantic.files).toEqual(files);
     expect(semantic.files).toHaveLength(150);
+  });
+
+  it("serializes the complete real module inventory", () => {
+    const architectureModel = {
+      modules: [
+        {
+          id: "architecture-module:encoded",
+          kind: "FRONTEND_FEATURE" as const,
+          name: "context",
+          rootPath: "apps/web/src/features/context",
+          packageId: "package:web",
+          parentModuleId: "architecture-module:web",
+          fileIds: ["file:context"],
+          layers: [{ kind: "UNCLASSIFIED" as const, fileIds: ["file:context"] }],
+          sourceExports: [],
+          frameworkSignals: [],
+          inference: "INFERRED" as const,
+          confidence: "MEDIUM" as const,
+          evidence: [
+            {
+              kind: "DIRECTORY_CONVENTION" as const,
+              convention: "FRONTEND_FEATURES" as const,
+              rootPath: "apps/web/src/features/context"
+            }
+          ]
+        }
+      ]
+    };
+    const parsed = parse(serialize({ ...canonical, architectureModel }).content);
+
+    expect(parsed.architectureModel).toEqual(architectureModel);
   });
 
   it("preserves claim values, types, observed/inferred state, confidence, and evidence", () => {

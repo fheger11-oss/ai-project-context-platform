@@ -3,6 +3,7 @@ import { describe, expectTypeOf, it } from "vitest";
 import type {
   ContextClaim,
   ContextEvidence,
+  ProjectContextArchitectureModel,
   ProjectContextSemantic,
   ProjectContextHistoryResponse,
   ProjectContextResponse
@@ -73,5 +74,28 @@ describe("context contracts", () => {
     }>();
     expectTypeOf<ProjectContextSemantic["symbols"][number]>().not.toHaveProperty("confidence");
     expectTypeOf<ProjectContextSemantic["relationships"][number]>().not.toHaveProperty("calls");
+  });
+
+  it("models explicit architectural modules without runtime dependency semantics", () => {
+    expectTypeOf<ProjectContextArchitectureModel>().toMatchTypeOf<{
+      modules: readonly {
+        id: string;
+        kind: "WORKSPACE_PACKAGE" | "BACKEND_FEATURE" | "FRONTEND_FEATURE" | "SHARED_AREA";
+        packageId: string;
+        parentModuleId: string | null;
+        fileIds: readonly string[];
+        layers: readonly { kind: string; fileIds: readonly string[] }[];
+        sourceExports: readonly { exportId: string; fileId: string }[];
+        frameworkSignals: readonly { kind: "NESTJS_MODULE_CANDIDATE" }[];
+        inference: "OBSERVED" | "STRONGLY_INFERRED" | "INFERRED";
+        confidence: "HIGH" | "MEDIUM" | "LOW";
+      }[];
+    }>();
+    expectTypeOf<ProjectContextArchitectureModel["modules"][number]>().not.toHaveProperty(
+      "dependencies"
+    );
+    expectTypeOf<ProjectContextArchitectureModel["modules"][number]>().not.toHaveProperty(
+      "providers"
+    );
   });
 });

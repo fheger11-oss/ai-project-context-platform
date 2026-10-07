@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { CanonicalAiExport } from "../../domain/canonical-ai-export.js";
+import { EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL } from "../../../context/domain/project-context-architecture.js";
 import { EMPTY_PROJECT_CONTEXT_SEMANTIC } from "../../../context/domain/project-context-semantic.js";
 import {
   AI_EXPORT_FORMAT_AI_CONTEXT,
@@ -14,6 +15,7 @@ import { AiExportSerializerRouter } from "./ai-export-serializer.router.js";
 
 const canonical = {
   semantic: EMPTY_PROJECT_CONTEXT_SEMANTIC,
+  architectureModel: EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL,
   metadata: {
     contextId: "context_1",
     analysisId: "analysis_1",

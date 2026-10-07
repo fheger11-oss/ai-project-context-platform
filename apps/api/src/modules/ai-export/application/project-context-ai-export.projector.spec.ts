@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ContextClaim, ContextEvidence } from "../../context/domain/context-claim.js";
 import { ProjectContext } from "../../context/domain/project-context.js";
 import type { ProjectContextSemantic } from "../../context/domain/project-context-semantic.js";
+import type { ProjectContextArchitectureModel } from "../../context/domain/project-context-architecture.js";
 import { AI_EXPORT_ENGINE_VERSION } from "./ai-export-engine-version.js";
 import { ProjectContextAiExportProjector } from "./project-context-ai-export.projector.js";
 
@@ -333,7 +334,10 @@ const allSectionClaims = {
 };
 
 function projectContext(
-  overrides: Partial<typeof allSectionClaims> & { semantic?: ProjectContextSemantic } = {}
+  overrides: Partial<typeof allSectionClaims> & {
+    semantic?: ProjectContextSemantic;
+    architectureModel?: ProjectContextArchitectureModel;
+  } = {}
 ): ProjectContext {
   return ProjectContext.create({
     ...provenance,
@@ -434,6 +438,39 @@ describe("ProjectContextAiExportProjector", () => {
     expect(canonical.semantic).toEqual(semantic);
     expect(canonical.semantic.files).toHaveLength(150);
     expect(canonical.semantic).not.toBe(semantic);
+  });
+
+  it("copies the real module inventory from ProjectContext without reconstruction", () => {
+    const architectureModel: ProjectContextArchitectureModel = {
+      modules: [
+        {
+          id: "architecture-module:encoded",
+          kind: "BACKEND_FEATURE",
+          name: "context",
+          rootPath: "apps/api/src/modules/context",
+          packageId: "package:api",
+          parentModuleId: "architecture-module:api",
+          fileIds: ["file:context"],
+          layers: [{ kind: "APPLICATION", fileIds: ["file:context"] }],
+          sourceExports: [],
+          frameworkSignals: [],
+          inference: "INFERRED",
+          confidence: "MEDIUM",
+          evidence: [
+            {
+              kind: "DIRECTORY_CONVENTION",
+              convention: "BACKEND_MODULES",
+              rootPath: "apps/api/src/modules/context"
+            }
+          ]
+        }
+      ]
+    };
+
+    const canonical = project(projectContext({ architectureModel }));
+
+    expect(canonical.architectureModel).toEqual(architectureModel);
+    expect(canonical.architectureModel).not.toBe(architectureModel);
   });
 
   it("does not invent claim type discriminators when source values do not provide one", () => {

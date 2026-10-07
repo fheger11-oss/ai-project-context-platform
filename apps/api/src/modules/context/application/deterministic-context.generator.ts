@@ -21,6 +21,7 @@ import type { ContextGenerator } from "../domain/contracts/context-generator.con
 import type { ContextInput } from "../domain/contracts/context-input.contract.js";
 import { ProjectContext } from "../domain/project-context.js";
 import { CONTEXT_ENGINE_VERSION } from "./context-engine-version.js";
+import { projectContextArchitecture } from "./project-context-architecture.projector.js";
 import { projectContextSemantic } from "./project-context-semantic.projector.js";
 
 export type ProjectApplicationType = "BACKEND" | "FRONTEND" | "FULLSTACK";
@@ -188,6 +189,7 @@ export class DeterministicContextGenerator implements ContextGenerator {
   async generate(input: ContextInput): Promise<ProjectContext> {
     const analysis = input.analysis;
     const modules = this.moduleCandidates(analysis);
+    const semantic = projectContextSemantic(analysis);
 
     return ProjectContext.create({
       contextId: this.contextId(analysis),
@@ -219,7 +221,8 @@ export class DeterministicContextGenerator implements ContextGenerator {
         claims: this.infrastructureClaims(analysis)
       },
       ambiguities: this.ambiguityClaims(analysis),
-      semantic: projectContextSemantic(analysis)
+      semantic,
+      architectureModel: projectContextArchitecture(semantic)
     });
   }
 

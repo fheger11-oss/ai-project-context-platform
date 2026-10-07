@@ -227,7 +227,7 @@ describe("PrismaProjectContextRepository", () => {
     expect(persisted.context.toSnapshot()).toEqual(snapshot());
   });
 
-  it("round-trips a non-empty semantic snapshot through JSON persistence", async () => {
+  it("round-trips non-empty semantic and architecture snapshots through JSON persistence", async () => {
     const semanticContext = ProjectContext.create({
       ...snapshot(),
       semantic: {
@@ -248,6 +248,31 @@ describe("PrismaProjectContextRepository", () => {
         imports: [],
         exports: [],
         relationships: []
+      },
+      architectureModel: {
+        modules: [
+          {
+            id: "architecture-module:%5B%22WORKSPACE_PACKAGE%22%2C%22.%22%2C%22package%3Aroot%22%5D",
+            kind: "WORKSPACE_PACKAGE",
+            name: "workspace",
+            rootPath: ".",
+            packageId: "package:root",
+            parentModuleId: null,
+            fileIds: ["file:%5B%22src%2Fmain.ts%22%5D"],
+            layers: [{ kind: "UNCLASSIFIED", fileIds: ["file:%5B%22src%2Fmain.ts%22%5D"] }],
+            sourceExports: [],
+            frameworkSignals: [],
+            inference: "OBSERVED",
+            confidence: "HIGH",
+            evidence: [
+              {
+                kind: "PACKAGE_MANIFEST",
+                packageId: "package:root",
+                manifestPath: "package.json"
+              }
+            ]
+          }
+        ]
       }
     });
     const { repository } = createRepository();
@@ -255,6 +280,9 @@ describe("PrismaProjectContextRepository", () => {
     const persisted = await repository.save(semanticContext);
 
     expect(persisted.context.toSnapshot().semantic).toEqual(semanticContext.toSnapshot().semantic);
+    expect(persisted.context.toSnapshot().architectureModel).toEqual(
+      semanticContext.toSnapshot().architectureModel
+    );
   });
 
   it("creates immutable historical records instead of overwriting previous contexts", async () => {
@@ -274,9 +302,10 @@ describe("PrismaProjectContextRepository", () => {
     await expect(repository.findById("missing")).resolves.toBeNull();
   });
 
-  it("loads old persisted snapshots without semantic data as empty semantic collections", async () => {
+  it("loads old persisted snapshots without semantic or architecture data as empty collections", async () => {
     const oldSnapshot = { ...serialized() };
     delete oldSnapshot.semantic;
+    delete oldSnapshot.architectureModel;
     const { repository } = createRepository({
       findUniqueResult: stored({ snapshot: oldSnapshot })
     });
@@ -291,6 +320,7 @@ describe("PrismaProjectContextRepository", () => {
       exports: [],
       relationships: []
     });
+    expect(persisted?.context.toSnapshot().architectureModel).toEqual({ modules: [] });
   });
 
   it("lists Context history for an Analysis in deterministic latest-first order", async () => {

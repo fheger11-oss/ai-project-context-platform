@@ -41,11 +41,12 @@ describe("ProjectContext", () => {
         imports: [],
         exports: [],
         relationships: []
-      }
+      },
+      architectureModel: { modules: [] }
     });
   });
 
-  it("defaults historical snapshots without semantic data to empty collections", () => {
+  it("defaults historical snapshots without semantic or architecture data to empty collections", () => {
     const historical = ProjectContext.fromSnapshot({
       ...provenance,
       project: { claims: [] },
@@ -66,6 +67,7 @@ describe("ProjectContext", () => {
       exports: [],
       relationships: []
     });
+    expect(historical.toSnapshot().architectureModel).toEqual({ modules: [] });
   });
 
   it("preserves analysis lineage separately from context versioning", () => {

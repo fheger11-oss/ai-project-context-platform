@@ -11,6 +11,7 @@ import { GenerateAiExportUseCase } from "./application/generate-ai-export.use-ca
 import { ProjectContextAiExportProjector } from "./application/project-context-ai-export.projector.js";
 import { AI_EXPORT_PROJECTOR } from "./domain/contracts/ai-export-projector.contract.js";
 import type { CanonicalAiExport } from "./domain/canonical-ai-export.js";
+import { EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL } from "../context/domain/project-context-architecture.js";
 import { EMPTY_PROJECT_CONTEXT_SEMANTIC } from "../context/domain/project-context-semantic.js";
 import { AiExportSerializerRouter } from "./infrastructure/serializers/ai-export-serializer.router.js";
 import { AiExportController } from "./presentation/ai-export.controller.js";
@@ -18,6 +19,7 @@ import { AiExportModule } from "./ai-export.module.js";
 
 const canonical: CanonicalAiExport = {
   semantic: EMPTY_PROJECT_CONTEXT_SEMANTIC,
+  architectureModel: EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL,
   metadata: {
     contextId: "context_1",
     analysisId: "analysis_1",

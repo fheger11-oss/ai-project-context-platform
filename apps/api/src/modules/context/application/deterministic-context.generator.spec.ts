@@ -2184,6 +2184,42 @@ describe("DeterministicContextGenerator", () => {
     ]);
   });
 
+  it("adds a real module inventory without replacing coarse architecture claims", async () => {
+    const controllerPath = "apps/api/src/modules/auth/presentation/auth.controller.ts";
+    const servicePath = "apps/api/src/modules/auth/application/auth.service.ts";
+    const analysis = nodePackageAnalysis({
+      packages: [
+        {
+          path: "apps/api/package.json",
+          isPrimary: true,
+          name: "api",
+          version: "0.1.0",
+          dependencies: []
+        }
+      ],
+      manifests: [{ path: "apps/api/package.json", type: "PACKAGE_JSON", isPrimary: true }]
+    });
+    const populated = await generate({
+      ...analysis,
+      files: [file(controllerPath), file(servicePath)],
+      sourceStructures: [sourceStructure(controllerPath), sourceStructure(servicePath)],
+      relationships: [relationship(controllerPath, servicePath, "../application/auth.service")]
+    });
+
+    expect(populated.architectureModel?.modules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "WORKSPACE_PACKAGE", rootPath: "apps/api" }),
+        expect.objectContaining({
+          kind: "BACKEND_FEATURE",
+          name: "auth",
+          rootPath: "apps/api/src/modules/auth",
+          inference: "INFERRED"
+        })
+      ])
+    );
+    expect(populated.architecture.claims.some(isModuleCandidateClaim)).toBe(true);
+  });
+
   it("generates multiple modules and aggregates cross-module relationships", async () => {
     const context = await generate(
       baseAnalysis({

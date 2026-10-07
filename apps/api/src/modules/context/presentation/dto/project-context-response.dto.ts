@@ -6,6 +6,7 @@ import type {
 } from "@ai-context/contracts";
 
 import type { PersistedProjectContext } from "../../domain/contracts/project-context-repository.contract.js";
+import { EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL } from "../../domain/project-context-architecture.js";
 import { EMPTY_PROJECT_CONTEXT_SEMANTIC } from "../../domain/project-context-semantic.js";
 
 export type { ProjectContextHistoryItem, ProjectContextHistoryResponse, ProjectContextResponse };
@@ -69,6 +70,9 @@ export class ProjectContextResponseDto {
 
   @ApiProperty({ type: "object", additionalProperties: true })
   semantic!: NonNullable<ProjectContextResponse["semantic"]>;
+
+  @ApiProperty({ type: "object", additionalProperties: true })
+  architectureModel!: NonNullable<ProjectContextResponse["architectureModel"]>;
 }
 
 export class ProjectContextHistoryItemDto {
@@ -126,7 +130,8 @@ export function toProjectContextResponse(context: PersistedProjectContext): Proj
     testing: snapshot.testing,
     infrastructure: snapshot.infrastructure,
     ambiguities: snapshot.ambiguities,
-    semantic: snapshot.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC
+    semantic: snapshot.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC,
+    architectureModel: snapshot.architectureModel ?? EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL
   };
 }
 

@@ -27,6 +27,7 @@ import type {
   ProjectTimelineItem,
   ProjectTimelineItemType,
   ProjectTimelineResponse,
+  ProjectContextArchitectureModel,
   ProjectContextSemantic
 } from "./index.js";
 
@@ -35,6 +36,12 @@ describe("contracts package exports", () => {
     expectTypeOf<ProjectContextSemantic>().toHaveProperty("files");
     expectTypeOf<ProjectContextSemantic>().toHaveProperty("symbols");
     expectTypeOf<ProjectContextSemantic>().toHaveProperty("relationships");
+  });
+  it("exports ProjectContext architecture inventory contracts", () => {
+    expectTypeOf<ProjectContextArchitectureModel>().toHaveProperty("modules");
+    expectTypeOf<ProjectContextArchitectureModel["modules"][number]>()
+      .toHaveProperty("rootPath")
+      .toEqualTypeOf<string>();
   });
   it("exports ProjectTimeline contracts from the public entrypoint", () => {
     expectTypeOf<ProjectTimelineItemType>().toEqualTypeOf<

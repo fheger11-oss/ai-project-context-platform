@@ -33,6 +33,7 @@ type AiContextJson = {
     >
   >;
   semantic: CanonicalAiExport["semantic"];
+  architectureModel: CanonicalAiExport["architectureModel"];
   ambiguities: readonly CanonicalAiExportClaim[];
   summary: CanonicalAiExport["summary"];
 };
@@ -73,6 +74,7 @@ function toAiContextJson(input: CanonicalAiExport): AiContextJson {
       ])
     ),
     semantic: input.semantic,
+    architectureModel: input.architectureModel,
     ambiguities: input.ambiguities,
     summary: input.summary
   };

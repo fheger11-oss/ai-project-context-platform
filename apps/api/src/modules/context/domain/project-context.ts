@@ -1,6 +1,10 @@
 import type { ContextClaim } from "./context-claim.js";
 import { InvalidProjectContextProvenanceError } from "./errors/invalid-project-context-provenance.error.js";
 import {
+  EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL,
+  type ProjectContextArchitectureModel
+} from "./project-context-architecture.js";
+import {
   EMPTY_PROJECT_CONTEXT_SEMANTIC,
   type ProjectContextSemantic
 } from "./project-context-semantic.js";
@@ -33,12 +37,14 @@ export type ProjectContextSections = {
 export type ProjectContextSnapshot = ProjectContextProvenance &
   ProjectContextSections & {
     semantic?: ProjectContextSemantic;
+    architectureModel?: ProjectContextArchitectureModel;
   };
 
 export type CreateProjectContextInput = ProjectContextProvenance &
   Partial<
     ProjectContextSections & {
       semantic: ProjectContextSemantic;
+      architectureModel: ProjectContextArchitectureModel;
     }
   >;
 
@@ -66,7 +72,8 @@ export class ProjectContext {
       testing: input.testing ?? EMPTY_SECTION,
       infrastructure: input.infrastructure ?? EMPTY_SECTION,
       ambiguities: input.ambiguities ?? [],
-      semantic: input.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC
+      semantic: input.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC,
+      architectureModel: input.architectureModel ?? EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL
     });
   }
 
@@ -75,7 +82,8 @@ export class ProjectContext {
 
     return new ProjectContext({
       ...snapshot,
-      semantic: snapshot.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC
+      semantic: snapshot.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC,
+      architectureModel: snapshot.architectureModel ?? EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL
     });
   }
 

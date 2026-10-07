@@ -4,6 +4,7 @@ import type {
   ContextConfidence,
   ContextEvidence
 } from "../../context/domain/context-claim.js";
+import type { ProjectContextArchitectureModel } from "../../context/domain/project-context-architecture.js";
 import type { ProjectContextSemantic } from "../../context/domain/project-context-semantic.js";
 
 export const CANONICAL_AI_EXPORT_SECTION_ORDER = [
@@ -58,6 +59,7 @@ export type CanonicalAiExport = {
   metadata: CanonicalAiExportMetadata;
   sections: readonly CanonicalAiExportSection[];
   semantic: ProjectContextSemantic;
+  architectureModel: ProjectContextArchitectureModel;
   ambiguities: readonly CanonicalAiExportClaim[];
   summary: CanonicalAiExportSummary;
 };

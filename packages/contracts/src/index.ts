@@ -133,6 +133,15 @@ export type {
 } from "./analysis.js";
 
 export type {
+  ArchitecturalModule,
+  ArchitectureFrameworkSignal,
+  ArchitectureLayerKind,
+  ArchitectureModuleConfidence,
+  ArchitectureModuleEvidence,
+  ArchitectureModuleInference,
+  ArchitectureModuleKind,
+  ArchitectureModuleLayer,
+  ArchitectureSourceExportReference,
   ContextClaim,
   ContextClaimKind,
   ContextConfidence,
@@ -143,6 +152,7 @@ export type {
   GenerateProjectContextResponse,
   ProjectContextHistoryItem,
   ProjectContextHistoryResponse,
+  ProjectContextArchitectureModel,
   ProjectContextResponse,
   ProjectContextSemantic,
   SemanticExport,

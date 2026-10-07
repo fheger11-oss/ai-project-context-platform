@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import type { CanonicalAiExport } from "../../domain/canonical-ai-export.js";
+import { EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL } from "../../../context/domain/project-context-architecture.js";
 import { EMPTY_PROJECT_CONTEXT_SEMANTIC } from "../../../context/domain/project-context-semantic.js";
 import { AI_EXPORT_FORMAT_MARKDOWN } from "../../domain/ai-export-format.js";
 import { MarkdownAiExportSerializer } from "./markdown-ai-export.serializer.js";
 
 const canonical: CanonicalAiExport = {
   semantic: EMPTY_PROJECT_CONTEXT_SEMANTIC,
+  architectureModel: EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL,
   metadata: {
     contextId: "context:analysis_1:context-engine@5.7.1",
     analysisId: "analysis_1",
