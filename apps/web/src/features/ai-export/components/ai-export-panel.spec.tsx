@@ -4,7 +4,7 @@ import type { AiExportResponse } from "@ai-context/contracts";
 
 import { downloadAiExport, getAiExport } from "@/features/ai-export/api/ai-export-api";
 import { triggerDownload } from "@/features/ai-export/utils/download-ai-export";
-import { AiExportPanel } from "./ai-export-panel";
+import { AiExportPanel, ExportPreview } from "./ai-export-panel";
 
 type MutationOptions = {
   mutationFn: () => Promise<unknown>;
@@ -136,6 +136,30 @@ describe("AiExportPanel", () => {
     expect(analytics.track).toHaveBeenCalledWith("ai_export_copied", {
       format: "AI_CONTEXT"
     });
+  });
+
+  it("copies the complete existing preview without requesting another export", async () => {
+    const markup = renderToStaticMarkup(<ExportPreview exported={exported} />);
+
+    expect(markup).toContain("Copy");
+    expect(mutationOptions).toHaveLength(1);
+    await expect(mutationOptions[0]?.mutationFn()).resolves.toBeUndefined();
+    mutationOptions[0]?.onSuccess?.();
+
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(exported.content);
+    expect(getAiExport).not.toHaveBeenCalled();
+    expect(analytics.track).toHaveBeenCalledWith("ai_export_copied", {
+      format: "AI_CONTEXT"
+    });
+  });
+
+  it("handles failure while copying the existing preview", () => {
+    renderToStaticMarkup(<ExportPreview exported={exported} />);
+
+    mutationOptions[0]?.onError?.(new DOMException("Denied"));
+
+    expect(mutationOptions).toHaveLength(1);
+    expect(getAiExport).not.toHaveBeenCalled();
   });
 
   it("downloads backend-generated content and uses backend filename/content type", async () => {

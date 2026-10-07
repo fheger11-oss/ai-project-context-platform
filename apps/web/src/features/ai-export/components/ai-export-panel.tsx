@@ -283,7 +283,31 @@ function SummaryItem({
   );
 }
 
-function ExportPreview({ exported }: { exported: AiExportResponse }) {
+export function ExportPreview({ exported }: { exported: AiExportResponse }) {
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const copyMutation = useMutation({
+    mutationFn: () => copyToClipboard(exported.content),
+    onSuccess: () => {
+      setCopyStatus("copied");
+      analytics.track("ai_export_copied", {
+        format: exported.format
+      });
+    },
+    onError: () => {
+      setCopyStatus("error");
+    }
+  });
+
+  useEffect(() => {
+    if (copyStatus !== "copied") {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setCopyStatus("idle"), 2_000);
+
+    return () => window.clearTimeout(timeout);
+  }, [copyStatus]);
+
   return (
     <article
       className="grid gap-3 rounded-md border bg-surface/70 p-4"
@@ -298,11 +322,35 @@ function ExportPreview({ exported }: { exported: AiExportResponse }) {
             Backend-generated {labelForFormat(exported.format)} content.
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={copyMutation.isPending}
+            aria-busy={copyMutation.isPending}
+            onClick={() => {
+              setCopyStatus("idle");
+              copyMutation.mutate();
+            }}
+          >
+            {copyStatus === "copied" ? <CheckCircle2 /> : <ClipboardCopy />}
+            {copyMutation.isPending ? "Copying" : copyStatus === "copied" ? "Copied" : "Copy"}
+          </Button>
           <Badge tone="success">Ready</Badge>
           <Badge tone="muted">{exported.contentType}</Badge>
         </div>
       </header>
+
+      <div className="sr-only" aria-live="polite">
+        {copyStatus === "copied" ? "Complete export copied to clipboard." : null}
+      </div>
+
+      {copyStatus === "error" ? (
+        <p className="text-xs text-destructive" role="alert">
+          Could not copy the export. Please try again.
+        </p>
+      ) : null}
 
       <pre className="max-h-96 overflow-auto rounded-md border bg-background p-4 text-xs leading-6 text-subtle-foreground">
         <code>{exported.content}</code>
