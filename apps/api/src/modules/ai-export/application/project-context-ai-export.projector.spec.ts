@@ -513,6 +513,27 @@ describe("ProjectContextAiExportProjector", () => {
           relationshipIds: ["relationship:encoded"],
           resolution: "RESOLVED"
         }
+      ],
+      publicSurfaces: [
+        {
+          id: "architecture-public-surface:encoded",
+          packageId: "package:api",
+          subpath: ".",
+          status: "RESOLVED",
+          declarations: [
+            {
+              declarationId: "architecture-public-surface-declaration:encoded",
+              sourceField: "EXPORTS",
+              selectorPath: [{ kind: "CONDITION", value: "default" }],
+              disposition: "TARGET",
+              declaredTarget: "./index.js",
+              resolution: "RESOLVED",
+              targetFileId: "file:context",
+              targetModuleId: "architecture-module:encoded",
+              sourceExportIds: ["export:context"]
+            }
+          ]
+        }
       ]
     };
 

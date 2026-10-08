@@ -101,6 +101,13 @@ describe("context contracts", () => {
         relationshipIds: readonly string[];
         resolution: "RESOLVED";
       }[];
+      publicSurfaces: readonly {
+        id: string;
+        packageId: string;
+        subpath: string;
+        status: "RESOLVED" | "PARTIAL" | "UNRESOLVED" | "BLOCKED";
+        declarations: readonly { declarationId: string; targetFileId: string | null }[];
+      }[];
     }>();
     expectTypeOf<ProjectContextArchitectureModel["modules"][number]>().not.toHaveProperty(
       "dependencies"

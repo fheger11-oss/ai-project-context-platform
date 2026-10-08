@@ -5,6 +5,8 @@ import type {
   AnalysisPackagePublicSurfaceDeclaration,
   AnalysisResultResponse,
   ArchitectureDependency,
+  ArchitecturePublicSurface,
+  ArchitecturePublicSurfaceDeclarationReference,
   AiExportResponse,
   CreateAnalysisRequest,
   DocumentHistoryResponse,
@@ -42,10 +44,13 @@ describe("contracts package exports", () => {
   it("exports ProjectContext architecture inventory contracts", () => {
     expectTypeOf<ProjectContextArchitectureModel>().toHaveProperty("modules");
     expectTypeOf<ProjectContextArchitectureModel>().toHaveProperty("dependencies");
+    expectTypeOf<ProjectContextArchitectureModel>().toHaveProperty("publicSurfaces");
     expectTypeOf<ProjectContextArchitectureModel["modules"][number]>()
       .toHaveProperty("rootPath")
       .toEqualTypeOf<string>();
     expectTypeOf<ArchitectureDependency>().toHaveProperty("relationshipIds");
+    expectTypeOf<ArchitecturePublicSurface>().toHaveProperty("declarations");
+    expectTypeOf<ArchitecturePublicSurfaceDeclarationReference>().toHaveProperty("sourceExportIds");
   });
   it("exports ProjectTimeline contracts from the public entrypoint", () => {
     expectTypeOf<ProjectTimelineItemType>().toEqualTypeOf<

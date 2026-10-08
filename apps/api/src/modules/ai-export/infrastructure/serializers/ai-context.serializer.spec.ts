@@ -477,6 +477,27 @@ describe("AiContextSerializer", () => {
           relationshipIds: ["relationship:encoded"],
           resolution: "RESOLVED" as const
         }
+      ],
+      publicSurfaces: [
+        {
+          id: "architecture-public-surface:encoded",
+          packageId: "package:web",
+          subpath: "./context",
+          status: "UNRESOLVED" as const,
+          declarations: [
+            {
+              declarationId: "architecture-public-surface-declaration:encoded",
+              sourceField: "EXPORTS" as const,
+              selectorPath: [],
+              disposition: "TARGET" as const,
+              declaredTarget: "./dist/context.js",
+              resolution: "UNRESOLVED" as const,
+              targetFileId: null,
+              targetModuleId: null,
+              sourceExportIds: []
+            }
+          ]
+        }
       ]
     };
     const parsed = parse(serialize({ ...canonical, architectureModel }).content);

@@ -266,9 +266,34 @@ export type ArchitectureDependency = {
   resolution: "RESOLVED";
 };
 
+export type ArchitecturePublicSurfaceDeclarationResolution = "RESOLVED" | "UNRESOLVED" | "BLOCKED";
+
+export type ArchitecturePublicSurfaceDeclarationReference = {
+  declarationId: string;
+  sourceField: "EXPORTS" | "MAIN" | "MODULE" | "TYPES";
+  selectorPath: readonly (
+    { kind: "CONDITION"; value: string } | { kind: "FALLBACK"; index: number }
+  )[];
+  disposition: "TARGET" | "BLOCKED";
+  declaredTarget: string | null;
+  resolution: ArchitecturePublicSurfaceDeclarationResolution;
+  targetFileId: string | null;
+  targetModuleId: string | null;
+  sourceExportIds: readonly string[];
+};
+
+export type ArchitecturePublicSurface = {
+  id: string;
+  packageId: string;
+  subpath: string;
+  status: "RESOLVED" | "PARTIAL" | "UNRESOLVED" | "BLOCKED";
+  declarations: readonly ArchitecturePublicSurfaceDeclarationReference[];
+};
+
 export type ProjectContextArchitectureModel = {
   modules: readonly ArchitecturalModule[];
   dependencies: readonly ArchitectureDependency[];
+  publicSurfaces: readonly ArchitecturePublicSurface[];
 };
 
 export type ProjectContextResponse = {

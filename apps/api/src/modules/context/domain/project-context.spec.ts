@@ -42,7 +42,7 @@ describe("ProjectContext", () => {
         exports: [],
         relationships: []
       },
-      architectureModel: { modules: [], dependencies: [] }
+      architectureModel: { modules: [], dependencies: [], publicSurfaces: [] }
     });
   });
 
@@ -67,7 +67,11 @@ describe("ProjectContext", () => {
       exports: [],
       relationships: []
     });
-    expect(historical.toSnapshot().architectureModel).toEqual({ modules: [], dependencies: [] });
+    expect(historical.toSnapshot().architectureModel).toEqual({
+      modules: [],
+      dependencies: [],
+      publicSurfaces: []
+    });
   });
 
   it("defaults dependencies for Phase 3.1 snapshots that contain modules only", () => {
@@ -84,7 +88,28 @@ describe("ProjectContext", () => {
       architectureModel: { modules: [] }
     } as unknown as ProjectContextSnapshot);
 
-    expect(historical.toSnapshot().architectureModel).toEqual({ modules: [], dependencies: [] });
+    expect(historical.toSnapshot().architectureModel).toEqual({
+      modules: [],
+      dependencies: [],
+      publicSurfaces: []
+    });
+  });
+
+  it("defaults public surfaces for architecture snapshots created before Phase 3.3.y", () => {
+    const historical = ProjectContext.fromSnapshot({
+      ...provenance,
+      project: { claims: [] },
+      technology: { claims: [] },
+      structure: { claims: [] },
+      architecture: { claims: [] },
+      entryPoints: { claims: [] },
+      testing: { claims: [] },
+      infrastructure: { claims: [] },
+      ambiguities: [],
+      architectureModel: { modules: [], dependencies: [] }
+    } as unknown as ProjectContextSnapshot);
+
+    expect(historical.toSnapshot().architectureModel?.publicSurfaces).toEqual([]);
   });
 
   it("preserves analysis lineage separately from context versioning", () => {

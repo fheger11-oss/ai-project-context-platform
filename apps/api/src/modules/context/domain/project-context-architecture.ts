@@ -86,14 +86,40 @@ export type ArchitectureDependency = {
   resolution: "RESOLVED";
 };
 
+export type ArchitecturePublicSurfaceDeclarationResolution = "RESOLVED" | "UNRESOLVED" | "BLOCKED";
+
+export type ArchitecturePublicSurfaceDeclarationReference = {
+  declarationId: string;
+  sourceField: "EXPORTS" | "MAIN" | "MODULE" | "TYPES";
+  selectorPath: readonly (
+    { kind: "CONDITION"; value: string } | { kind: "FALLBACK"; index: number }
+  )[];
+  disposition: "TARGET" | "BLOCKED";
+  declaredTarget: string | null;
+  resolution: ArchitecturePublicSurfaceDeclarationResolution;
+  targetFileId: string | null;
+  targetModuleId: string | null;
+  sourceExportIds: readonly string[];
+};
+
+export type ArchitecturePublicSurface = {
+  id: string;
+  packageId: string;
+  subpath: string;
+  status: "RESOLVED" | "PARTIAL" | "UNRESOLVED" | "BLOCKED";
+  declarations: readonly ArchitecturePublicSurfaceDeclarationReference[];
+};
+
 export type ProjectContextArchitectureModel = {
   modules: readonly ArchitecturalModule[];
   dependencies: readonly ArchitectureDependency[];
+  publicSurfaces: readonly ArchitecturePublicSurface[];
 };
 
 export const EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL: ProjectContextArchitectureModel = {
   modules: [],
-  dependencies: []
+  dependencies: [],
+  publicSurfaces: []
 };
 
 export function architectureModelWithDefaults(
@@ -101,6 +127,7 @@ export function architectureModelWithDefaults(
 ): ProjectContextArchitectureModel {
   return {
     modules: model?.modules ?? [],
-    dependencies: model?.dependencies ?? []
+    dependencies: model?.dependencies ?? [],
+    publicSurfaces: model?.publicSurfaces ?? []
   };
 }

@@ -293,7 +293,28 @@ describe("PrismaProjectContextRepository", () => {
             ]
           }
         ],
-        dependencies: []
+        dependencies: [],
+        publicSurfaces: [
+          {
+            id: "architecture-public-surface:root",
+            packageId: "package:root",
+            subpath: ".",
+            status: "UNRESOLVED",
+            declarations: [
+              {
+                declarationId: "architecture-public-surface-declaration:root",
+                sourceField: "MAIN",
+                selectorPath: [],
+                disposition: "TARGET",
+                declaredTarget: "dist/index.js",
+                resolution: "UNRESOLVED",
+                targetFileId: null,
+                targetModuleId: null,
+                sourceExportIds: []
+              }
+            ]
+          }
+        ]
       }
     });
     const { repository } = createRepository();
@@ -343,7 +364,8 @@ describe("PrismaProjectContextRepository", () => {
     });
     expect(persisted?.context.toSnapshot().architectureModel).toEqual({
       modules: [],
-      dependencies: []
+      dependencies: [],
+      publicSurfaces: []
     });
   });
 
@@ -360,6 +382,25 @@ describe("PrismaProjectContextRepository", () => {
       phase31Snapshot.architectureModel?.modules ?? []
     );
     expect(persisted?.context.toSnapshot().architectureModel?.dependencies).toEqual([]);
+    expect(persisted?.context.toSnapshot().architectureModel?.publicSurfaces).toEqual([]);
+  });
+
+  it("loads architecture snapshots without public surfaces using an empty collection", async () => {
+    const historical = serialized();
+    delete (historical.architectureModel as { publicSurfaces?: unknown }).publicSurfaces;
+    const { repository } = createRepository({
+      findUniqueResult: stored({ snapshot: historical })
+    });
+
+    const persisted = await repository.findById("project_context_1");
+
+    expect(persisted?.context.toSnapshot().architectureModel?.modules).toEqual(
+      historical.architectureModel?.modules ?? []
+    );
+    expect(persisted?.context.toSnapshot().architectureModel?.dependencies).toEqual(
+      historical.architectureModel?.dependencies ?? []
+    );
+    expect(persisted?.context.toSnapshot().architectureModel?.publicSurfaces).toEqual([]);
   });
 
   it("loads historical semantic packages without public-surface declarations as empty", async () => {

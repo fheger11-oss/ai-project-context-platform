@@ -15,6 +15,7 @@ import type {
   SemanticSymbol
 } from "../domain/project-context-semantic.js";
 import { projectArchitectureDependencies } from "./project-context-dependency.projector.js";
+import { projectArchitecturePublicSurfaces } from "./project-context-public-surface.projector.js";
 
 const LAYER_ORDER: readonly ArchitectureLayerKind[] = [
   "DOMAIN",
@@ -50,7 +51,8 @@ export function projectContextArchitecture(
 
   return {
     modules,
-    dependencies: projectArchitectureDependencies(semantic, modules)
+    dependencies: projectArchitectureDependencies(semantic, modules),
+    publicSurfaces: projectArchitecturePublicSurfaces(semantic, modules)
   };
 }
 
