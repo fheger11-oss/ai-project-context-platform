@@ -28,7 +28,8 @@ const output: ArchitectureProcessingOutput = {
       processingRequestId: "request-1",
       fingerprint: "fingerprint",
       ruleId: "architecture.circular-dependency",
-      ruleVersion: "1.0",
+      ruleVersion: "2.0",
+      applicability: "APPLICABLE",
       confidence: "HIGH",
       subject: { kind: "CYCLE", moduleIds: ["module:src/a", "module:src/b"] },
       evidence: [{ kind: "MODULE", moduleId: "module:src/a", confidence: "HIGH" }]

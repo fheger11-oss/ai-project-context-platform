@@ -36,6 +36,7 @@ describe("architecture intelligence persistence schema", () => {
     expect(occurrence).toBeDefined();
     expect(occurrence).toMatch(/subject\s+Json/);
     expect(occurrence).toMatch(/evidence\s+Json/);
+    expect(occurrence).toMatch(/applicability\s+ArchitectureApplicability\?/);
     expect(occurrence).toMatch(/@@unique\(\[processingRequestId, fingerprint\]\)/);
     expect(occurrence).not.toMatch(/severity|acknowledged|suppressed|resolvedAt/);
 

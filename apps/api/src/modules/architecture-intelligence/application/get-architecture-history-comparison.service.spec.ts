@@ -48,6 +48,26 @@ describe("GetArchitectureHistoryComparisonService", () => {
       status: "NO_BASELINE"
     });
   });
+
+  it("does not treat legacy and canonical processor/rule generations as equivalent", async () => {
+    const sources = [
+      source("legacy", [occurrence("cycle", "legacy")]),
+      source(
+        "canonical",
+        [
+          {
+            ...occurrence("cycle", "canonical"),
+            ruleVersion: "2.0"
+          }
+        ],
+        { ...processingRequest("canonical"), processorVersion: "architecture-processor-2.0" }
+      )
+    ];
+
+    await expect(harness(sources).execute("repository-1", "request-canonical")).resolves.toEqual({
+      status: "INCOMPATIBLE"
+    });
+  });
 });
 
 function harness(

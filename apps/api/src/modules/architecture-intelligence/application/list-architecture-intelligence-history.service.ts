@@ -9,7 +9,7 @@ import {
   ARCHITECTURE_INTELLIGENCE_READ_REPOSITORY,
   type ArchitectureIntelligenceReadRepository
 } from "../domain/contracts/architecture-intelligence-read-repository.contract.js";
-import { ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_VERSION } from "../domain/architecture-rule-version.js";
+import { circularDependencyRuleVersionForProcessor } from "../domain/architecture-rule-version.js";
 import { GetArchitectureHistoryComparisonService } from "./get-architecture-history-comparison.service.js";
 import { processingSummary } from "./get-current-architecture-intelligence.service.js";
 
@@ -62,7 +62,9 @@ export class ListArchitectureIntelligenceHistoryService {
           projectContextId: source.projectContextId,
           commitSha: source.commitSha,
           processing: source.request ? processingSummary(source) : null,
-          ruleVersion: source.request ? ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_VERSION : null,
+          ruleVersion: source.request
+            ? circularDependencyRuleVersionForProcessor(source.request.processorVersion)
+            : null,
           compatibility,
           transitions: {
             new: lifecycle.filter((item) => item.lifecycle === "NEW").length,

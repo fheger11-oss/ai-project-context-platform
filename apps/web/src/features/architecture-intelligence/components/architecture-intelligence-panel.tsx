@@ -567,6 +567,8 @@ function label(value: string) {
   return value.replace(/([A-Z])/g, " $1").replace(/^./, (item) => item.toUpperCase());
 }
 function evidenceText(item: ArchitectureFindingItem["evidence"][number]) {
+  if (item.kind === "CANONICAL_ARCHITECTURE_DEPENDENCIES")
+    return `${item.dependencyIds.length} canonical dependency(ies) · ${item.relationshipIds.length} source relationship(s)`;
   if (item.kind === "MODULE") return `${item.moduleId} · ${item.confidence}`;
   if (item.kind === "MODULE_RELATIONSHIP")
     return `${item.sourceModuleId} → ${item.targetModuleId} · ${item.relationshipCount} relationship(s) · ${item.confidence}`;

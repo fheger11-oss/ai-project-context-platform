@@ -13,6 +13,11 @@ export type ArchitectureSourceLocation = {
 };
 
 export type ArchitectureFindingEvidence =
+  | {
+      kind: "CANONICAL_ARCHITECTURE_DEPENDENCIES";
+      dependencyIds: readonly string[];
+      relationshipIds: readonly string[];
+    }
   | { kind: "MODULE"; moduleId: string; confidence: "HIGH" | "MEDIUM" | "LOW" }
   | {
       kind: "MODULE_RELATIONSHIP";

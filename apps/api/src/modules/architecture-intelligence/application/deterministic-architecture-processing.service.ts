@@ -2,12 +2,8 @@ import { Inject, Injectable } from "@nestjs/common";
 
 import { ANALYSIS_ENGINE_VERSION } from "../../analysis/application/analysis-engine-version.js";
 import { CONTEXT_ENGINE_VERSION } from "../../context/application/context-engine-version.js";
-import type { ArchitectureFindingEvidence } from "../domain/architecture-finding-evidence.js";
 import { measureArchitectureModules } from "../domain/architecture-module-measurements.js";
-import {
-  detectCircularDependencies,
-  type CircularDependencyFinding
-} from "../domain/circular-dependency-detector.js";
+import { detectCanonicalCircularDependencies } from "../domain/canonical-circular-dependency-detector.js";
 import { projectArchitectureGraph } from "../domain/project-architecture-graph.js";
 import {
   ARCHITECTURE_PROCESSING_INPUT_READER,
@@ -52,52 +48,29 @@ export class DeterministicArchitectureProcessingService implements ArchitectureP
       projectContextId: request.projectContextId,
       processingRequestId: request.id
     }));
-    const nodesById = new Map(graph.nodes.map((node) => [node.moduleId, node]));
-    const findings = detectCircularDependencies(graph).map((finding) => ({
+    const findings = detectCanonicalCircularDependencies({
+      ...input.architectureModel,
+      unresolvedSemanticRelationshipCount: input.unresolvedSemanticRelationshipCount
+    }).map((finding) => ({
       repositoryId: request.repositoryId,
       projectContextId: request.projectContextId,
       processingRequestId: request.id,
       fingerprint: finding.fingerprint,
       ruleId: finding.ruleId,
       ruleVersion: finding.ruleVersion,
+      applicability: finding.applicability,
       confidence: finding.confidence,
       subject: { kind: "CYCLE" as const, moduleIds: finding.moduleIds },
-      evidence: findingEvidence(finding, nodesById)
+      evidence: [
+        {
+          kind: "CANONICAL_ARCHITECTURE_DEPENDENCIES" as const,
+          dependencyIds: finding.dependencyIds,
+          relationshipIds: finding.relationshipIds
+        }
+      ]
     }));
 
     await this.outputWriter.persist({ findings, measurements });
     return "COMPLETED";
   }
-}
-
-function findingEvidence(
-  finding: CircularDependencyFinding,
-  nodesById: ReadonlyMap<string, { moduleId: string; confidence: "HIGH" | "MEDIUM" | "LOW" }>
-): ArchitectureFindingEvidence[] {
-  return [
-    ...finding.moduleIds.map((moduleId) => {
-      const node = nodesById.get(moduleId);
-      if (!node) throw new Error(`Architecture graph node ${moduleId} was not found.`);
-      return { kind: "MODULE" as const, moduleId, confidence: node.confidence };
-    }),
-    ...finding.edges.flatMap((edge): ArchitectureFindingEvidence[] => [
-      {
-        kind: "MODULE_RELATIONSHIP",
-        sourceModuleId: edge.sourceModuleId,
-        targetModuleId: edge.targetModuleId,
-        relationshipCount: edge.relationshipCount,
-        confidence: edge.confidence
-      },
-      ...edge.evidence.map((evidence) => ({
-        kind: "ANALYSIS_RELATIONSHIP" as const,
-        sourceModuleId: edge.sourceModuleId,
-        targetModuleId: edge.targetModuleId,
-        sourcePath: evidence.sourcePath,
-        targetPath: evidence.targetPath,
-        relationshipKind: evidence.relationshipKind,
-        specifier: evidence.specifier,
-        ...(evidence.location ? { location: evidence.location } : {})
-      }))
-    ])
-  ];
 }

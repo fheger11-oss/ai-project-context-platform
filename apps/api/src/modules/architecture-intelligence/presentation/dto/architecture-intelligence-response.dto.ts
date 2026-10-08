@@ -28,6 +28,8 @@ class ArchitectureFindingItemDto {
   @ApiProperty() fingerprint!: string;
   @ApiProperty() ruleId!: string;
   @ApiProperty() ruleVersion!: string;
+  @ApiProperty({ enum: ["APPLICABLE", "PARTIALLY_APPLICABLE"], nullable: true })
+  applicability!: string | null;
   @ApiProperty({ enum: ["LOW", "MEDIUM", "HIGH"] }) confidence!: string;
   @ApiProperty({ enum: ["NEW", "PERSISTING", "RESOLVED", "RECURRING"], nullable: true })
   lifecycle!: string | null;

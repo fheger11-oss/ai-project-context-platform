@@ -8,6 +8,8 @@ export const ARCHITECTURE_FINDING_OCCURRENCE_REPOSITORY = Symbol(
   "ARCHITECTURE_FINDING_OCCURRENCE_REPOSITORY"
 );
 
+export type ArchitectureFindingApplicability = "APPLICABLE" | "PARTIALLY_APPLICABLE";
+
 export type ArchitectureFindingOccurrenceRecord = {
   id: string;
   repositoryId: string;
@@ -16,6 +18,7 @@ export type ArchitectureFindingOccurrenceRecord = {
   fingerprint: string;
   ruleId: string;
   ruleVersion: string;
+  applicability: ArchitectureFindingApplicability | null;
   confidence: ArchitectureConfidence;
   subject: ArchitectureFindingSubject;
   evidence: readonly ArchitectureFindingEvidence[];

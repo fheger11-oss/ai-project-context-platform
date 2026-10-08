@@ -134,6 +134,7 @@ function completedResponse(): ArchitectureIntelligenceResponse {
             fingerprint: "fingerprint",
             ruleId: "architecture.circular-dependency",
             ruleVersion: "1.0",
+            applicability: null,
             confidence: "HIGH",
             lifecycle: "NEW",
             subject: { kind: "CYCLE", moduleIds: ["module:a", "module:b", "module:c"] },

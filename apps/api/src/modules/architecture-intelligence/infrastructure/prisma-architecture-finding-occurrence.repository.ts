@@ -29,6 +29,7 @@ export class PrismaArchitectureFindingOccurrenceRepository implements Architectu
         fingerprint: input.fingerprint,
         ruleId: input.ruleId,
         ruleVersion: input.ruleVersion,
+        applicability: input.applicability,
         confidence: input.confidence,
         subject: toJson(input.subject),
         evidence: toJson(input.evidence)
@@ -107,6 +108,17 @@ function readEvidence(id: string, value: unknown): ArchitectureFindingEvidence[]
 
 function readEvidenceItem(id: string, value: unknown): ArchitectureFindingEvidence {
   const evidence = record(value);
+  if (
+    evidence?.kind === "CANONICAL_ARCHITECTURE_DEPENDENCIES" &&
+    stringArray(evidence.dependencyIds) &&
+    stringArray(evidence.relationshipIds)
+  ) {
+    return {
+      kind: "CANONICAL_ARCHITECTURE_DEPENDENCIES",
+      dependencyIds: evidence.dependencyIds,
+      relationshipIds: evidence.relationshipIds
+    };
+  }
   if (evidence?.kind === "MODULE" && string(evidence.moduleId) && confidence(evidence.confidence)) {
     return { kind: "MODULE", moduleId: evidence.moduleId, confidence: evidence.confidence };
   }
@@ -157,6 +169,10 @@ function record(value: unknown): Record<string, unknown> | null {
 
 function string(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
+}
+
+function stringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(string);
 }
 
 function confidence(value: unknown): value is "HIGH" | "MEDIUM" | "LOW" {

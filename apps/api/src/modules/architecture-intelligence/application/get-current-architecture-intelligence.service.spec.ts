@@ -72,6 +72,7 @@ function createService(options: {
       fingerprint: "fp-1",
       ruleId: "architecture.circular-dependency",
       ruleVersion: "1.0",
+      applicability: null,
       confidence: "HIGH" as const,
       subject: { kind: "CYCLE" as const, moduleIds: ["module:a", "module:b"] },
       evidence: [],

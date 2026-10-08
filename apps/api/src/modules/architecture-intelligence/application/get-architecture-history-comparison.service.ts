@@ -18,7 +18,7 @@ import {
 import { projectArchitectureGraph } from "../domain/project-architecture-graph.js";
 import {
   ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_ID,
-  ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_VERSION
+  circularDependencyRuleVersionForProcessor
 } from "../domain/architecture-rule-version.js";
 
 @Injectable()
@@ -93,5 +93,8 @@ function ruleVersion(source: ArchitecturePromotedResultSource): string {
       `Architecture processing request ${source.request?.id} has mixed rule versions.`
     );
   }
-  return [...versions][0] ?? ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_VERSION;
+  return (
+    [...versions][0] ??
+    circularDependencyRuleVersionForProcessor(source.request?.processorVersion ?? "")
+  );
 }

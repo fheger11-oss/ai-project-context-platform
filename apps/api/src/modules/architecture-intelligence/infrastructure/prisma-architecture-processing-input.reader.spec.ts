@@ -11,7 +11,7 @@ const request: ArchitectureProcessingRequestRecord = {
   id: "request-1",
   repositoryId: "repository-1",
   projectContextId: "context-1",
-  processorVersion: "architecture-processor-1.0",
+  processorVersion: "architecture-processor-2.0",
   status: "PROCESSING",
   attemptCount: 1,
   nextAttemptAt: new Date(),
@@ -34,6 +34,8 @@ describe("PrismaArchitectureProcessingInputReader", () => {
       analysisId: "analysis-1",
       contextVersion: CONTEXT_ENGINE_VERSION,
       analyzerVersion: ANALYSIS_ENGINE_VERSION,
+      architectureModel: { modules: [], dependencies: [] },
+      unresolvedSemanticRelationshipCount: 0,
       architectureClaims: [],
       analysisRelationships: []
     });
@@ -73,6 +75,35 @@ describe("PrismaArchitectureProcessingInputReader", () => {
     const { reader } = harness(storedContext({ snapshot: { architecture: { claims: null } } }));
     await expect(reader.read(request)).rejects.toThrow(/claims must be an array/);
   });
+
+  it("derives partial coverage only from unresolved preserved semantic relationships", async () => {
+    const value = storedContext();
+    const snapshot = value.snapshot as {
+      semantic: { relationships: { resolved: boolean }[] };
+    };
+    snapshot.semantic.relationships = [{ resolved: true }, { resolved: false }];
+    const { reader } = harness(value);
+
+    await expect(reader.read(request)).resolves.toMatchObject({
+      unresolvedSemanticRelationshipCount: 1
+    });
+  });
+
+  it("keeps historical contexts readable with an empty canonical graph", async () => {
+    const value = storedContext({ contextVersion: "context-engine@7" });
+    const snapshot = value.snapshot as {
+      architectureModel?: unknown;
+      semantic?: unknown;
+    };
+    delete snapshot.architectureModel;
+    delete snapshot.semantic;
+    const { reader } = harness(value);
+
+    await expect(reader.read(request)).resolves.toMatchObject({
+      architectureModel: { modules: [], dependencies: [] },
+      unresolvedSemanticRelationshipCount: 0
+    });
+  });
 });
 
 function storedContext(
@@ -103,7 +134,9 @@ function storedContext(
       commitSha: "abc123",
       contextVersion,
       generatedAt: "2026-10-05T11:00:00.000Z",
-      architecture: { claims: [] }
+      architecture: { claims: [] },
+      architectureModel: { modules: [], dependencies: [], publicSurfaces: [] },
+      semantic: { relationships: [] }
     },
     analysis: { ...baseAnalysis, ...overrides.analysis }
   };

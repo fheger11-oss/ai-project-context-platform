@@ -185,13 +185,22 @@ function toFinding(
     fingerprint: item.fingerprint,
     ruleId: item.ruleId,
     ruleVersion: item.ruleVersion,
+    applicability: item.applicability,
     confidence: item.confidence,
     lifecycle,
     subject:
       item.subject.kind === "CYCLE"
         ? { kind: "CYCLE", moduleIds: [...item.subject.moduleIds] }
         : { ...item.subject },
-    evidence: [...item.evidence],
+    evidence: item.evidence.map((evidence) =>
+      evidence.kind === "CANONICAL_ARCHITECTURE_DEPENDENCIES"
+        ? {
+            ...evidence,
+            dependencyIds: [...evidence.dependencyIds],
+            relationshipIds: [...evidence.relationshipIds]
+          }
+        : evidence
+    ),
     createdAt: item.createdAt.toISOString()
   };
 }

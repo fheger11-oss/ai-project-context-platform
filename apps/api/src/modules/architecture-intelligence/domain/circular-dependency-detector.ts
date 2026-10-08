@@ -4,13 +4,13 @@ import type { ArchitectureConfidence } from "./architecture-confidence.js";
 import type { ArchitectureGraph, ArchitectureGraphEdge } from "./architecture-graph.js";
 import {
   ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_ID,
-  ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_VERSION
+  LEGACY_ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_VERSION
 } from "./architecture-rule-version.js";
 
 export type CircularDependencyFinding = {
   fingerprint: string;
   ruleId: typeof ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_ID;
-  ruleVersion: typeof ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_VERSION;
+  ruleVersion: typeof LEGACY_ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_VERSION;
   confidence: Exclude<ArchitectureConfidence, "LOW">;
   moduleIds: readonly string[];
   edges: readonly ArchitectureGraphEdge[];
@@ -85,7 +85,7 @@ export function detectCircularDependencies(graph: ArchitectureGraph): CircularDe
       return {
         fingerprint: circularDependencyFingerprint(moduleIds),
         ruleId: ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_ID,
-        ruleVersion: ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_VERSION,
+        ruleVersion: LEGACY_ARCHITECTURE_CIRCULAR_DEPENDENCY_RULE_VERSION,
         confidence,
         moduleIds,
         edges

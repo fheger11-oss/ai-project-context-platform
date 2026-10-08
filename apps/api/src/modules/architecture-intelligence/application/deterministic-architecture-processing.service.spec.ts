@@ -8,6 +8,8 @@ import type {
 import type { ArchitectureProcessingRequestRecord } from "../domain/contracts/architecture-processing-request-repository.contract.js";
 import { InvalidArchitectureProcessingInputError } from "../domain/errors/invalid-architecture-processing-input.error.js";
 import {
+  canonicalDependency,
+  canonicalModule,
   moduleClaim,
   processingInput,
   relationshipClaim
@@ -18,7 +20,7 @@ const request: ArchitectureProcessingRequestRecord = {
   id: "request-1",
   repositoryId: "repository-1",
   projectContextId: "context-1",
-  processorVersion: "architecture-processor-1.0",
+  processorVersion: "architecture-processor-2.0",
   status: "PROCESSING",
   attemptCount: 1,
   nextAttemptAt: new Date(),
@@ -38,7 +40,16 @@ describe("DeterministicArchitectureProcessingService", () => {
     const h = harness(
       processingInput(
         [moduleClaim("src/a"), moduleClaim("src/b"), aToB.claim, bToA.claim],
-        [aToB.analysisRelationship, bToA.analysisRelationship]
+        [aToB.analysisRelationship, bToA.analysisRelationship],
+        {
+          architectureModel: {
+            modules: [canonicalModule("module:a"), canonicalModule("module:b")],
+            dependencies: [
+              canonicalDependency("dependency:a-b", "module:a", "module:b", ["relationship:a-b"]),
+              canonicalDependency("dependency:b-a", "module:b", "module:a", ["relationship:b-a"])
+            ]
+          }
+        }
       )
     );
 
@@ -51,29 +62,24 @@ describe("DeterministicArchitectureProcessingService", () => {
       projectContextId: "context-1",
       processingRequestId: "request-1",
       ruleId: "architecture.circular-dependency",
-      ruleVersion: "1.0",
+      ruleVersion: "2.0",
+      applicability: "APPLICABLE",
       confidence: "HIGH",
-      subject: { kind: "CYCLE", moduleIds: ["module:src/a", "module:src/b"] }
+      subject: { kind: "CYCLE", moduleIds: ["module:a", "module:b"] }
     });
     expect(persisted.findings[0]?.evidence).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          kind: "MODULE_RELATIONSHIP",
-          sourceModuleId: "module:src/a",
-          targetModuleId: "module:src/b",
-          relationshipCount: 1
-        }),
-        expect.objectContaining({
-          kind: "ANALYSIS_RELATIONSHIP",
-          sourcePath: "src/a/index.ts",
-          targetPath: "src/b/index.ts"
-        })
+        {
+          kind: "CANONICAL_ARCHITECTURE_DEPENDENCIES",
+          dependencyIds: ["dependency:a-b", "dependency:b-a"],
+          relationshipIds: ["relationship:a-b", "relationship:b-a"]
+        }
       ])
     );
   });
 
   it.each([
-    ["processor", { processorVersion: "architecture-processor-0.9" }, {}],
+    ["processor", { processorVersion: "architecture-processor-1.0" }, {}],
     ["context", {}, { contextVersion: "context-engine@older" }],
     ["analyzer", {}, { analyzerVersion: "analysis-engine-older" }]
   ])(

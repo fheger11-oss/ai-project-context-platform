@@ -17,6 +17,7 @@ export type {
 
 export type {
   ArchitectureFindingEvidence,
+  ArchitectureFindingApplicability,
   ArchitectureFindingItem,
   ArchitectureFindingLifecycle,
   ArchitectureFindingSubject,

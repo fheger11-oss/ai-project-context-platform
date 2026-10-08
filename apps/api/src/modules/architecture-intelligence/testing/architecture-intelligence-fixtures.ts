@@ -1,6 +1,10 @@
 import { ANALYSIS_ENGINE_VERSION } from "../../analysis/application/analysis-engine-version.js";
 import { CONTEXT_ENGINE_VERSION } from "../../context/application/context-engine-version.js";
 import type { ArchitectureProcessingInput } from "../domain/contracts/architecture-processing-input-reader.contract.js";
+import type {
+  ArchitectureDependency,
+  ArchitecturalModule
+} from "../../context/domain/project-context-architecture.js";
 
 export function moduleClaim(
   path: string,
@@ -107,8 +111,50 @@ export function processingInput(
     commitSha: "abc123",
     contextVersion: CONTEXT_ENGINE_VERSION,
     analyzerVersion: ANALYSIS_ENGINE_VERSION,
+    architectureModel: { modules: [], dependencies: [] },
+    unresolvedSemanticRelationshipCount: 0,
     architectureClaims: claims,
     analysisRelationships: relationships,
     ...overrides
+  };
+}
+
+export function canonicalModule(
+  id: string,
+  confidence: "HIGH" | "MEDIUM" | "LOW" = "HIGH"
+): ArchitecturalModule {
+  return {
+    id,
+    kind: "BACKEND_FEATURE",
+    name: id,
+    rootPath: id,
+    packageId: "package:api",
+    parentModuleId: "package:api",
+    fileIds: [],
+    layers: [],
+    sourceExports: [],
+    frameworkSignals: [],
+    inference: "INFERRED",
+    confidence,
+    evidence: []
+  };
+}
+
+export function canonicalDependency(
+  id: string,
+  sourceModuleId: string,
+  targetModuleId: string,
+  relationshipIds: readonly string[] = [`relationship:${id}`]
+): ArchitectureDependency {
+  return {
+    id,
+    sourceModuleId,
+    targetModuleId,
+    relationshipCount: relationshipIds.length,
+    sourceFileCount: 1,
+    targetFileCount: 1,
+    relationshipKinds: ["IMPORTS"],
+    relationshipIds,
+    resolution: "RESOLVED"
   };
 }

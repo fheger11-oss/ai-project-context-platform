@@ -3,6 +3,7 @@ import type { AnalysisSourceLocation } from "./analysis.js";
 export type ArchitectureIntelligenceProcessingStatus =
   "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "INCOMPATIBLE";
 export type ArchitectureIntelligenceConfidence = "LOW" | "MEDIUM" | "HIGH";
+export type ArchitectureFindingApplicability = "APPLICABLE" | "PARTIALLY_APPLICABLE";
 export type ArchitectureFindingLifecycle = "NEW" | "PERSISTING" | "RESOLVED" | "RECURRING";
 export type ArchitectureIntelligenceCompatibility = "COMPARABLE" | "INCOMPATIBLE" | "NO_BASELINE";
 
@@ -12,6 +13,11 @@ export type ArchitectureFindingSubject =
   | { kind: "CYCLE"; moduleIds: string[] };
 
 export type ArchitectureFindingEvidence =
+  | {
+      kind: "CANONICAL_ARCHITECTURE_DEPENDENCIES";
+      dependencyIds: string[];
+      relationshipIds: string[];
+    }
   | { kind: "MODULE"; moduleId: string; confidence: ArchitectureIntelligenceConfidence }
   | {
       kind: "MODULE_RELATIONSHIP";
@@ -37,6 +43,7 @@ export type ArchitectureFindingItem = {
   fingerprint: string;
   ruleId: string;
   ruleVersion: string;
+  applicability: ArchitectureFindingApplicability | null;
   confidence: ArchitectureIntelligenceConfidence;
   lifecycle: ArchitectureFindingLifecycle | null;
   subject: ArchitectureFindingSubject;

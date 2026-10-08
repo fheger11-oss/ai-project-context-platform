@@ -13,6 +13,7 @@ const occurrence = {
   fingerprint: "fingerprint-1",
   ruleId: "architecture.circular-dependency",
   ruleVersion: "1.0",
+  applicability: null,
   confidence: "HIGH" as const,
   subject: { kind: "CYCLE", moduleIds: ["module:a", "module:b"] },
   evidence: [
@@ -37,6 +38,31 @@ describe("PrismaArchitectureFindingOccurrenceRepository", () => {
       data: expect.objectContaining({
         subject: occurrence.subject,
         evidence: occurrence.evidence
+      })
+    });
+  });
+
+  it("persists canonical applicability and restores canonical evidence", async () => {
+    const canonical = {
+      ...occurrence,
+      applicability: "PARTIALLY_APPLICABLE" as const,
+      ruleVersion: "2.0",
+      evidence: [
+        {
+          kind: "CANONICAL_ARCHITECTURE_DEPENDENCIES" as const,
+          dependencyIds: ["dependency:a-b", "dependency:b-a"],
+          relationshipIds: ["relationship:a-b", "relationship:b-a"]
+        }
+      ]
+    } satisfies ArchitectureFindingOccurrenceRecord;
+    const create = vi.fn().mockResolvedValue(canonical);
+    const repository = makeRepository({ create });
+
+    await expect(repository.create(canonical)).resolves.toEqual(canonical);
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        applicability: "PARTIALLY_APPLICABLE",
+        evidence: canonical.evidence
       })
     });
   });
