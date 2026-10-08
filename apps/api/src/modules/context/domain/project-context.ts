@@ -1,7 +1,7 @@
 import type { ContextClaim } from "./context-claim.js";
 import { InvalidProjectContextProvenanceError } from "./errors/invalid-project-context-provenance.error.js";
 import {
-  EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL,
+  architectureModelWithDefaults,
   type ProjectContextArchitectureModel
 } from "./project-context-architecture.js";
 import {
@@ -73,7 +73,7 @@ export class ProjectContext {
       infrastructure: input.infrastructure ?? EMPTY_SECTION,
       ambiguities: input.ambiguities ?? [],
       semantic: input.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC,
-      architectureModel: input.architectureModel ?? EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL
+      architectureModel: architectureModelWithDefaults(input.architectureModel)
     });
   }
 
@@ -83,7 +83,7 @@ export class ProjectContext {
     return new ProjectContext({
       ...snapshot,
       semantic: snapshot.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC,
-      architectureModel: snapshot.architectureModel ?? EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL
+      architectureModel: architectureModelWithDefaults(snapshot.architectureModel)
     });
   }
 

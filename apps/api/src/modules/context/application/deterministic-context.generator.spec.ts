@@ -2217,7 +2217,41 @@ describe("DeterministicContextGenerator", () => {
         })
       ])
     );
+    expect(populated.architectureModel?.dependencies).toEqual([]);
     expect(populated.architecture.claims.some(isModuleCandidateClaim)).toBe(true);
+  });
+
+  it("adds resolved cross-module relationships to the real architecture dependency graph", async () => {
+    const sourcePath = "apps/api/src/modules/context/application/context.service.ts";
+    const targetPath = "apps/api/src/modules/analysis/domain/analysis.ts";
+    const analysis = nodePackageAnalysis({
+      packages: [
+        {
+          path: "apps/api/package.json",
+          isPrimary: true,
+          name: "api",
+          version: "0.1.0",
+          dependencies: []
+        }
+      ],
+      manifests: [{ path: "apps/api/package.json", type: "PACKAGE_JSON", isPrimary: true }]
+    });
+    const populated = await generate({
+      ...analysis,
+      files: [file(sourcePath), file(targetPath)],
+      sourceStructures: [sourceStructure(sourcePath), sourceStructure(targetPath)],
+      relationships: [relationship(sourcePath, targetPath, "../../../analysis/domain/analysis")]
+    });
+
+    expect(populated.architectureModel?.dependencies).toEqual([
+      expect.objectContaining({
+        relationshipCount: 1,
+        sourceFileCount: 1,
+        targetFileCount: 1,
+        relationshipKinds: ["IMPORTS"],
+        resolution: "RESOLVED"
+      })
+    ]);
   });
 
   it("generates multiple modules and aggregates cross-module relationships", async () => {

@@ -135,6 +135,7 @@ export type {
 export type {
   ArchitecturalModule,
   ArchitectureFrameworkSignal,
+  ArchitectureDependency,
   ArchitectureLayerKind,
   ArchitectureModuleConfidence,
   ArchitectureModuleEvidence,

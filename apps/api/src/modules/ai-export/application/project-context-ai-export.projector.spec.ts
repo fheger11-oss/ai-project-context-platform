@@ -464,6 +464,19 @@ describe("ProjectContextAiExportProjector", () => {
             }
           ]
         }
+      ],
+      dependencies: [
+        {
+          id: "architecture-dependency:encoded",
+          sourceModuleId: "architecture-module:encoded",
+          targetModuleId: "architecture-module:api",
+          relationshipCount: 1,
+          sourceFileCount: 1,
+          targetFileCount: 1,
+          relationshipKinds: ["IMPORTS"],
+          relationshipIds: ["relationship:encoded"],
+          resolution: "RESOLVED"
+        }
       ]
     };
 

@@ -74,10 +74,33 @@ export type ArchitecturalModule = {
   evidence: readonly ArchitectureModuleEvidence[];
 };
 
+export type ArchitectureDependency = {
+  id: string;
+  sourceModuleId: string;
+  targetModuleId: string;
+  relationshipCount: number;
+  sourceFileCount: number;
+  targetFileCount: number;
+  relationshipKinds: readonly ("IMPORTS" | "RE_EXPORTS")[];
+  relationshipIds: readonly string[];
+  resolution: "RESOLVED";
+};
+
 export type ProjectContextArchitectureModel = {
   modules: readonly ArchitecturalModule[];
+  dependencies: readonly ArchitectureDependency[];
 };
 
 export const EMPTY_PROJECT_CONTEXT_ARCHITECTURE_MODEL: ProjectContextArchitectureModel = {
-  modules: []
+  modules: [],
+  dependencies: []
 };
+
+export function architectureModelWithDefaults(
+  model: Partial<ProjectContextArchitectureModel> | undefined
+): ProjectContextArchitectureModel {
+  return {
+    modules: model?.modules ?? [],
+    dependencies: model?.dependencies ?? []
+  };
+}

@@ -3,6 +3,7 @@ import { describe, expectTypeOf, it } from "vitest";
 import type {
   AnalysisHistoryResponse,
   AnalysisResultResponse,
+  ArchitectureDependency,
   AiExportResponse,
   CreateAnalysisRequest,
   DocumentHistoryResponse,
@@ -39,9 +40,11 @@ describe("contracts package exports", () => {
   });
   it("exports ProjectContext architecture inventory contracts", () => {
     expectTypeOf<ProjectContextArchitectureModel>().toHaveProperty("modules");
+    expectTypeOf<ProjectContextArchitectureModel>().toHaveProperty("dependencies");
     expectTypeOf<ProjectContextArchitectureModel["modules"][number]>()
       .toHaveProperty("rootPath")
       .toEqualTypeOf<string>();
+    expectTypeOf<ArchitectureDependency>().toHaveProperty("relationshipIds");
   });
   it("exports ProjectTimeline contracts from the public entrypoint", () => {
     expectTypeOf<ProjectTimelineItemType>().toEqualTypeOf<

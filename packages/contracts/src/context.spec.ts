@@ -90,6 +90,14 @@ describe("context contracts", () => {
         inference: "OBSERVED" | "STRONGLY_INFERRED" | "INFERRED";
         confidence: "HIGH" | "MEDIUM" | "LOW";
       }[];
+      dependencies: readonly {
+        id: string;
+        sourceModuleId: string;
+        targetModuleId: string;
+        relationshipKinds: readonly ("IMPORTS" | "RE_EXPORTS")[];
+        relationshipIds: readonly string[];
+        resolution: "RESOLVED";
+      }[];
     }>();
     expectTypeOf<ProjectContextArchitectureModel["modules"][number]>().not.toHaveProperty(
       "dependencies"

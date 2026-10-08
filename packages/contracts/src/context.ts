@@ -251,8 +251,21 @@ export type ArchitecturalModule = {
   evidence: readonly ArchitectureModuleEvidence[];
 };
 
+export type ArchitectureDependency = {
+  id: string;
+  sourceModuleId: string;
+  targetModuleId: string;
+  relationshipCount: number;
+  sourceFileCount: number;
+  targetFileCount: number;
+  relationshipKinds: readonly ("IMPORTS" | "RE_EXPORTS")[];
+  relationshipIds: readonly string[];
+  resolution: "RESOLVED";
+};
+
 export type ProjectContextArchitectureModel = {
   modules: readonly ArchitecturalModule[];
+  dependencies: readonly ArchitectureDependency[];
 };
 
 export type ProjectContextResponse = {

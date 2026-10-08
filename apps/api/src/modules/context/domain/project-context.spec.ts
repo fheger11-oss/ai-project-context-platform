@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ContextClaim } from "./context-claim.js";
 import { InvalidProjectContextProvenanceError } from "./errors/invalid-project-context-provenance.error.js";
-import { ProjectContext } from "./project-context.js";
+import { ProjectContext, type ProjectContextSnapshot } from "./project-context.js";
 
 describe("ProjectContext", () => {
   const provenance = {
@@ -42,7 +42,7 @@ describe("ProjectContext", () => {
         exports: [],
         relationships: []
       },
-      architectureModel: { modules: [] }
+      architectureModel: { modules: [], dependencies: [] }
     });
   });
 
@@ -67,7 +67,24 @@ describe("ProjectContext", () => {
       exports: [],
       relationships: []
     });
-    expect(historical.toSnapshot().architectureModel).toEqual({ modules: [] });
+    expect(historical.toSnapshot().architectureModel).toEqual({ modules: [], dependencies: [] });
+  });
+
+  it("defaults dependencies for Phase 3.1 snapshots that contain modules only", () => {
+    const historical = ProjectContext.fromSnapshot({
+      ...provenance,
+      project: { claims: [] },
+      technology: { claims: [] },
+      structure: { claims: [] },
+      architecture: { claims: [] },
+      entryPoints: { claims: [] },
+      testing: { claims: [] },
+      infrastructure: { claims: [] },
+      ambiguities: [],
+      architectureModel: { modules: [] }
+    } as unknown as ProjectContextSnapshot);
+
+    expect(historical.toSnapshot().architectureModel).toEqual({ modules: [], dependencies: [] });
   });
 
   it("preserves analysis lineage separately from context versioning", () => {

@@ -14,6 +14,7 @@ import type {
   SemanticPackage,
   SemanticSymbol
 } from "../domain/project-context-semantic.js";
+import { projectArchitectureDependencies } from "./project-context-dependency.projector.js";
 
 const LAYER_ORDER: readonly ArchitectureLayerKind[] = [
   "DOMAIN",
@@ -45,8 +46,11 @@ export function projectContextArchitecture(
   const workspaceModules = packageScopes.map((scope) => workspacePackageModule(scope, semantic));
   const childModules = packageScopes.flatMap((scope) => childModuleCandidates(scope, semantic));
 
+  const modules = [...workspaceModules, ...childModules].sort(compareModules);
+
   return {
-    modules: [...workspaceModules, ...childModules].sort(compareModules)
+    modules,
+    dependencies: projectArchitectureDependencies(semantic, modules)
   };
 }
 

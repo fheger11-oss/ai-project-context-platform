@@ -272,7 +272,8 @@ describe("PrismaProjectContextRepository", () => {
               }
             ]
           }
-        ]
+        ],
+        dependencies: []
       }
     });
     const { repository } = createRepository();
@@ -320,7 +321,25 @@ describe("PrismaProjectContextRepository", () => {
       exports: [],
       relationships: []
     });
-    expect(persisted?.context.toSnapshot().architectureModel).toEqual({ modules: [] });
+    expect(persisted?.context.toSnapshot().architectureModel).toEqual({
+      modules: [],
+      dependencies: []
+    });
+  });
+
+  it("loads Phase 3.1 snapshots without dependencies using an empty dependency graph", async () => {
+    const phase31Snapshot = serialized();
+    delete (phase31Snapshot.architectureModel as { dependencies?: unknown }).dependencies;
+    const { repository } = createRepository({
+      findUniqueResult: stored({ snapshot: phase31Snapshot })
+    });
+
+    const persisted = await repository.findById("project_context_1");
+
+    expect(persisted?.context.toSnapshot().architectureModel?.modules).toEqual(
+      phase31Snapshot.architectureModel?.modules ?? []
+    );
+    expect(persisted?.context.toSnapshot().architectureModel?.dependencies).toEqual([]);
   });
 
   it("lists Context history for an Analysis in deterministic latest-first order", async () => {
