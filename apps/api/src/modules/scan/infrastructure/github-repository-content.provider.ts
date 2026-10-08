@@ -13,8 +13,8 @@ import { SCAN_LIMITS } from "../domain/scan-limits.js";
 const GITHUB_API_BASE_URL = "https://api.github.com";
 const GITHUB_REQUEST_TIMEOUT_MS = 10_000;
 export const GITHUB_SCAN_MAX_FILE_COUNT = SCAN_LIMITS.maxFiles;
-export const GITHUB_SCAN_MAX_FILE_SIZE_BYTES = SCAN_LIMITS.maxIndividualFileSizeBytes;
-export const GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES = SCAN_LIMITS.maxTotalSizeBytes;
+export const GITHUB_SCAN_MAX_FILE_SIZE_BYTES = SCAN_LIMITS.maxIndividualNonBinaryFileSizeBytes;
+export const GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES = SCAN_LIMITS.maxNonBinaryContentSizeBytes;
 // A repository with at most maxFiles useful blobs does not need more than maxFiles + 1
 // tree fetches. This also bounds malicious empty/deep trees that never increment fileCount.
 export const GITHUB_SCAN_MAX_TREE_COUNT = SCAN_LIMITS.maxFiles + 1;
@@ -155,7 +155,9 @@ export class GitHubRepositoryContentProvider implements RepositoryContentProvide
           }
 
           fileCount += 1;
-          totalSize += file.size;
+          if (!file.isBinary) {
+            totalSize += file.size;
+          }
           this.assertScanLimits(file, fileCount, totalSize, {
             filesProcessed,
             totalBytesConsidered: totalSize

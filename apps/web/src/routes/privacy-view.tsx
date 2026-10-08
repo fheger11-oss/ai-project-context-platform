@@ -155,13 +155,14 @@ export function PrivacyView() {
             <ul>
               <li>Maximum {scanLimits.maxFiles.toLocaleString()} eligible files per scan</li>
               <li>
-                Maximum {formatBytes(scanLimits.maxIndividualFileSizeBytes)} per individual
+                Maximum {formatBytes(scanLimits.maxIndividualNonBinaryFileSizeBytes)} per individual
                 non-binary file
               </li>
               <li>
-                Maximum {formatBytes(scanLimits.maxTotalSizeBytes)} total eligible repository file
-                data per scan
+                Maximum {formatBytes(scanLimits.maxNonBinaryContentSizeBytes)} total non-binary
+                content fetched and stored per scan
               </li>
+              <li>Binary files count toward the file limit, but their content is not fetched</li>
             </ul>
           ) : (
             <p>Scan limit values are loaded from the scan API.</p>

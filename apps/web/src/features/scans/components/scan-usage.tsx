@@ -24,24 +24,32 @@ type ScanUsagePanelProps = {
 
 export function ScanLimitsSummary({ limits }: { limits: ScanLimits }) {
   return (
-    <dl className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-      <div>
-        <dt>Files</dt>
-        <dd className="mt-1 font-medium text-foreground">{limits.maxFiles.toLocaleString()}</dd>
-      </div>
-      <div>
-        <dt>Non-binary file</dt>
-        <dd className="mt-1 font-medium text-foreground">
-          {formatBytes(limits.maxIndividualFileSizeBytes)}
-        </dd>
-      </div>
-      <div>
-        <dt>Total file data</dt>
-        <dd className="mt-1 font-medium text-foreground">
-          {formatBytes(limits.maxTotalSizeBytes)}
-        </dd>
-      </div>
-    </dl>
+    <div className="grid gap-2">
+      <dl className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+        <div>
+          <dt>Files</dt>
+          <dd className="mt-1 font-medium text-foreground">{limits.maxFiles.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>Non-binary file</dt>
+          <dd className="mt-1 font-medium text-foreground">
+            {formatBytes(limits.maxIndividualNonBinaryFileSizeBytes)}
+          </dd>
+        </div>
+        <div>
+          <dt>Non-binary content</dt>
+          <dd className="mt-1 font-medium text-foreground">
+            {formatBytes(limits.maxNonBinaryContentSizeBytes)}
+          </dd>
+        </div>
+      </dl>
+      {!limits.binaryContentFetched && limits.binaryFilesCountTowardFileLimit ? (
+        <p className="text-xs text-muted-foreground">
+          Binary content is not fetched or charged to the content budget; binary files still count
+          toward the file limit.
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -54,7 +62,10 @@ export function ScanUsagePanel({
 }: ScanUsagePanelProps) {
   const usage = scan?.usage ?? emptyUsage();
   const filesPercent = boundedPercent(usage.filesProcessed, limits.maxFiles);
-  const dataPercent = boundedPercent(usage.totalBytesConsidered, limits.maxTotalSizeBytes);
+  const dataPercent = boundedPercent(
+    usage.totalBytesConsidered,
+    limits.maxNonBinaryContentSizeBytes
+  );
   const hasScan = Boolean(scan);
   const isLimitFailure = Boolean(scan?.limit.reached);
 
@@ -87,12 +98,13 @@ export function ScanUsagePanel({
         percent={filesPercent}
       />
       <UsageMeter
-        label="Data"
-        value={`${formatBytes(usage.totalBytesConsidered)} / ${formatBytes(limits.maxTotalSizeBytes)}`}
+        label="Non-binary content"
+        value={`${formatBytes(usage.totalBytesConsidered)} / ${formatBytes(limits.maxNonBinaryContentSizeBytes)}`}
         percent={dataPercent}
       />
       <p className="text-xs text-muted-foreground">
-        Max individual non-binary file: {formatBytes(limits.maxIndividualFileSizeBytes)}.
+        Max individual non-binary file: {formatBytes(limits.maxIndividualNonBinaryFileSizeBytes)}.
+        Binary content is not fetched and does not consume the content budget.
       </p>
     </section>
   );
@@ -120,7 +132,8 @@ export function ScanUsagePill({
         {usage.filesProcessed.toLocaleString()} / {limits.maxFiles.toLocaleString()} files
       </span>
       <span className="text-muted-foreground">
-        {formatBytes(usage.totalBytesConsidered)} / {formatBytes(limits.maxTotalSizeBytes)}
+        {formatBytes(usage.totalBytesConsidered)} /{" "}
+        {formatBytes(limits.maxNonBinaryContentSizeBytes)} non-binary
       </span>
       {scan?.limit.reached ? (
         <span className="text-warning">{limitReasonLabel(scan.limit.reason)}</span>

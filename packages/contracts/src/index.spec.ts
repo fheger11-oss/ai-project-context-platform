@@ -189,6 +189,16 @@ describe("contracts package exports", () => {
 
   it("exports Scan limit and usage contracts from the public entrypoint", () => {
     expectTypeOf<ScanLimits>().toHaveProperty("maxFiles").toEqualTypeOf<number>();
+    expectTypeOf<ScanLimits>()
+      .toHaveProperty("maxIndividualNonBinaryFileSizeBytes")
+      .toEqualTypeOf<number>();
+    expectTypeOf<ScanLimits>()
+      .toHaveProperty("maxNonBinaryContentSizeBytes")
+      .toEqualTypeOf<number>();
+    expectTypeOf<ScanLimits>().toHaveProperty("binaryContentFetched").toEqualTypeOf<false>();
+    expectTypeOf<ScanLimits>()
+      .toHaveProperty("binaryFilesCountTowardFileLimit")
+      .toEqualTypeOf<true>();
     expectTypeOf<ScanUsage>().toHaveProperty("totalBytesConsidered").toEqualTypeOf<string>();
     expectTypeOf<ScanSnapshot>().toHaveProperty("usage").toEqualTypeOf<ScanUsage>();
     expectTypeOf<ScanLimitErrorResponse>()

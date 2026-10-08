@@ -42,6 +42,10 @@ let queryState: QueryState = {};
 
 const scanLimits: ScanLimits = {
   maxFiles: 5000,
+  maxIndividualNonBinaryFileSizeBytes: 1048576,
+  maxNonBinaryContentSizeBytes: 26214400,
+  binaryContentFetched: false,
+  binaryFilesCountTowardFileLimit: true,
   maxIndividualFileSizeBytes: 1048576,
   maxTotalSizeBytes: 26214400
 };

@@ -165,8 +165,20 @@ export class ScanController {
       type: "object",
       properties: {
         maxFiles: { type: "number" },
-        maxIndividualFileSizeBytes: { type: "number" },
-        maxTotalSizeBytes: { type: "number" }
+        maxIndividualNonBinaryFileSizeBytes: { type: "number" },
+        maxNonBinaryContentSizeBytes: { type: "number" },
+        binaryContentFetched: { type: "boolean", enum: [false] },
+        binaryFilesCountTowardFileLimit: { type: "boolean", enum: [true] },
+        maxIndividualFileSizeBytes: {
+          type: "number",
+          deprecated: true,
+          description: "Compatibility alias for maxIndividualNonBinaryFileSizeBytes."
+        },
+        maxTotalSizeBytes: {
+          type: "number",
+          deprecated: true,
+          description: "Compatibility alias for maxNonBinaryContentSizeBytes."
+        }
       }
     }
   })

@@ -16,8 +16,15 @@ Monthly usage is counted by UTC calendar month, from the first day of the month 
 ## Scan Limits
 
 - Maximum files per scan: 1,000
-- Maximum total scanned file size: 5 MiB
+- Maximum total non-binary content fetched and stored: 5 MiB
 - Maximum individual non-binary file size: 512 KiB
+- Binary files count toward the file limit, but their content is not fetched and their blob size
+  does not consume the non-binary content budget.
+
+`maxIndividualFileSizeBytes` and `maxTotalSizeBytes` remain API compatibility aliases for the
+explicit `maxIndividualNonBinaryFileSizeBytes` and `maxNonBinaryContentSizeBytes` fields. Scan
+usage recorded before this policy cutover included recognized binary blob sizes; new scan usage
+records measure non-binary content only. Historical records are not rewritten.
 
 The API remains the source of truth for scan limits through `GET /api/v1/scans/limits`.
 

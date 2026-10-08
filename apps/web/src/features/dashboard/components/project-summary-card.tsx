@@ -184,9 +184,9 @@ export function ProjectSummaryCard({ limits, project }: ProjectSummaryCardProps)
                     value={`${latestScan.usage.filesProcessed.toLocaleString()} / ${limits.maxFiles.toLocaleString()}`}
                   />
                   <SummaryLine
-                    label="Data"
+                    label="Non-binary content"
                     value={`${formatBytes(latestScan.usage.totalBytesConsidered)} / ${formatBytes(
-                      limits.maxTotalSizeBytes
+                      limits.maxNonBinaryContentSizeBytes
                     )}`}
                   />
                 </>

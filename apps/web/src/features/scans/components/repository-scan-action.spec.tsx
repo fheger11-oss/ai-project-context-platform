@@ -40,6 +40,10 @@ let mutationStates: MutationState[] = [];
 const invalidateQueries = vi.fn();
 const scanLimits = {
   maxFiles: 5000,
+  maxIndividualNonBinaryFileSizeBytes: 1048576,
+  maxNonBinaryContentSizeBytes: 26214400,
+  binaryContentFetched: false as const,
+  binaryFilesCountTowardFileLimit: true as const,
   maxIndividualFileSizeBytes: 1048576,
   maxTotalSizeBytes: 26214400
 };
@@ -183,6 +187,8 @@ describe("RepositoryScanAction", () => {
     expect(markup).toContain("5,000");
     expect(markup).toContain("1 MiB");
     expect(markup).toContain("25 MiB");
+    expect(markup).toContain("Non-binary content");
+    expect(markup).toContain("Binary content is not fetched");
     expect(queryOptions[0]?.queryKey).toEqual(["scan-limits"]);
   });
 
@@ -377,9 +383,9 @@ describe("RepositoryScanAction", () => {
       })
     );
 
-    expect(markup).toContain("25 MiB total repository file-data limit");
+    expect(markup).toContain("25 MiB non-binary content limit");
     expect(markup).toContain("4,000 files were processed");
-    expect(markup).toContain("25 MiB were considered");
+    expect(markup).toContain("25 MiB of non-binary content were considered");
   });
 
   it("displays a safe authentication error message for 401 responses", () => {

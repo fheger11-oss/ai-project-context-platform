@@ -96,6 +96,10 @@ describe("scan-api", () => {
       },
       limits: {
         maxFiles: 5000,
+        maxIndividualNonBinaryFileSizeBytes: 1048576,
+        maxNonBinaryContentSizeBytes: 26214400,
+        binaryContentFetched: false,
+        binaryFilesCountTowardFileLimit: true,
         maxIndividualFileSizeBytes: 1048576,
         maxTotalSizeBytes: 26214400
       }
@@ -111,6 +115,10 @@ describe("scan-api", () => {
   it("loads canonical scan limits without an independent frontend constant", async () => {
     const limits = {
       maxFiles: 5000,
+      maxIndividualNonBinaryFileSizeBytes: 1048576,
+      maxNonBinaryContentSizeBytes: 26214400,
+      binaryContentFetched: false,
+      binaryFilesCountTowardFileLimit: true,
       maxIndividualFileSizeBytes: 1048576,
       maxTotalSizeBytes: 26214400
     };

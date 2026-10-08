@@ -41,13 +41,13 @@ export function scanLimitErrorMessage(error: ScanLimitErrorResponse): string {
 
   if (error.limit.reason === "INDIVIDUAL_FILE_SIZE_LIMIT") {
     return `A non-binary file exceeds the ${formatBytes(
-      error.limits.maxIndividualFileSizeBytes
+      error.limits.maxIndividualNonBinaryFileSizeBytes
     )} maximum file size. The scan could not continue.`;
   }
 
   return `This scan exceeded the ${formatBytes(
-    error.limits.maxTotalSizeBytes
-  )} total repository file-data limit. ${error.usage.filesProcessed.toLocaleString()} files were processed and ${formatBytes(
+    error.limits.maxNonBinaryContentSizeBytes
+  )} non-binary content limit. ${error.usage.filesProcessed.toLocaleString()} files were processed and ${formatBytes(
     error.usage.totalBytesConsidered
-  )} were considered.`;
+  )} of non-binary content were considered.`;
 }

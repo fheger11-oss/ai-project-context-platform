@@ -785,6 +785,38 @@ describe("ScanService", () => {
     });
   });
 
+  it("counts binary files but records only non-binary content bytes", async () => {
+    const files = [
+      createFile("src/index.ts", 13n),
+      {
+        ...createFile("assets/large.png", 9_000_000n),
+        extension: "png",
+        content: null,
+        isBinary: true
+      }
+    ];
+    const { scanRepository, service } = createService({
+      repositoryContentProvider: {
+        listSnapshotFiles: vi.fn().mockReturnValue(snapshotFiles(files))
+      }
+    });
+
+    const result = await service.startScan({
+      repositoryId: "repository_1",
+      reference: "main",
+      userId: "user_1"
+    });
+
+    expect(result).toMatchObject({
+      status: "COMPLETED",
+      totalFiles: 2,
+      totalSize: 13n,
+      filesProcessed: 2,
+      totalBytesConsidered: 13n
+    });
+    expect(scanRepository.storeScanFiles).toHaveBeenCalledWith("scan_1", files);
+  });
+
   it("resolves access, commit, creates a scan, and marks it running before persistence", async () => {
     const { repositoryAccessResolver, repositoryContentProvider, scanRepository, service } =
       createService();

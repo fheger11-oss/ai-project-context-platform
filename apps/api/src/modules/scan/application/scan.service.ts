@@ -227,7 +227,9 @@ export class ScanService {
         setFailureStage("FILE_STREAM");
         batch.push(file);
         stats.filesProcessed += 1;
-        stats.totalBytesConsidered += file.size;
+        if (!file.isBinary) {
+          stats.totalBytesConsidered += file.size;
+        }
 
         if (batch.length === ScanService.FILE_BATCH_SIZE) {
           setFailureStage("BATCH_PERSISTENCE");

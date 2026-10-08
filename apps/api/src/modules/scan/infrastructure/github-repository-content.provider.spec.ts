@@ -276,36 +276,33 @@ describe("GitHubRepositoryContentProvider", () => {
     expect(fetchMock).toHaveBeenCalledTimes(GITHUB_SCAN_MAX_TREE_COUNT + 1);
   });
 
-  it("rejects repositories that exceed the total scanned byte limit", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          json: vi.fn().mockResolvedValue({ tree: { sha: "tree_sha" } })
+  it("rejects repositories that exceed the total non-binary content limit", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ tree: { sha: "tree_sha" } })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          truncated: false,
+          tree: [
+            ...Array.from({ length: 10 }, (_, index) => ({
+              path: `src/chunk-${index}.ts`,
+              sha: `file_sha_${index}`,
+              type: "blob",
+              size: GITHUB_SCAN_MAX_FILE_SIZE_BYTES
+            })),
+            { path: "src/over.ts", sha: "file_sha_over", type: "blob", size: 1 }
+          ]
         })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: vi.fn().mockResolvedValue({
-            truncated: false,
-            tree: [
-              {
-                path: "assets/large-one.png",
-                sha: "file_sha_1",
-                type: "blob",
-                size: GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES
-              },
-              {
-                path: "assets/large-two.png",
-                sha: "file_sha_2",
-                type: "blob",
-                size: 1
-              }
-            ]
-          })
-        })
-    );
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ content: "", encoding: "base64" })
+      });
+    vi.stubGlobal("fetch", fetchMock);
     const provider = new GitHubRepositoryContentProvider();
 
     await expect(async () => {
@@ -315,13 +312,13 @@ describe("GitHubRepositoryContentProvider", () => {
     }).rejects.toMatchObject({
       reason: "TOTAL_SIZE_LIMIT",
       usage: {
-        filesProcessed: 1,
+        filesProcessed: 10,
         totalBytesConsidered: BigInt(GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES) + 1n
       }
     });
   });
 
-  it("allows files whose combined size is exactly the total byte limit", async () => {
+  it("allows non-binary files whose combined size is exactly the content limit", async () => {
     vi.stubGlobal(
       "fetch",
       vi
@@ -334,21 +331,17 @@ describe("GitHubRepositoryContentProvider", () => {
           ok: true,
           json: vi.fn().mockResolvedValue({
             truncated: false,
-            tree: [
-              {
-                path: "assets/exact-one.png",
-                sha: "file_sha_1",
-                type: "blob",
-                size: GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES - 1
-              },
-              {
-                path: "assets/exact-two.png",
-                sha: "file_sha_2",
-                type: "blob",
-                size: 1
-              }
-            ]
+            tree: Array.from({ length: 10 }, (_, index) => ({
+              path: `src/exact-${index}.ts`,
+              sha: `file_sha_${index}`,
+              type: "blob",
+              size: GITHUB_SCAN_MAX_FILE_SIZE_BYTES
+            }))
           })
+        })
+        .mockResolvedValue({
+          ok: true,
+          json: vi.fn().mockResolvedValue({ content: "", encoding: "base64" })
         })
     );
     const provider = new GitHubRepositoryContentProvider();
@@ -358,10 +351,47 @@ describe("GitHubRepositoryContentProvider", () => {
       files.push(file);
     }
 
-    expect(files.map((file) => file.path)).toEqual([
-      "assets/exact-one.png",
-      "assets/exact-two.png"
-    ]);
+    expect(files).toHaveLength(10);
+  });
+
+  it("does not charge recognized binary blob sizes to the non-binary content budget", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ tree: { sha: "tree_sha" } })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          truncated: false,
+          tree: [
+            {
+              path: "assets/huge.png",
+              sha: "binary_sha",
+              type: "blob",
+              size: GITHUB_SCAN_MAX_TOTAL_SIZE_BYTES * 10
+            },
+            { path: "src/index.ts", sha: "text_sha", type: "blob", size: 1 }
+          ]
+        })
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          content: Buffer.from("x").toString("base64"),
+          encoding: "base64"
+        })
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new GitHubRepositoryContentProvider();
+    const files = [];
+
+    for await (const file of provider.listSnapshotFiles(access, "commit_sha")) files.push(file);
+
+    expect(files).toHaveLength(2);
+    expect(files[0]).toMatchObject({ path: "assets/huge.png", content: null, isBinary: true });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("uses typed scan-limit errors for limit failures", async () => {

@@ -341,7 +341,13 @@ export type StartScanRequest = {
 
 export type ScanLimits = {
   maxFiles: number;
+  maxIndividualNonBinaryFileSizeBytes: number;
+  maxNonBinaryContentSizeBytes: number;
+  binaryContentFetched: false;
+  binaryFilesCountTowardFileLimit: true;
+  /** @deprecated Use maxIndividualNonBinaryFileSizeBytes. */
   maxIndividualFileSizeBytes: number;
+  /** @deprecated Use maxNonBinaryContentSizeBytes. */
   maxTotalSizeBytes: number;
 };
 
