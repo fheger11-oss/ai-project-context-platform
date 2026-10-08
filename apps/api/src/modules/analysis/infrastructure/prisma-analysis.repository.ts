@@ -9,6 +9,7 @@ import type {
   AnalysisRepository
 } from "../domain/contracts/analysis-repository.contract.js";
 import type { AnalysisResult } from "../domain/contracts/analysis-result.contract.js";
+import type { ProjectProfile } from "../domain/project-detection/project-profile.js";
 import { AnalysisPersistenceError } from "../domain/errors/analysis-persistence.error.js";
 import { InvalidPersistedAnalysisResultError } from "../domain/errors/invalid-persisted-analysis-result.error.js";
 
@@ -193,7 +194,7 @@ export class PrismaAnalysisRepository implements AnalysisRepository {
       commitSha: stored.commitSha,
       analyzerVersion: stored.analyzerVersion,
       generatedAt: stored.generatedAt,
-      project: readObject(stored.id, "project", stored.project),
+      project: projectProfileWithDefaults(readObject(stored.id, "project", stored.project)),
       files: readArray(stored.id, "files", stored.files),
       sourceStructures: readArray(stored.id, "sourceStructures", stored.sourceStructures),
       relationships: readArray(stored.id, "relationships", stored.relationships),
@@ -201,6 +202,16 @@ export class PrismaAnalysisRepository implements AnalysisRepository {
       issues: readArray(stored.id, "issues", stored.issues)
     };
   }
+}
+
+function projectProfileWithDefaults(project: ProjectProfile): ProjectProfile {
+  return {
+    ...project,
+    packages: project.packages.map((packageJson) => ({
+      ...packageJson,
+      publicSurfaceDeclarations: packageJson.publicSurfaceDeclarations ?? []
+    }))
+  };
 }
 
 function toJson(value: unknown): Prisma.InputJsonValue {

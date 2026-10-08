@@ -60,6 +60,52 @@ export type PackageScript = {
   command: string;
 };
 
+export type PackageSurfaceSelector =
+  { kind: "CONDITION"; value: string } | { kind: "FALLBACK"; index: number };
+
+export type PackagePublicSurfaceDeclaration = {
+  manifestPath: string;
+  sourceField: "EXPORTS" | "MAIN" | "MODULE" | "TYPES";
+  subpath: string;
+  selectorPath: readonly PackageSurfaceSelector[];
+  disposition: "TARGET" | "BLOCKED";
+  declaredTarget: string | null;
+};
+
+export function comparePackagePublicSurfaceDeclarations(
+  left: PackagePublicSurfaceDeclaration,
+  right: PackagePublicSurfaceDeclaration
+): number {
+  return (
+    left.manifestPath.localeCompare(right.manifestPath) ||
+    left.sourceField.localeCompare(right.sourceField) ||
+    left.subpath.localeCompare(right.subpath) ||
+    compareSelectorPaths(left.selectorPath, right.selectorPath) ||
+    left.disposition.localeCompare(right.disposition) ||
+    (left.declaredTarget ?? "").localeCompare(right.declaredTarget ?? "")
+  );
+}
+
+function compareSelectorPaths(
+  left: readonly PackageSurfaceSelector[],
+  right: readonly PackageSurfaceSelector[]
+): number {
+  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+    const leftSelector = left[index]!;
+    const rightSelector = right[index]!;
+    const kindOrder = leftSelector.kind.localeCompare(rightSelector.kind);
+    if (kindOrder !== 0) return kindOrder;
+    const valueOrder =
+      leftSelector.kind === "FALLBACK" && rightSelector.kind === "FALLBACK"
+        ? leftSelector.index - rightSelector.index
+        : leftSelector.kind === "CONDITION" && rightSelector.kind === "CONDITION"
+          ? leftSelector.value.localeCompare(rightSelector.value)
+          : 0;
+    if (valueOrder !== 0) return valueOrder;
+  }
+  return left.length - right.length;
+}
+
 export type PackageJsonPackage = {
   path: string;
   isPrimary: boolean;
@@ -67,6 +113,7 @@ export type PackageJsonPackage = {
   version: string | null;
   dependencies: readonly PackageDependency[];
   scripts?: readonly PackageScript[];
+  publicSurfaceDeclarations: readonly PackagePublicSurfaceDeclaration[];
 };
 
 export type ProjectDetectionIssue = {

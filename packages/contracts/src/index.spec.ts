@@ -2,6 +2,7 @@ import { describe, expectTypeOf, it } from "vitest";
 
 import type {
   AnalysisHistoryResponse,
+  AnalysisPackagePublicSurfaceDeclaration,
   AnalysisResultResponse,
   ArchitectureDependency,
   AiExportResponse,
@@ -63,6 +64,7 @@ describe("contracts package exports", () => {
     expectTypeOf<AnalysisResultResponse>().toHaveProperty("analysisId").toEqualTypeOf<string>();
     expectTypeOf<AnalysisResultResponse>().toHaveProperty("generatedAt").toEqualTypeOf<string>();
     expectTypeOf<AnalysisHistoryResponse["items"]>().toMatchTypeOf<readonly unknown[]>();
+    expectTypeOf<AnalysisPackagePublicSurfaceDeclaration>().toHaveProperty("declaredTarget");
   });
 
   it("exports Document API contracts from the public entrypoint", () => {

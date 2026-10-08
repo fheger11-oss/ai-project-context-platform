@@ -59,7 +59,8 @@ const project: ProjectProfile = {
           version: "^11.0.0",
           type: "DEPENDENCY"
         }
-      ]
+      ],
+      publicSurfaceDeclarations: []
     }
   ],
   dependencies: [

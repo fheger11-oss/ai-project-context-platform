@@ -2,9 +2,12 @@ import type {
   PackageDependency,
   PackageDependencyType,
   PackageJsonPackage,
+  PackagePublicSurfaceDeclaration,
+  PackageSurfaceSelector,
   PackageScript,
   ProjectDetectionIssue
 } from "./project-profile.js";
+import { comparePackagePublicSurfaceDeclarations } from "./project-profile.js";
 
 export type ParsedPackageJson =
   | {
@@ -44,6 +47,7 @@ export class PackageJsonParser {
       this.parseDependencySection(input.path, payload[field], type)
     );
     const scripts = this.parseScripts(input.path, payload.scripts);
+    const publicSurfaceDeclarations = this.parsePublicSurfaceDeclarations(input.path, payload);
 
     return {
       status: "PARSED",
@@ -53,9 +57,99 @@ export class PackageJsonParser {
         name: typeof payload.name === "string" ? payload.name : null,
         version: typeof payload.version === "string" ? payload.version : null,
         dependencies,
-        ...(scripts.length > 0 ? { scripts } : {})
+        ...(scripts.length > 0 ? { scripts } : {}),
+        publicSurfaceDeclarations
       }
     };
+  }
+
+  private parsePublicSurfaceDeclarations(
+    manifestPath: string,
+    payload: Record<string, unknown>
+  ): PackagePublicSurfaceDeclaration[] {
+    const declarations: PackagePublicSurfaceDeclaration[] = [];
+
+    for (const [field, sourceField] of [
+      ["main", "MAIN"],
+      ["module", "MODULE"],
+      ["types", "TYPES"]
+    ] as const) {
+      const target = payload[field];
+      if (typeof target === "string") {
+        declarations.push({
+          manifestPath,
+          sourceField,
+          subpath: ".",
+          selectorPath: [],
+          disposition: "TARGET",
+          declaredTarget: target
+        });
+      }
+    }
+
+    declarations.push(...this.parseExports(manifestPath, payload.exports));
+    return declarations.sort(comparePackagePublicSurfaceDeclarations);
+  }
+
+  private parseExports(manifestPath: string, value: unknown): PackagePublicSurfaceDeclaration[] {
+    if (this.isRecord(value) && Object.keys(value).every((key) => key.startsWith("."))) {
+      return Object.keys(value)
+        .sort()
+        .flatMap((subpath) => this.parseExportTarget(manifestPath, subpath, value[subpath], []));
+    }
+
+    return this.parseExportTarget(manifestPath, ".", value, []);
+  }
+
+  private parseExportTarget(
+    manifestPath: string,
+    subpath: string,
+    value: unknown,
+    selectorPath: readonly PackageSurfaceSelector[]
+  ): PackagePublicSurfaceDeclaration[] {
+    if (typeof value === "string") {
+      return [
+        {
+          manifestPath,
+          sourceField: "EXPORTS",
+          subpath,
+          selectorPath,
+          disposition: "TARGET",
+          declaredTarget: value
+        }
+      ];
+    }
+    if (value === null) {
+      return [
+        {
+          manifestPath,
+          sourceField: "EXPORTS",
+          subpath,
+          selectorPath,
+          disposition: "BLOCKED",
+          declaredTarget: null
+        }
+      ];
+    }
+    if (Array.isArray(value)) {
+      return value.flatMap((target, index) =>
+        this.parseExportTarget(manifestPath, subpath, target, [
+          ...selectorPath,
+          { kind: "FALLBACK", index }
+        ])
+      );
+    }
+    if (this.isRecord(value)) {
+      return Object.keys(value)
+        .sort()
+        .flatMap((condition) =>
+          this.parseExportTarget(manifestPath, subpath, value[condition], [
+            ...selectorPath,
+            { kind: "CONDITION", value: condition }
+          ])
+        );
+    }
+    return [];
   }
 
   private parseDependencySection(

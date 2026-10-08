@@ -101,6 +101,8 @@ export type {
   AnalysisPackageDependencyEvidence,
   AnalysisPackageDependencyType,
   AnalysisPackageJsonPackage,
+  AnalysisPackagePublicSurfaceDeclaration,
+  AnalysisPackageSurfaceSelector,
   AnalysisPackageManager,
   AnalysisPackageManagerCandidate,
   AnalysisPackageManagerDetection,

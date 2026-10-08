@@ -1,3 +1,5 @@
+import type { AnalysisPackagePublicSurfaceDeclaration } from "./analysis.js";
+
 export type ContextClaimKind = "OBSERVED" | "INFERRED";
 
 export type ContextConfidence = "HIGH" | "MEDIUM" | "LOW";
@@ -87,6 +89,7 @@ export type SemanticPackage = {
     name: string;
     command: string;
   }[];
+  publicSurfaceDeclarations: readonly AnalysisPackagePublicSurfaceDeclaration[];
 };
 
 export type SemanticFile = {

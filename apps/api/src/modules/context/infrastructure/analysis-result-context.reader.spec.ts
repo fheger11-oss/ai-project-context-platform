@@ -30,7 +30,8 @@ const analysis: AnalysisResult = {
         isPrimary: true,
         name: "api",
         version: "0.1.0",
-        dependencies: []
+        dependencies: [],
+        publicSurfaceDeclarations: []
       }
     ],
     dependencies: [

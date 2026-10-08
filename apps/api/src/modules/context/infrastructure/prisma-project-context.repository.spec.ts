@@ -231,7 +231,27 @@ describe("PrismaProjectContextRepository", () => {
     const semanticContext = ProjectContext.create({
       ...snapshot(),
       semantic: {
-        packages: [],
+        packages: [
+          {
+            id: "package:%5B%22package.json%22%5D",
+            manifestPath: "package.json",
+            name: "workspace",
+            version: "1.0.0",
+            isPrimary: true,
+            dependencies: [],
+            scripts: [],
+            publicSurfaceDeclarations: [
+              {
+                manifestPath: "package.json",
+                sourceField: "EXPORTS",
+                subpath: ".",
+                selectorPath: [{ kind: "CONDITION", value: "default" }],
+                disposition: "TARGET",
+                declaredTarget: "./dist/index.js"
+              }
+            ]
+          }
+        ],
         files: [
           {
             id: "file:%5B%22src%2Fmain.ts%22%5D",
@@ -340,6 +360,44 @@ describe("PrismaProjectContextRepository", () => {
       phase31Snapshot.architectureModel?.modules ?? []
     );
     expect(persisted?.context.toSnapshot().architectureModel?.dependencies).toEqual([]);
+  });
+
+  it("loads historical semantic packages without public-surface declarations as empty", async () => {
+    const historical = serialized(
+      ProjectContext.create({
+        ...snapshot(),
+        semantic: {
+          packages: [
+            {
+              id: "package:root",
+              manifestPath: "package.json",
+              name: "root",
+              version: "1.0.0",
+              isPrimary: true,
+              dependencies: [],
+              scripts: [],
+              publicSurfaceDeclarations: []
+            }
+          ],
+          files: [],
+          symbols: [],
+          imports: [],
+          exports: [],
+          relationships: []
+        }
+      })
+    );
+    delete (historical.semantic!.packages[0] as { publicSurfaceDeclarations?: unknown })
+      .publicSurfaceDeclarations;
+    const { repository } = createRepository({
+      findUniqueResult: stored({ snapshot: historical })
+    });
+
+    const persisted = await repository.findById("project_context_1");
+
+    expect(
+      persisted?.context.toSnapshot().semantic?.packages[0]?.publicSurfaceDeclarations
+    ).toEqual([]);
   });
 
   it("lists Context history for an Analysis in deterministic latest-first order", async () => {

@@ -227,7 +227,8 @@ function semanticPackage(
       version: "workspace:*",
       type: "DEPENDENCY"
     })),
-    scripts: []
+    scripts: [],
+    publicSurfaceDeclarations: []
   };
 }
 

@@ -32,7 +32,8 @@ const analysisResult: AnalysisResultResponse = {
         isPrimary: true,
         name: "app",
         version: "1.0.0",
-        dependencies: []
+        dependencies: [],
+        publicSurfaceDeclarations: []
       }
     ],
     dependencies: [

@@ -95,6 +95,18 @@ export type AnalysisPackageScript = {
   command: string;
 };
 
+export type AnalysisPackageSurfaceSelector =
+  { kind: "CONDITION"; value: string } | { kind: "FALLBACK"; index: number };
+
+export type AnalysisPackagePublicSurfaceDeclaration = {
+  manifestPath: string;
+  sourceField: "EXPORTS" | "MAIN" | "MODULE" | "TYPES";
+  subpath: string;
+  selectorPath: readonly AnalysisPackageSurfaceSelector[];
+  disposition: "TARGET" | "BLOCKED";
+  declaredTarget: string | null;
+};
+
 export type AnalysisPackageJsonPackage = {
   path: string;
   isPrimary: boolean;
@@ -102,6 +114,7 @@ export type AnalysisPackageJsonPackage = {
   version: string | null;
   dependencies: readonly AnalysisPackageDependency[];
   scripts?: readonly AnalysisPackageScript[];
+  publicSurfaceDeclarations: readonly AnalysisPackagePublicSurfaceDeclaration[];
 };
 
 export type AnalysisProjectDetectionIssue = {

@@ -40,6 +40,16 @@ const analysisResult: AnalysisResult = {
             version: "^11.0.0",
             type: "DEPENDENCY"
           }
+        ],
+        publicSurfaceDeclarations: [
+          {
+            manifestPath: "package.json",
+            sourceField: "MAIN",
+            subpath: ".",
+            selectorPath: [],
+            disposition: "TARGET",
+            declaredTarget: "dist/index.js"
+          }
         ]
       }
     ],
@@ -336,6 +346,21 @@ describe("PrismaAnalysisRepository", () => {
     const { repository } = createRepository();
 
     await expect(repository.findResultById("analysis_1")).resolves.toEqual(analysisResult);
+  });
+
+  it("loads historical packages without public-surface declarations as empty", async () => {
+    const historical = stored();
+    historical.project = {
+      ...analysisResult.project,
+      packages: analysisResult.project.packages.map(
+        ({ publicSurfaceDeclarations: _publicSurfaceDeclarations, ...packageJson }) => packageJson
+      )
+    } as unknown as typeof historical.project;
+    const { repository } = createRepository({ findUniqueResult: historical });
+
+    const result = await repository.findResultById("analysis_1");
+
+    expect(result?.project.packages[0]?.publicSurfaceDeclarations).toEqual([]);
   });
 
   it("is idempotent for the same analysis identity", async () => {

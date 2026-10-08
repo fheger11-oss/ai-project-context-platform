@@ -28,7 +28,17 @@ const analysis: AnalysisResult = {
         dependencies: [
           { manifestPath: "package.json", name: "pkg", version: "^1.0.0", type: "DEPENDENCY" }
         ],
-        scripts: [{ manifestPath: "package.json", name: "test", command: "vitest" }]
+        scripts: [{ manifestPath: "package.json", name: "test", command: "vitest" }],
+        publicSurfaceDeclarations: [
+          {
+            manifestPath: "package.json",
+            sourceField: "EXPORTS",
+            subpath: ".",
+            selectorPath: [{ kind: "CONDITION", value: "default" }],
+            disposition: "TARGET",
+            declaredTarget: "./dist/index.js"
+          }
+        ]
       }
     ],
     dependencies: [
@@ -141,6 +151,12 @@ describe("projectContextSemantic", () => {
     const semantic = projectContextSemantic(analysis);
 
     expect(semantic.packages).toHaveLength(1);
+    expect(semantic.packages[0]?.publicSurfaceDeclarations).toEqual(
+      analysis.project.packages[0]?.publicSurfaceDeclarations
+    );
+    expect(semantic.packages[0]?.publicSurfaceDeclarations).not.toBe(
+      analysis.project.packages[0]?.publicSurfaceDeclarations
+    );
     expect(semantic.files).toHaveLength(2);
     expect(semantic.symbols).toHaveLength(2);
     expect(new Set(semantic.symbols.map((symbol) => symbol.id)).size).toBe(2);

@@ -104,7 +104,11 @@ function toSemanticPackage(
     version: packageJson.version,
     isPrimary: packageJson.isPrimary,
     dependencies: packageJson.dependencies.map((dependency) => ({ ...dependency })),
-    scripts: (packageJson.scripts ?? []).map((script) => ({ ...script }))
+    scripts: (packageJson.scripts ?? []).map((script) => ({ ...script })),
+    publicSurfaceDeclarations: (packageJson.publicSurfaceDeclarations ?? []).map((declaration) => ({
+      ...declaration,
+      selectorPath: declaration.selectorPath.map((selector) => ({ ...selector }))
+    }))
   };
 }
 

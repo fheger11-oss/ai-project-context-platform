@@ -5,6 +5,7 @@ import type {
   AnalysisHistoryResponse,
   AnalysisIssue,
   AnalysisPackageJsonPackage,
+  AnalysisPackagePublicSurfaceDeclaration,
   AnalysisPackageScript,
   AnalysisProjectProfile,
   AnalysisResultResponse,
@@ -73,6 +74,20 @@ describe("Analysis API contracts", () => {
       version: string | null;
       dependencies: readonly unknown[];
       scripts?: readonly AnalysisPackageScript[];
+      publicSurfaceDeclarations: readonly AnalysisPackagePublicSurfaceDeclaration[];
+    }>();
+  });
+
+  it("models package public-surface declarations as unresolved manifest facts", () => {
+    expectTypeOf<AnalysisPackagePublicSurfaceDeclaration>().toEqualTypeOf<{
+      manifestPath: string;
+      sourceField: "EXPORTS" | "MAIN" | "MODULE" | "TYPES";
+      subpath: string;
+      selectorPath: readonly (
+        { kind: "CONDITION"; value: string } | { kind: "FALLBACK"; index: number }
+      )[];
+      disposition: "TARGET" | "BLOCKED";
+      declaredTarget: string | null;
     }>();
   });
 });

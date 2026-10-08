@@ -4,10 +4,7 @@ import {
   architectureModelWithDefaults,
   type ProjectContextArchitectureModel
 } from "./project-context-architecture.js";
-import {
-  EMPTY_PROJECT_CONTEXT_SEMANTIC,
-  type ProjectContextSemantic
-} from "./project-context-semantic.js";
+import { semanticWithDefaults, type ProjectContextSemantic } from "./project-context-semantic.js";
 
 export type ProjectContextProvenance = {
   contextId: string;
@@ -72,7 +69,7 @@ export class ProjectContext {
       testing: input.testing ?? EMPTY_SECTION,
       infrastructure: input.infrastructure ?? EMPTY_SECTION,
       ambiguities: input.ambiguities ?? [],
-      semantic: input.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC,
+      semantic: semanticWithDefaults(input.semantic),
       architectureModel: architectureModelWithDefaults(input.architectureModel)
     });
   }
@@ -82,7 +79,7 @@ export class ProjectContext {
 
     return new ProjectContext({
       ...snapshot,
-      semantic: snapshot.semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC,
+      semantic: semanticWithDefaults(snapshot.semantic),
       architectureModel: architectureModelWithDefaults(snapshot.architectureModel)
     });
   }

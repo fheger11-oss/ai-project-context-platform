@@ -36,7 +36,8 @@ const result: AnalysisResultResponse = {
         isPrimary: true,
         name: "ai-context",
         version: "0.1.0",
-        dependencies: []
+        dependencies: [],
+        publicSurfaceDeclarations: []
       }
     ],
     dependencies: [

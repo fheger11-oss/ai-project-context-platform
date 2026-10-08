@@ -72,6 +72,9 @@ describe("context contracts", () => {
         evidence: readonly { id: string; sourceRecordId: string | null }[];
       }[];
     }>();
+    expectTypeOf<ProjectContextSemantic["packages"][number]>().toHaveProperty(
+      "publicSurfaceDeclarations"
+    );
     expectTypeOf<ProjectContextSemantic["symbols"][number]>().not.toHaveProperty("confidence");
     expectTypeOf<ProjectContextSemantic["relationships"][number]>().not.toHaveProperty("calls");
   });

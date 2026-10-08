@@ -179,7 +179,8 @@ function nodePackageAnalysis(overrides: Partial<AnalysisResult["project"]> = {})
           isPrimary: true,
           name: "api",
           version: "0.1.0",
-          dependencies: []
+          dependencies: [],
+          publicSurfaceDeclarations: []
         }
       ],
       dependencies: [],
@@ -673,14 +674,16 @@ describe("DeterministicContextGenerator", () => {
             isPrimary: true,
             name: "root",
             version: "0.1.0",
-            dependencies: []
+            dependencies: [],
+            publicSurfaceDeclarations: []
           },
           {
             path: "apps/api/package.json",
             isPrimary: false,
             name: "api",
             version: null,
-            dependencies: []
+            dependencies: [],
+            publicSurfaceDeclarations: []
           }
         ],
         dependencies: [
@@ -786,6 +789,7 @@ describe("DeterministicContextGenerator", () => {
             name: "root",
             version: "0.1.0",
             dependencies: [],
+            publicSurfaceDeclarations: [],
             scripts: [
               {
                 manifestPath: "package.json",
@@ -805,6 +809,7 @@ describe("DeterministicContextGenerator", () => {
             name: "api",
             version: null,
             dependencies: [],
+            publicSurfaceDeclarations: [],
             scripts: [
               {
                 manifestPath: "apps/api/package.json",
@@ -884,14 +889,16 @@ describe("DeterministicContextGenerator", () => {
             isPrimary: false,
             name: "api",
             version: "0.1.0",
-            dependencies: []
+            dependencies: [],
+            publicSurfaceDeclarations: []
           },
           {
             path: "apps/web/package.json",
             isPrimary: false,
             name: "web",
             version: "0.1.0",
-            dependencies: []
+            dependencies: [],
+            publicSurfaceDeclarations: []
           }
         ],
         dependencies: [
@@ -934,14 +941,16 @@ describe("DeterministicContextGenerator", () => {
             isPrimary: true,
             name: "root",
             version: "0.1.0",
-            dependencies: []
+            dependencies: [],
+            publicSurfaceDeclarations: []
           },
           {
             path: "examples/demo/package.json",
             isPrimary: false,
             name: "demo",
             version: "0.1.0",
-            dependencies: []
+            dependencies: [],
+            publicSurfaceDeclarations: []
           }
         ]
       })
@@ -963,14 +972,16 @@ describe("DeterministicContextGenerator", () => {
             isPrimary: false,
             name: "template",
             version: null,
-            dependencies: []
+            dependencies: [],
+            publicSurfaceDeclarations: []
           },
           {
             path: "examples/basic/package.json",
             isPrimary: false,
             name: "example",
             version: null,
-            dependencies: []
+            dependencies: [],
+            publicSurfaceDeclarations: []
           }
         ]
       })
@@ -1583,14 +1594,16 @@ describe("DeterministicContextGenerator", () => {
           isPrimary: true,
           name: "api",
           version: "0.1.0",
-          dependencies: []
+          dependencies: [],
+          publicSurfaceDeclarations: []
         },
         {
           path: "apps/web/package.json",
           isPrimary: false,
           name: "web",
           version: "0.1.0",
-          dependencies: []
+          dependencies: [],
+          publicSurfaceDeclarations: []
         }
       ],
       dependencies: [
@@ -2194,7 +2207,8 @@ describe("DeterministicContextGenerator", () => {
           isPrimary: true,
           name: "api",
           version: "0.1.0",
-          dependencies: []
+          dependencies: [],
+          publicSurfaceDeclarations: []
         }
       ],
       manifests: [{ path: "apps/api/package.json", type: "PACKAGE_JSON", isPrimary: true }]
@@ -2231,7 +2245,8 @@ describe("DeterministicContextGenerator", () => {
           isPrimary: true,
           name: "api",
           version: "0.1.0",
-          dependencies: []
+          dependencies: [],
+          publicSurfaceDeclarations: []
         }
       ],
       manifests: [{ path: "apps/api/package.json", type: "PACKAGE_JSON", isPrimary: true }]

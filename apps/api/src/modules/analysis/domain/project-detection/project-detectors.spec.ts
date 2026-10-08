@@ -195,7 +195,8 @@ describe("Project detection domain detectors", () => {
             version: "^0.33.0",
             type: "OPTIONAL_DEPENDENCY"
           }
-        ]
+        ],
+        publicSurfaceDeclarations: []
       }
     });
   });
@@ -228,9 +229,130 @@ describe("Project detection domain detectors", () => {
             version: "^19.0.0",
             type: "DEPENDENCY"
           }
+        ],
+        publicSurfaceDeclarations: []
+      }
+    });
+  });
+
+  it("preserves package public-surface declarations without resolving their targets", () => {
+    const parser = new PackageJsonParser();
+    const parsed = parser.parse({
+      path: "packages/example/package.json",
+      isPrimary: false,
+      content: JSON.stringify({
+        main: "dist/index.js",
+        module: "dist/index.mjs",
+        types: "dist/index.d.ts",
+        exports: {
+          ".": {
+            types: "./dist/index.d.ts",
+            default: "./dist/index.js"
+          },
+          "./feature/*": ["./dist/feature/*.js", "./fallback/*.js"],
+          "./internal": null
+        }
+      })
+    });
+
+    expect(parsed).toMatchObject({ status: "PARSED" });
+    if (parsed.status !== "PARSED") throw new Error("Expected parsed package.json");
+    expect(parsed.packageJson.publicSurfaceDeclarations).toEqual([
+      {
+        manifestPath: "packages/example/package.json",
+        sourceField: "EXPORTS",
+        subpath: ".",
+        selectorPath: [{ kind: "CONDITION", value: "default" }],
+        disposition: "TARGET",
+        declaredTarget: "./dist/index.js"
+      },
+      {
+        manifestPath: "packages/example/package.json",
+        sourceField: "EXPORTS",
+        subpath: ".",
+        selectorPath: [{ kind: "CONDITION", value: "types" }],
+        disposition: "TARGET",
+        declaredTarget: "./dist/index.d.ts"
+      },
+      {
+        manifestPath: "packages/example/package.json",
+        sourceField: "EXPORTS",
+        subpath: "./feature/*",
+        selectorPath: [{ kind: "FALLBACK", index: 0 }],
+        disposition: "TARGET",
+        declaredTarget: "./dist/feature/*.js"
+      },
+      {
+        manifestPath: "packages/example/package.json",
+        sourceField: "EXPORTS",
+        subpath: "./feature/*",
+        selectorPath: [{ kind: "FALLBACK", index: 1 }],
+        disposition: "TARGET",
+        declaredTarget: "./fallback/*.js"
+      },
+      {
+        manifestPath: "packages/example/package.json",
+        sourceField: "EXPORTS",
+        subpath: "./internal",
+        selectorPath: [],
+        disposition: "BLOCKED",
+        declaredTarget: null
+      },
+      {
+        manifestPath: "packages/example/package.json",
+        sourceField: "MAIN",
+        subpath: ".",
+        selectorPath: [],
+        disposition: "TARGET",
+        declaredTarget: "dist/index.js"
+      },
+      {
+        manifestPath: "packages/example/package.json",
+        sourceField: "MODULE",
+        subpath: ".",
+        selectorPath: [],
+        disposition: "TARGET",
+        declaredTarget: "dist/index.mjs"
+      },
+      {
+        manifestPath: "packages/example/package.json",
+        sourceField: "TYPES",
+        subpath: ".",
+        selectorPath: [],
+        disposition: "TARGET",
+        declaredTarget: "dist/index.d.ts"
+      }
+    ]);
+  });
+
+  it("preserves simple root exports and produces deterministic conditional ordering", () => {
+    const parser = new PackageJsonParser();
+    const parse = (exports: unknown) =>
+      parser.parse({
+        path: "package.json",
+        isPrimary: true,
+        content: JSON.stringify({ exports })
+      });
+
+    const simple = parse("./dist/index.js");
+    expect(simple).toMatchObject({
+      status: "PARSED",
+      packageJson: {
+        publicSurfaceDeclarations: [
+          {
+            sourceField: "EXPORTS",
+            subpath: ".",
+            selectorPath: [],
+            disposition: "TARGET",
+            declaredTarget: "./dist/index.js"
+          }
         ]
       }
     });
+
+    const first = parse({ ".": { types: "./index.d.ts", default: "./index.js" } });
+    const second = parse({ ".": { default: "./index.js", types: "./index.d.ts" } });
+    expect(first).toEqual(second);
   });
 
   it("handles malformed package.json deterministically", () => {

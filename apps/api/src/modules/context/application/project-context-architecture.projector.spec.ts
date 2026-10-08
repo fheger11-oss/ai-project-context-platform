@@ -190,7 +190,8 @@ function semanticPackage(id: string, manifestPath: string, name: string): Semant
     version: "1.0.0",
     isPrimary: manifestPath === "package.json",
     dependencies: [],
-    scripts: []
+    scripts: [],
+    publicSurfaceDeclarations: []
   };
 }
 

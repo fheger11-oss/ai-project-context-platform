@@ -1,6 +1,7 @@
 import type { FileCategory } from "../../analysis/domain/classification/file-category.js";
 import type {
   PackageDependency,
+  PackagePublicSurfaceDeclaration,
   PackageScript
 } from "../../analysis/domain/project-detection/project-profile.js";
 import type {
@@ -36,6 +37,7 @@ export type SemanticPackage = {
   isPrimary: boolean;
   dependencies: readonly PackageDependency[];
   scripts: readonly PackageScript[];
+  publicSurfaceDeclarations: readonly PackagePublicSurfaceDeclaration[];
 };
 
 export type SemanticFile = {
@@ -124,3 +126,16 @@ export const EMPTY_PROJECT_CONTEXT_SEMANTIC: ProjectContextSemantic = {
   exports: [],
   relationships: []
 };
+
+export function semanticWithDefaults(
+  semantic: ProjectContextSemantic | undefined
+): ProjectContextSemantic {
+  const value = semantic ?? EMPTY_PROJECT_CONTEXT_SEMANTIC;
+  return {
+    ...value,
+    packages: value.packages.map((semanticPackage) => ({
+      ...semanticPackage,
+      publicSurfaceDeclarations: semanticPackage.publicSurfaceDeclarations ?? []
+    }))
+  };
+}

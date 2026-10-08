@@ -6,7 +6,11 @@ import type {
   AnalysisResultContext
 } from "../contracts/analysis-result.contract.js";
 import { InconsistentAnalysisResultContextError } from "../errors/inconsistent-analysis-result-context.error.js";
-import type { PackageJsonPackage, ProjectProfile } from "../project-detection/project-profile.js";
+import {
+  comparePackagePublicSurfaceDeclarations,
+  type PackageJsonPackage,
+  type ProjectProfile
+} from "../project-detection/project-profile.js";
 import type {
   DependencyEdge,
   RelationshipAnalysisResult,
@@ -126,7 +130,10 @@ function normalizePackageJsonPackage(packageJson: PackageJsonPackage): PackageJs
         left.name.localeCompare(right.name) ||
         left.type.localeCompare(right.type)
     ),
-    ...(scripts && scripts.length > 0 ? { scripts } : {})
+    ...(scripts && scripts.length > 0 ? { scripts } : {}),
+    publicSurfaceDeclarations: [...(packageJson.publicSurfaceDeclarations ?? [])].sort(
+      comparePackagePublicSurfaceDeclarations
+    )
   };
 }
 

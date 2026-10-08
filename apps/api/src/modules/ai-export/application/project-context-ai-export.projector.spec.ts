@@ -440,6 +440,42 @@ describe("ProjectContextAiExportProjector", () => {
     expect(canonical.semantic).not.toBe(semantic);
   });
 
+  it("copies package public-surface declarations without interpreting their targets", () => {
+    const declarations = [
+      {
+        manifestPath: "packages/contracts/package.json",
+        sourceField: "EXPORTS" as const,
+        subpath: ".",
+        selectorPath: [{ kind: "CONDITION" as const, value: "default" }],
+        disposition: "TARGET" as const,
+        declaredTarget: "./dist/index.js"
+      }
+    ];
+    const semantic: ProjectContextSemantic = {
+      packages: [
+        {
+          id: "package:contracts",
+          manifestPath: "packages/contracts/package.json",
+          name: "@ai-context/contracts",
+          version: "0.1.0",
+          isPrimary: false,
+          dependencies: [],
+          scripts: [],
+          publicSurfaceDeclarations: declarations
+        }
+      ],
+      files: [],
+      symbols: [],
+      imports: [],
+      exports: [],
+      relationships: []
+    };
+
+    const canonical = project(projectContext({ semantic }));
+
+    expect(canonical.semantic.packages[0]?.publicSurfaceDeclarations).toEqual(declarations);
+  });
+
   it("copies the real module inventory from ProjectContext without reconstruction", () => {
     const architectureModel: ProjectContextArchitectureModel = {
       modules: [

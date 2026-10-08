@@ -404,6 +404,42 @@ describe("AiContextSerializer", () => {
     expect(semantic.files).toHaveLength(150);
   });
 
+  it("serializes package public-surface declarations losslessly", () => {
+    const publicSurfaceDeclarations = [
+      {
+        manifestPath: "packages/config/package.json",
+        sourceField: "EXPORTS" as const,
+        subpath: "./internal",
+        selectorPath: [] as const,
+        disposition: "BLOCKED" as const,
+        declaredTarget: null
+      }
+    ];
+    const parsed = parse(
+      serialize({
+        ...canonical,
+        semantic: {
+          ...EMPTY_PROJECT_CONTEXT_SEMANTIC,
+          packages: [
+            {
+              id: "package:config",
+              manifestPath: "packages/config/package.json",
+              name: "@ai-context/config",
+              version: "0.1.0",
+              isPrimary: false,
+              dependencies: [],
+              scripts: [],
+              publicSurfaceDeclarations
+            }
+          ]
+        }
+      }).content
+    );
+
+    const semantic = parsed.semantic as CanonicalAiExport["semantic"];
+    expect(semantic.packages[0]?.publicSurfaceDeclarations).toEqual(publicSurfaceDeclarations);
+  });
+
   it("serializes the complete real module inventory", () => {
     const architectureModel = {
       modules: [

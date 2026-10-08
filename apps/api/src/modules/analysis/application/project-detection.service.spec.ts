@@ -160,6 +160,7 @@ describe("ProjectDetectionService", () => {
               command: "turbo dev"
             }
           ],
+          publicSurfaceDeclarations: [],
           dependencies: [
             {
               manifestPath: "package.json",
@@ -187,6 +188,7 @@ describe("ProjectDetectionService", () => {
               command: "vitest"
             }
           ],
+          publicSurfaceDeclarations: [],
           dependencies: [
             {
               manifestPath: "apps/api/package.json",
@@ -214,6 +216,7 @@ describe("ProjectDetectionService", () => {
               command: "vite --host 0.0.0.0"
             }
           ],
+          publicSurfaceDeclarations: [],
           dependencies: [
             {
               manifestPath: "apps/web/package.json",
