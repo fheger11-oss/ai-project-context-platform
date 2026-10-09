@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type {
   DependencyDeclarationChangeItem,
@@ -14,6 +14,7 @@ import { PageHeading } from "@/components/typography/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TechnicalText } from "@/components/ui/technical-text";
 import {
   getDependencyIntelligence,
   getDependencyIntelligenceHistory
@@ -59,7 +60,7 @@ export function DependencyIntelligencePanel({
   const update = (values: Partial<typeof state>) => setState({ ...current, ...values });
 
   return (
-    <section className="grid gap-5" aria-labelledby="dependency-intelligence-title">
+    <section className="grid min-w-0 gap-5" aria-labelledby="dependency-intelligence-title">
       <PageHeading
         eyebrow="Deterministic dependencies"
         title={<span id="dependency-intelligence-title">Dependency Intelligence</span>}
@@ -177,10 +178,12 @@ function Findings({ items }: { items: DependencyFindingItem[] }) {
           items.map((finding) => (
             <article
               key={`${finding.fingerprint}:${finding.lifecycle}`}
-              className="rounded border p-4"
+              className="min-w-0 rounded border p-4"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <strong className="font-mono">{finding.packageName}</strong>
+                <TechnicalText className="text-sm font-semibold text-foreground">
+                  {finding.packageName}
+                </TechnicalText>
                 <Badge>{finding.lifecycle}</Badge>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -195,11 +198,25 @@ function Findings({ items }: { items: DependencyFindingItem[] }) {
                   {finding.evidence.map((item) => (
                     <li
                       key={`${item.manifestPath}:${item.dependencyType}:${item.declaredVersion}`}
-                      className="rounded bg-muted/40 p-2"
+                      className="min-w-0 rounded bg-muted/40 p-2"
                     >
-                      <span className="font-mono">{item.manifestPath}</span> ·{" "}
-                      <strong>{item.declaredVersion}</strong> ·{" "}
-                      {dependencyTypeLabel(item.dependencyType)}
+                      <dl className="grid min-w-0 gap-2 sm:grid-cols-2">
+                        <DataField
+                          className="sm:col-span-2"
+                          label="Manifest"
+                          value={item.manifestPath}
+                          technical
+                        />
+                        <DataField
+                          label="Declared version"
+                          value={item.declaredVersion}
+                          technical
+                        />
+                        <DataField
+                          label="Dependency type"
+                          value={dependencyTypeLabel(item.dependencyType)}
+                        />
+                      </dl>
                     </li>
                   ))}
                 </ul>
@@ -218,35 +235,70 @@ function Declarations({ data }: { data: DependencyIntelligenceResponse }) {
       <CardHeader>
         <CardTitle>Dependency declarations</CardTitle>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
+      <CardContent>
         {data.declarations.items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No dependency declarations are present in the current snapshot.
           </p>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="p-2">Package</th>
-                <th className="p-2">Declared version</th>
-                <th className="p-2">Dependency type</th>
-                <th className="p-2">Manifest</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div className="grid gap-3 md:hidden">
               {data.declarations.items.map((item) => (
-                <tr
+                <article
                   key={`${item.manifestPath}:${item.packageName}:${item.dependencyType}:${item.declaredVersion}`}
-                  className="border-b"
+                  className="min-w-0 rounded-md border bg-background/35 p-3"
                 >
-                  <td className="p-2 font-mono">{item.packageName}</td>
-                  <td className="p-2 font-mono">{item.declaredVersion}</td>
-                  <td className="p-2">{dependencyTypeLabel(item.dependencyType)}</td>
-                  <td className="p-2 font-mono">{item.manifestPath}</td>
-                </tr>
+                  <TechnicalText className="text-sm font-medium text-foreground">
+                    {item.packageName}
+                  </TechnicalText>
+                  <dl className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+                    <DataField label="Declared version" value={item.declaredVersion} technical />
+                    <DataField
+                      label="Dependency type"
+                      value={dependencyTypeLabel(item.dependencyType)}
+                    />
+                    <DataField
+                      className="sm:col-span-2"
+                      label="Manifest"
+                      value={item.manifestPath}
+                      technical
+                    />
+                  </dl>
+                </article>
               ))}
-            </tbody>
-          </table>
+            </div>
+            <DataTableRegion label="Dependency declarations table">
+              <table className="w-full min-w-[44rem] text-left text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="p-2">Package</th>
+                    <th className="p-2">Declared version</th>
+                    <th className="p-2">Dependency type</th>
+                    <th className="p-2">Manifest</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.declarations.items.map((item) => (
+                    <tr
+                      key={`${item.manifestPath}:${item.packageName}:${item.dependencyType}:${item.declaredVersion}`}
+                      className="border-b align-top"
+                    >
+                      <td className="p-2">
+                        <TechnicalText>{item.packageName}</TechnicalText>
+                      </td>
+                      <td className="p-2">
+                        <TechnicalText>{item.declaredVersion}</TechnicalText>
+                      </td>
+                      <td className="p-2">{dependencyTypeLabel(item.dependencyType)}</td>
+                      <td className="p-2">
+                        <TechnicalText>{item.manifestPath}</TechnicalText>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </DataTableRegion>
+          </>
         )}
       </CardContent>
     </Card>
@@ -263,7 +315,7 @@ function History({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle>Historical comparison</CardTitle>
           <Badge>{data.compatibility ?? "UNAVAILABLE"}</Badge>
         </div>
@@ -308,17 +360,20 @@ function Changes({ items }: { items: DependencyDeclarationChangeItem[] }) {
       </p>
     );
   return (
-    <ul className="grid gap-2">
+    <ul className="grid min-w-0 gap-2">
       {items.map((item) => (
         <li
           key={`${item.manifestPath}:${item.packageName}:${item.type}`}
-          className="rounded border p-3 text-sm"
+          className="min-w-0 rounded border p-3 text-sm"
         >
-          <Badge>{changeLabel(item.type)}</Badge>
-          <span className="ml-2 font-mono">{item.packageName}</span>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {item.manifestPath} · {changeDetail(item)}
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Badge>{changeLabel(item.type)}</Badge>
+            <TechnicalText className="text-sm text-foreground">{item.packageName}</TechnicalText>
           </div>
+          <dl className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+            <DataField label="Manifest" value={item.manifestPath} technical />
+            <DataField label="Change" value={changeDetail(item) || "No value change"} technical />
+          </dl>
         </li>
       ))}
     </ul>
@@ -337,19 +392,13 @@ function Provenance({
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-1 text-sm">
-        <div>
-          Commit <span className="font-mono">{value.commitSha}</span>
-        </div>
-        <div>
-          Context <span className="font-mono">{value.projectContextId}</span>
-        </div>
-        <div>
-          Analyzer <span className="font-mono">{value.analyzerVersion}</span>
-        </div>
-        <div>
-          Processor <span className="font-mono">{value.dependencyProcessorVersion}</span>
-        </div>
+      <CardContent>
+        <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2">
+          <DataField label="Commit" value={value.commitSha} technical />
+          <DataField label="Context" value={value.projectContextId} technical />
+          <DataField label="Analyzer" value={value.analyzerVersion} technical />
+          <DataField label="Processor" value={value.dependencyProcessorVersion} technical />
+        </dl>
       </CardContent>
     </Card>
   );
@@ -357,7 +406,7 @@ function Provenance({
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded border p-3">
+    <div className="min-w-0 rounded border p-3">
       <div className="text-2xl font-semibold">{value}</div>
       <div className="text-xs text-muted-foreground">{label}</div>
     </div>
@@ -373,13 +422,14 @@ function Pager({
 }) {
   if (!pagination.total) return null;
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-muted-foreground">
         Page {pagination.page} · {pagination.total} total
       </p>
-      <div className="flex gap-2">
+      <div className="grid w-full grid-cols-2 gap-2 sm:w-auto">
         <Button
           size="sm"
+          className="w-full"
           variant="outline"
           disabled={pagination.page <= 1}
           onClick={() => onPage(pagination.page - 1)}
@@ -389,6 +439,7 @@ function Pager({
         </Button>
         <Button
           size="sm"
+          className="w-full"
           variant="outline"
           disabled={!pagination.hasNextPage}
           onClick={() => onPage(pagination.page + 1)}
@@ -396,6 +447,49 @@ function Pager({
           Next
           <ChevronRight />
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function DataField({
+  className,
+  label,
+  technical = false,
+  value
+}: {
+  className?: string;
+  label: string;
+  technical?: boolean;
+  value: string;
+}) {
+  return (
+    <div className={`min-w-0 ${className ?? ""}`}>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 min-w-0 text-sm text-foreground">
+        {technical ? (
+          <TechnicalText>{value}</TechnicalText>
+        ) : (
+          <span className="break-words [overflow-wrap:anywhere]">{value}</span>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function DataTableRegion({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <div className="hidden min-w-0 md:block">
+      <p className="mb-2 text-xs text-muted-foreground xl:hidden">
+        Scroll horizontally to view all columns.
+      </p>
+      <div
+        aria-label={label}
+        className="max-w-full overflow-x-auto overscroll-x-contain rounded-sm"
+        role="region"
+        tabIndex={0}
+      >
+        {children}
       </div>
     </div>
   );
