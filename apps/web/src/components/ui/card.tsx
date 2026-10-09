@@ -16,26 +16,38 @@ const emphasisClasses: Record<NonNullable<CardProps["emphasis"]>, string> = {
 export function Card({ className, emphasis = "subtle", ...props }: CardProps) {
   return (
     <div
-      className={cn("rounded-md border text-card-foreground", emphasisClasses[emphasis], className)}
+      className={cn(
+        "min-w-0 rounded-md border text-card-foreground",
+        emphasisClasses[emphasis],
+        className
+      )}
       {...props}
     />
   );
 }
 
 export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("border-b px-4 py-3", className)} {...props} />;
+  return <div className={cn("min-w-0 border-b px-4 py-3", className)} {...props} />;
 }
 
 export function CardContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("p-4", className)} {...props} />;
+  return <div className={cn("min-w-0 p-4", className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h2 className={cn("text-sm font-medium leading-6 text-foreground", className)} {...props} />
+    <h2
+      className={cn("min-w-0 text-sm font-medium leading-6 text-foreground", className)}
+      {...props}
+    />
   );
 }
 
 export function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn("mt-1 text-xs leading-5 text-muted-foreground", className)} {...props} />;
+  return (
+    <p
+      className={cn("mt-1 min-w-0 text-xs leading-5 text-muted-foreground", className)}
+      {...props}
+    />
+  );
 }

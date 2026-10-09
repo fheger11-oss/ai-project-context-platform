@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import type {
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { TechnicalText } from "@/components/ui/technical-text";
 import {
   getArchitectureIntelligence,
   getArchitectureIntelligenceHistory,
@@ -93,7 +94,7 @@ export function ArchitectureIntelligencePanel({
   const update = (values: Partial<typeof state>) => setState({ ...current, ...values });
   const data = query.data;
   return (
-    <section className="grid gap-5" aria-labelledby="architecture-intelligence-title">
+    <section className="grid min-w-0 gap-5" aria-labelledby="architecture-intelligence-title">
       <PageHeading
         eyebrow="Deterministic architecture"
         title={<span id="architecture-intelligence-title">Architecture Intelligence</span>}
@@ -243,7 +244,7 @@ function ProcessingCard({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle>Processing and freshness</CardTitle>
           <Badge
             tone={
@@ -258,7 +259,7 @@ function ProcessingCard({
           </Badge>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="min-w-0">
         <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
           <Detail label="Commit" value={processing.commitSha} mono />
           <Detail label="Project context" value={processing.projectContextId} mono />
@@ -303,7 +304,7 @@ function SummaryCard({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>Current summary</CardTitle>
           <Badge>{compatibility}</Badge>
         </div>
@@ -326,35 +327,63 @@ function Modules({ modules }: { modules: readonly ArchitecturalModule[] }) {
       <CardHeader>
         <CardTitle>Modules</CardTitle>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
+      <CardContent>
         {modules.length === 0 ? (
           <p className="text-sm text-muted-foreground">No canonical modules are available.</p>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b">
-                {["Name", "Kind", "Root path", "Layers", "Package", "Files"].map((item) => (
-                  <th key={item} className="p-2">
-                    {item}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div className="grid gap-3 md:hidden">
               {modules.map((module) => (
-                <tr key={module.id} className="border-b align-top">
-                  <td className="p-2 font-medium">{module.name}</td>
-                  <td className="p-2">{module.kind}</td>
-                  <td className="p-2 font-mono text-xs">{module.rootPath}</td>
-                  <td className="p-2">
-                    {module.layers.map((layer) => layer.kind).join(", ") || "UNCLASSIFIED"}
-                  </td>
-                  <td className="p-2 font-mono text-xs">{module.packageId}</td>
-                  <td className="p-2">{module.fileIds.length}</td>
-                </tr>
+                <article key={module.id} className="min-w-0 rounded-md border bg-background/35 p-3">
+                  <TechnicalText className="text-sm font-medium text-foreground">
+                    {module.name}
+                  </TechnicalText>
+                  <dl className="mt-3 grid min-w-0 gap-3 text-sm sm:grid-cols-2">
+                    <DataField label="Kind" value={module.kind} />
+                    <DataField label="Files" value={String(module.fileIds.length)} />
+                    <DataField label="Root path" value={module.rootPath} technical />
+                    <DataField label="Package" value={module.packageId} technical />
+                    <DataField
+                      className="sm:col-span-2"
+                      label="Layers"
+                      value={module.layers.map((layer) => layer.kind).join(", ") || "UNCLASSIFIED"}
+                    />
+                  </dl>
+                </article>
               ))}
-            </tbody>
-          </table>
+            </div>
+            <DataTableRegion label="Modules table">
+              <table className="min-w-[48rem] w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b">
+                    {["Name", "Kind", "Root path", "Layers", "Package", "Files"].map((item) => (
+                      <th key={item} className="p-2">
+                        {item}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {modules.map((module) => (
+                    <tr key={module.id} className="border-b align-top">
+                      <td className="p-2 font-medium">{module.name}</td>
+                      <td className="p-2">{module.kind}</td>
+                      <td className="p-2">
+                        <TechnicalText>{module.rootPath}</TechnicalText>
+                      </td>
+                      <td className="p-2">
+                        {module.layers.map((layer) => layer.kind).join(", ") || "UNCLASSIFIED"}
+                      </td>
+                      <td className="p-2">
+                        <TechnicalText>{module.packageId}</TechnicalText>
+                      </td>
+                      <td className="p-2">{module.fileIds.length}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </DataTableRegion>
+          </>
         )}
       </CardContent>
     </Card>
@@ -374,36 +403,64 @@ function Dependencies({
       <CardHeader>
         <CardTitle>Dependencies</CardTitle>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
+      <CardContent>
         {dependencies.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No canonical module dependencies are available.
           </p>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="p-2">Dependency</th>
-                <th className="p-2">Relationships</th>
-                <th className="p-2">Kinds</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div className="grid gap-3 md:hidden">
               {dependencies.map((dependency) => (
-                <tr key={dependency.id} className="border-b align-top">
-                  <td className="p-2">
-                    <span className="font-medium">
-                      {moduleDisplay(dependency.sourceModuleId, modulesById)} →{" "}
-                      {moduleDisplay(dependency.targetModuleId, modulesById)}
-                    </span>
-                    <div className="font-mono text-xs text-muted-foreground">{dependency.id}</div>
-                  </td>
-                  <td className="p-2">{dependency.relationshipCount}</td>
-                  <td className="p-2">{dependency.relationshipKinds.join(", ")}</td>
-                </tr>
+                <article
+                  key={dependency.id}
+                  className="min-w-0 rounded-md border bg-background/35 p-3"
+                >
+                  <TechnicalText className="text-sm font-medium text-foreground">
+                    {moduleDisplay(dependency.sourceModuleId, modulesById)} →{" "}
+                    {moduleDisplay(dependency.targetModuleId, modulesById)}
+                  </TechnicalText>
+                  <dl className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
+                    <DataField label="Dependency ID" value={dependency.id} technical />
+                    <DataField label="Relationships" value={String(dependency.relationshipCount)} />
+                    <DataField
+                      className="sm:col-span-2"
+                      label="Kinds"
+                      value={dependency.relationshipKinds.join(", ")}
+                    />
+                  </dl>
+                </article>
               ))}
-            </tbody>
-          </table>
+            </div>
+            <DataTableRegion label="Dependencies table">
+              <table className="min-w-[38rem] w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="p-2">Dependency</th>
+                    <th className="p-2">Relationships</th>
+                    <th className="p-2">Kinds</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dependencies.map((dependency) => (
+                    <tr key={dependency.id} className="border-b align-top">
+                      <td className="p-2">
+                        <span className="font-medium">
+                          {moduleDisplay(dependency.sourceModuleId, modulesById)} →{" "}
+                          {moduleDisplay(dependency.targetModuleId, modulesById)}
+                        </span>
+                        <TechnicalText className="mt-1 text-muted-foreground">
+                          {dependency.id}
+                        </TechnicalText>
+                      </td>
+                      <td className="p-2">{dependency.relationshipCount}</td>
+                      <td className="p-2">{dependency.relationshipKinds.join(", ")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </DataTableRegion>
+          </>
         )}
       </CardContent>
     </Card>
@@ -499,7 +556,7 @@ function Findings({
           </p>
         ) : (
           findings.map((finding) => (
-            <article key={finding.occurrenceId} className="rounded border p-4">
+            <article key={finding.occurrenceId} className="min-w-0 rounded border p-4">
               <div className="flex flex-wrap gap-2">
                 <Badge tone="neutral">Circular Dependency</Badge>
                 <Badge>{finding.lifecycle ?? "BOUNDARY"}</Badge>
@@ -509,12 +566,14 @@ function Findings({
               {finding.subject.kind === "CYCLE" ? (
                 <div className="mt-3 text-sm">
                   <div className="text-xs text-muted-foreground">Modules in cycle</div>
-                  <div className="font-mono">
+                  <TechnicalText className="mt-1 text-sm text-foreground">
                     {cyclePath(finding.subject.moduleIds, modulesById)}
-                  </div>
+                  </TechnicalText>
                 </div>
               ) : (
-                <div className="mt-3 font-mono text-sm">{finding.fingerprint}</div>
+                <TechnicalText className="mt-3 block text-sm text-foreground">
+                  {finding.fingerprint}
+                </TechnicalText>
               )}
               {finding.applicability === "PARTIALLY_APPLICABLE" ? (
                 <p className="mt-3 text-sm text-muted-foreground">
@@ -526,8 +585,10 @@ function Findings({
                 <summary className="cursor-pointer text-sm font-medium">Inspect evidence</summary>
                 <ul className="mt-2 grid gap-2 text-xs text-muted-foreground">
                   {finding.evidence.map((item, index) => (
-                    <li key={`${item.kind}:${index}`} className="rounded bg-muted/40 p-2 font-mono">
-                      {evidenceText(item)}
+                    <li key={`${item.kind}:${index}`} className="min-w-0 rounded bg-muted/40 p-2">
+                      <TechnicalText className="text-muted-foreground">
+                        {evidenceText(item)}
+                      </TechnicalText>
                     </li>
                   ))}
                 </ul>
@@ -550,46 +611,73 @@ function Measurements({
       <CardHeader>
         <CardTitle>Module measurements</CardTitle>
       </CardHeader>
-      <CardContent className="overflow-x-auto">
+      <CardContent>
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No inferred-module measurements are available for this processing result.
           </p>
         ) : (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b">
-                {[
-                  "Module",
-                  "Files",
-                  "Declarations",
-                  "Fan-in",
-                  "Fan-out",
-                  "Total degree",
-                  "Relationships",
-                  "Confidence"
-                ].map((item) => (
-                  <th key={item} className="p-2">
-                    {item}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            <div className="grid gap-3 md:hidden">
               {items.map((item) => (
-                <tr key={item.moduleId} className="border-b">
-                  <td className="p-2 font-mono">{item.moduleId}</td>
-                  <td className="p-2">{item.sourceFileCount}</td>
-                  <td className="p-2">{item.declarationCount}</td>
-                  <td className="p-2">{item.fanIn}</td>
-                  <td className="p-2">{item.fanOut}</td>
-                  <td className="p-2">{item.totalDegree}</td>
-                  <td className="p-2">{item.relationshipCount}</td>
-                  <td className="p-2">{item.confidence}</td>
-                </tr>
+                <article
+                  key={item.moduleId}
+                  className="min-w-0 rounded-md border bg-background/35 p-3"
+                >
+                  <TechnicalText className="text-sm font-medium text-foreground">
+                    {item.moduleId}
+                  </TechnicalText>
+                  <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <DataField label="Files" value={String(item.sourceFileCount)} />
+                    <DataField label="Declarations" value={String(item.declarationCount)} />
+                    <DataField label="Fan-in" value={String(item.fanIn)} />
+                    <DataField label="Fan-out" value={String(item.fanOut)} />
+                    <DataField label="Total degree" value={String(item.totalDegree)} />
+                    <DataField label="Relationships" value={String(item.relationshipCount)} />
+                    <DataField className="col-span-2" label="Confidence" value={item.confidence} />
+                  </dl>
+                </article>
               ))}
-            </tbody>
-          </table>
+            </div>
+            <DataTableRegion label="Module measurements table">
+              <table className="min-w-[50rem] w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b">
+                    {[
+                      "Module",
+                      "Files",
+                      "Declarations",
+                      "Fan-in",
+                      "Fan-out",
+                      "Total degree",
+                      "Relationships",
+                      "Confidence"
+                    ].map((item) => (
+                      <th key={item} className="p-2">
+                        {item}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.moduleId} className="border-b">
+                      <td className="p-2">
+                        <TechnicalText>{item.moduleId}</TechnicalText>
+                      </td>
+                      <td className="p-2">{item.sourceFileCount}</td>
+                      <td className="p-2">{item.declarationCount}</td>
+                      <td className="p-2">{item.fanIn}</td>
+                      <td className="p-2">{item.fanOut}</td>
+                      <td className="p-2">{item.totalDegree}</td>
+                      <td className="p-2">{item.relationshipCount}</td>
+                      <td className="p-2">{item.confidence}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </DataTableRegion>
+          </>
         )}
       </CardContent>
     </Card>
@@ -628,12 +716,14 @@ function Changes({
 
 function ChangeList({ title, values }: { title: string; values: string[] }) {
   return (
-    <section>
+    <section className="min-w-0">
       <h3 className="font-medium">{title}</h3>
       {values.length ? (
         <ul className="mt-2 grid gap-1 font-mono text-xs">
           {values.map((value) => (
-            <li key={value}>{value}</li>
+            <li key={value} className="min-w-0">
+              <TechnicalText>{value}</TechnicalText>
+            </li>
           ))}
         </ul>
       ) : (
@@ -655,9 +745,9 @@ function History({ items }: { items: ArchitectureIntelligenceHistoryItem[] }) {
         {items.map((item) => (
           <div
             key={item.historyId}
-            className="grid gap-1 rounded border p-3 text-sm md:grid-cols-4"
+            className="grid min-w-0 gap-3 rounded border p-3 text-sm sm:grid-cols-2 xl:grid-cols-4"
           >
-            <span className="font-mono">{item.commitSha.slice(0, 8)}</span>
+            <TechnicalText>{item.commitSha.slice(0, 8)}</TechnicalText>
             <span>{item.processing?.status ?? "NOT SCHEDULED"}</span>
             <span>{item.compatibility ?? "NOT EVALUATED"}</span>
             <span>{new Date(item.promotedAt).toLocaleString()}</span>
@@ -677,13 +767,14 @@ function Pager({
 }) {
   if (!pagination.total) return null;
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-muted-foreground">
         Page {pagination.page} · {pagination.total} total
       </p>
-      <div className="flex gap-2">
+      <div className="grid w-full grid-cols-2 gap-2 sm:w-auto">
         <Button
           size="sm"
+          className="w-full"
           variant="outline"
           disabled={pagination.page <= 1}
           onClick={() => onPage(pagination.page - 1)}
@@ -693,6 +784,7 @@ function Pager({
         </Button>
         <Button
           size="sm"
+          className="w-full"
           variant="outline"
           disabled={!pagination.hasNextPage}
           onClick={() => onPage(pagination.page + 1)}
@@ -715,9 +807,58 @@ function Detail({
   mono?: boolean;
 }) {
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-xs text-muted-foreground">{title}</dt>
-      <dd className={mono ? "font-mono" : undefined}>{value}</dd>
+      <dd className="mt-1 min-w-0">
+        {mono ? (
+          <TechnicalText>{value}</TechnicalText>
+        ) : (
+          <span className="break-words [overflow-wrap:anywhere]">{value}</span>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function DataField({
+  className,
+  label,
+  technical = false,
+  value
+}: {
+  className?: string;
+  label: string;
+  technical?: boolean;
+  value: string;
+}) {
+  return (
+    <div className={`min-w-0 ${className ?? ""}`}>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 min-w-0 text-sm text-foreground">
+        {technical ? (
+          <TechnicalText>{value}</TechnicalText>
+        ) : (
+          <span className="break-words [overflow-wrap:anywhere]">{value}</span>
+        )}
+      </dd>
+    </div>
+  );
+}
+
+function DataTableRegion({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <div className="hidden min-w-0 md:block">
+      <p className="mb-2 text-xs text-muted-foreground xl:hidden">
+        Scroll horizontally to view all columns.
+      </p>
+      <div
+        aria-label={label}
+        className="max-w-full overflow-x-auto overscroll-x-contain rounded-sm"
+        role="region"
+        tabIndex={0}
+      >
+        {children}
+      </div>
     </div>
   );
 }
