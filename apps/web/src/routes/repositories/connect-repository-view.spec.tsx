@@ -143,6 +143,15 @@ describe("ConnectRepositoryView", () => {
     expect(markup).toContain("Disconnect");
   });
 
+  it("keeps the full repository name visible with narrow-screen wrapping", () => {
+    const markup = renderView();
+
+    expect(markup).toContain("owner/project");
+    expect(markup).toContain("w-full min-w-0 break-words text-sm font-medium");
+    expect(markup).toContain("[overflow-wrap:anywhere]");
+    expect(markup).not.toContain('class="truncate text-sm font-medium"');
+  });
+
   it("discloses repository source storage before connection actions", () => {
     const markup = renderView();
 

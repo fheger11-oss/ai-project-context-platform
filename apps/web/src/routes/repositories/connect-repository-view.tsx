@@ -153,8 +153,10 @@ export function ConnectRepositoryView() {
                   return (
                     <>
                       <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-sm font-medium">{repository.fullName}</p>
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
+                          <p className="w-full min-w-0 break-words text-sm font-medium [overflow-wrap:anywhere] sm:w-auto sm:flex-1">
+                            {repository.fullName}
+                          </p>
                           <Badge tone={repository.visibility === "PRIVATE" ? "muted" : "success"}>
                             {repository.visibility.toLowerCase()}
                           </Badge>
