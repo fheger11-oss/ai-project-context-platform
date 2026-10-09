@@ -31,12 +31,12 @@ export function FeedbackNavItem({ collapsed, onOpen }: FeedbackNavItemProps) {
         aria-label={collapsed ? "Feedback" : undefined}
         className={cn(
           "h-9 w-full justify-start gap-3 px-2 text-sm font-normal",
-          collapsed && "md:justify-center"
+          collapsed && "lg:justify-center"
         )}
         onClick={handleOpen}
       >
         <MessageSquare className="size-4 shrink-0" />
-        <span className={cn("min-w-0 flex-1 truncate text-left", collapsed && "md:hidden")}>
+        <span className={cn("min-w-0 flex-1 truncate text-left", collapsed && "lg:hidden")}>
           Feedback
         </span>
       </Button>

@@ -56,7 +56,7 @@ export function AuthUserSection({ collapsed = false }: AuthUserSectionProps) {
     return (
       <Button
         asChild
-        className={cn("w-full", collapsed ? "px-0 md:size-9" : "justify-start")}
+        className={cn("w-full", collapsed ? "px-0 lg:size-9" : "justify-start")}
         aria-label="Continue with GitHub"
       >
         <a
@@ -64,7 +64,7 @@ export function AuthUserSection({ collapsed = false }: AuthUserSectionProps) {
           onClick={() => analytics.track("github_login_started", { method: "github" })}
         >
           <LogIn />
-          <span className={cn(collapsed && "md:hidden")}>Continue with GitHub</span>
+          <span className={cn(collapsed && "lg:hidden")}>Continue with GitHub</span>
         </a>
       </Button>
     );
@@ -75,11 +75,11 @@ export function AuthUserSection({ collapsed = false }: AuthUserSectionProps) {
       <div
         className={cn(
           "flex h-12 items-center gap-3 rounded-md border bg-card/60 px-3 text-sm text-muted-foreground",
-          collapsed && "md:justify-center md:px-0"
+          collapsed && "lg:justify-center lg:px-0"
         )}
       >
         <Loader2 className="size-4 animate-spin" />
-        <span className={cn(collapsed && "md:hidden")}>Loading user</span>
+        <span className={cn(collapsed && "lg:hidden")}>Loading user</span>
       </div>
     );
   }
@@ -92,11 +92,11 @@ export function AuthUserSection({ collapsed = false }: AuthUserSectionProps) {
     github?.avatarUrl ?? (github ? `https://github.com/${github.username}.png?size=80` : null);
 
   return (
-    <div className={cn("grid gap-3", collapsed && "md:place-items-center")}>
+    <div className={cn("grid gap-3", collapsed && "lg:place-items-center")}>
       <div
         className={cn(
           "flex min-w-0 items-center gap-3 rounded-md border border-border bg-card/70 p-3",
-          collapsed && "md:size-11 md:justify-center md:p-0"
+          collapsed && "lg:size-11 lg:justify-center lg:p-0"
         )}
         title={collapsed ? displayName : undefined}
       >
@@ -112,7 +112,7 @@ export function AuthUserSection({ collapsed = false }: AuthUserSectionProps) {
             <UserCircle className="size-4" />
           </div>
         )}
-        <div className={cn("min-w-0 flex-1", collapsed && "md:hidden")}>
+        <div className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
           <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
           <p className="truncate text-xs text-muted-foreground">{username}</p>
           <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-primary">
@@ -124,14 +124,14 @@ export function AuthUserSection({ collapsed = false }: AuthUserSectionProps) {
       <Button
         type="button"
         variant="utility"
-        className={cn("w-full justify-start", collapsed && "md:size-9 md:px-0")}
+        className={cn("w-full justify-start", collapsed && "lg:size-9 lg:px-0")}
         aria-label="Log out"
         title={collapsed ? "Log out" : undefined}
         disabled={logoutMutation.isPending}
         onClick={() => logoutMutation.mutate()}
       >
         {logoutMutation.isPending ? <Loader2 className="animate-spin" /> : <LogOut />}
-        <span className={cn(collapsed && "md:hidden")}>Logout</span>
+        <span className={cn(collapsed && "lg:hidden")}>Logout</span>
       </Button>
     </div>
   );

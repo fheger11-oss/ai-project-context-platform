@@ -36,6 +36,8 @@ export function Sidebar({ shellContext }: SidebarProps) {
     previousFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeButtonRef.current?.focus();
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -47,16 +49,28 @@ export function Sidebar({ shellContext }: SidebarProps) {
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousBodyOverflow;
       previousFocusRef.current?.focus();
       previousFocusRef.current = null;
     };
   }, [mobileOpen, setMobileSidebarOpen]);
 
+  useEffect(() => {
+    const desktopMedia = window.matchMedia("(min-width: 1024px)");
+    const closeMobileNavigation = (event: MediaQueryListEvent | MediaQueryList) => {
+      if (event.matches) setMobileSidebarOpen(false);
+    };
+
+    closeMobileNavigation(desktopMedia);
+    desktopMedia.addEventListener("change", closeMobileNavigation);
+    return () => desktopMedia.removeEventListener("change", closeMobileNavigation);
+  }, [setMobileSidebarOpen]);
+
   return (
     <>
       <div
         className={cn(
-          "fixed inset-0 z-40 bg-background/72 backdrop-blur-sm transition-opacity md:hidden",
+          "fixed inset-0 z-40 bg-background/72 backdrop-blur-sm transition-opacity lg:hidden",
           mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
         )}
         onClick={() => setMobileSidebarOpen(false)}
@@ -65,9 +79,9 @@ export function Sidebar({ shellContext }: SidebarProps) {
         aria-label="Application navigation"
         aria-modal={mobileOpen ? true : undefined}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col border-r border-border/80 bg-surface/96 backdrop-blur-xl transition-transform duration-200 md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 md:bg-surface/92 md:transition-[width]",
+          "fixed inset-y-0 left-0 z-50 flex w-72 max-w-[calc(100vw-2rem)] shrink-0 flex-col border-r border-border/80 bg-surface/96 backdrop-blur-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:max-w-none lg:translate-x-0 lg:bg-surface/92 lg:transition-[width]",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          collapsed ? "md:w-[76px]" : "md:w-72"
+          collapsed ? "lg:w-[76px]" : "lg:w-72"
         )}
         role={mobileOpen ? "dialog" : "complementary"}
       >
@@ -75,7 +89,7 @@ export function Sidebar({ shellContext }: SidebarProps) {
           <div className="grid size-9 shrink-0 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary shadow-[var(--shadow-control)]">
             <CtxaroMark className="size-5" />
           </div>
-          <div className={cn("min-w-0 flex-1", collapsed && "md:hidden")}>
+          <div className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
             <p className="truncate text-sm font-semibold lowercase">ctxaro</p>
             <p className="truncate text-xs text-muted-foreground">
               <TextShimmer>Developer workspace</TextShimmer>
@@ -86,7 +100,7 @@ export function Sidebar({ shellContext }: SidebarProps) {
             variant="ghost"
             size="icon"
             ref={closeButtonRef}
-            className="md:hidden"
+            className="lg:hidden"
             aria-label="Close navigation"
             onClick={() => setMobileSidebarOpen(false)}
           >
@@ -111,12 +125,12 @@ export function Sidebar({ shellContext }: SidebarProps) {
                     "group relative flex h-9 items-center gap-3 rounded-md px-2 text-sm text-muted-foreground outline-none transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     isActive &&
                       "bg-accent text-foreground shadow-[var(--shadow-control)] before:absolute before:left-0 before:top-1/2 before:h-4 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-primary",
-                    collapsed && "md:justify-center"
+                    collapsed && "lg:justify-center"
                   )
                 }
               >
                 <item.icon className="size-4 shrink-0" />
-                <span className={cn("min-w-0 flex-1 truncate", collapsed && "md:hidden")}>
+                <span className={cn("min-w-0 flex-1 truncate", collapsed && "lg:hidden")}>
                   {item.title}
                 </span>
               </NavLink>
@@ -140,12 +154,12 @@ export function Sidebar({ shellContext }: SidebarProps) {
                     "group relative flex h-9 items-center gap-3 rounded-md px-2 text-sm text-muted-foreground outline-none transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     isActive &&
                       "bg-accent text-foreground shadow-[var(--shadow-control)] before:absolute before:left-0 before:top-1/2 before:h-4 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-primary",
-                    collapsed && "md:justify-center"
+                    collapsed && "lg:justify-center"
                   )
                 }
               >
                 <FolderGit2 className="size-4 shrink-0" />
-                <span className={cn("min-w-0 flex-1 truncate", collapsed && "md:hidden")}>
+                <span className={cn("min-w-0 flex-1 truncate", collapsed && "lg:hidden")}>
                   Repository
                 </span>
               </NavLink>
@@ -161,12 +175,12 @@ export function Sidebar({ shellContext }: SidebarProps) {
                     "group relative flex h-9 items-center gap-3 rounded-md px-2 text-sm text-muted-foreground outline-none transition-[background-color,color,box-shadow] duration-150 hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     isActive &&
                       "bg-accent text-foreground shadow-[var(--shadow-control)] before:absolute before:left-0 before:top-1/2 before:h-4 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-primary",
-                    collapsed && "md:justify-center"
+                    collapsed && "lg:justify-center"
                   )
                 }
               >
                 <BarChart3 className="size-4 shrink-0" />
-                <span className={cn("min-w-0 flex-1 truncate", collapsed && "md:hidden")}>
+                <span className={cn("min-w-0 flex-1 truncate", collapsed && "lg:hidden")}>
                   Analysis
                 </span>
               </NavLink>
@@ -182,7 +196,7 @@ export function Sidebar({ shellContext }: SidebarProps) {
           <p
             className={cn(
               "px-2 text-[11px] font-medium uppercase leading-none text-muted-foreground",
-              collapsed && "md:sr-only"
+              collapsed && "lg:sr-only"
             )}
           >
             Account
@@ -190,7 +204,7 @@ export function Sidebar({ shellContext }: SidebarProps) {
           <AuthUserSection collapsed={collapsed} />
         </div>
 
-        <div className="hidden border-t border-border/80 p-3 md:block">
+        <div className="hidden border-t border-border/80 p-3 lg:block">
           <Button
             type="button"
             variant="ghost"
@@ -221,7 +235,7 @@ function NavigationGroup({
       <p
         className={cn(
           "px-2 text-[11px] font-medium uppercase leading-none text-muted-foreground",
-          collapsed && "md:sr-only"
+          collapsed && "lg:sr-only"
         )}
       >
         {title}
@@ -244,20 +258,25 @@ function ProjectIdentity({
 
   if (collapsed) {
     return (
-      <Button
-        asChild
-        className="hidden md:inline-flex md:size-9 md:px-0"
-        title={repository ? repository.fullName : "Projects"}
-        variant="outline"
-      >
-        <Link
-          aria-label={repository ? `Current project ${repository.fullName}` : "Projects"}
-          to={shellContext.projectHref ?? "/repositories"}
-          onClick={onNavigate}
+      <>
+        <div className="lg:hidden">
+          <ProjectIdentity collapsed={false} onNavigate={onNavigate} shellContext={shellContext} />
+        </div>
+        <Button
+          asChild
+          className="hidden lg:inline-flex lg:size-9 lg:px-0"
+          title={repository ? repository.fullName : "Projects"}
+          variant="outline"
         >
-          <FolderGit2 />
-        </Link>
-      </Button>
+          <Link
+            aria-label={repository ? `Current project ${repository.fullName}` : "Projects"}
+            to={shellContext.projectHref ?? "/repositories"}
+            onClick={onNavigate}
+          >
+            <FolderGit2 />
+          </Link>
+        </Button>
+      </>
     );
   }
 

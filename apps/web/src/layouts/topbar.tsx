@@ -9,6 +9,7 @@ import { getScanHistory, getScanLimits } from "@/features/scans/api/scan-api";
 import { ScanUsagePill } from "@/features/scans/components/scan-usage";
 import type { ShellContext } from "@/layouts/shell-context";
 import { repositoryDisplayName } from "@/layouts/shell-context";
+import { cn } from "@/lib/utils";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { useLayoutStore } from "@/stores/layout-store";
 
@@ -33,12 +34,12 @@ export function Topbar({ shellContext }: TopbarProps) {
   const latestScan = latestScanQuery.data?.items[0] ?? null;
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border/80 bg-surface/88 px-4 backdrop-blur-xl md:px-6 lg:px-8">
+    <header className="sticky top-0 z-20 flex h-16 min-w-0 items-center gap-2 border-b border-border/80 bg-surface/88 px-4 backdrop-blur-xl sm:gap-3 md:px-6 xl:px-8">
       <Button
         type="button"
         variant="ghost"
         size="icon"
-        className="md:hidden"
+        className="lg:hidden"
         aria-label="Open navigation"
         onClick={toggleMobileSidebar}
       >
@@ -48,10 +49,12 @@ export function Topbar({ shellContext }: TopbarProps) {
         <div className="grid min-w-0 flex-1 gap-0.5">
           <Breadcrumbs shellContext={shellContext} />
         </div>
-        <Separator orientation="vertical" className="hidden h-5 lg:block" />
+        <Separator orientation="vertical" className="hidden h-5 xl:block" />
         {repository ? <ProjectPill shellContext={shellContext} /> : null}
         {repository && limitsQuery.data ? (
-          <ScanUsagePill limits={limitsQuery.data} scan={latestScan} />
+          <div className="hidden min-w-0 2xl:block [&>section]:flex">
+            <ScanUsagePill limits={limitsQuery.data} scan={latestScan} />
+          </div>
         ) : null}
       </div>
       <ThemeToggle />
@@ -71,11 +74,22 @@ export function Breadcrumbs({ shellContext }: { shellContext: ShellContext }) {
         {breadcrumbs.map((breadcrumb, index) => {
           const isLast = index === breadcrumbs.length - 1;
 
+          const isFirst = index === 0;
+          const isIntermediate = !isFirst && !isLast;
+
           return (
-            <li className="flex min-w-0 items-center gap-1" key={`${breadcrumb.label}-${index}`}>
+            <li
+              className={cn(
+                "min-w-0 items-center gap-1",
+                isLast ? "flex flex-1" : isFirst ? "hidden shrink-0 sm:flex" : "hidden xl:flex",
+                isIntermediate && "shrink-0"
+              )}
+              key={`${breadcrumb.label}-${index}`}
+            >
               {breadcrumb.href && !isLast ? (
                 <Link
                   className="truncate rounded-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  title={breadcrumb.label}
                   to={breadcrumb.href}
                 >
                   {breadcrumb.label}
@@ -84,6 +98,7 @@ export function Breadcrumbs({ shellContext }: { shellContext: ShellContext }) {
                 <span
                   aria-current={isLast ? "page" : undefined}
                   className="truncate font-medium text-subtle-foreground"
+                  title={breadcrumb.label}
                 >
                   {breadcrumb.label}
                 </span>
@@ -108,7 +123,7 @@ function ProjectPill({ shellContext }: { shellContext: ShellContext }) {
 
   return (
     <Link
-      className="hidden h-9 max-w-[18rem] items-center gap-2 rounded-md border border-border bg-surface-raised px-3 text-sm shadow-[var(--shadow-control)] outline-none transition-[background-color,border-color,color] duration-150 hover:border-border-strong hover:bg-surface-elevated focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background lg:flex"
+      className="hidden h-9 min-w-0 max-w-56 items-center gap-2 rounded-md border border-border bg-surface-raised px-3 text-sm shadow-[var(--shadow-control)] outline-none transition-[background-color,border-color,color] duration-150 hover:border-border-strong hover:bg-surface-elevated focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background xl:flex 2xl:max-w-[18rem]"
       to={shellContext.projectHref}
     >
       <FolderGit2 className="size-4 shrink-0 text-primary" />

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
@@ -31,6 +32,9 @@ export function ProjectNavigation({ shellContext }: { shellContext: ShellContext
   const location = useLocation();
   const accessToken = useAuthSessionStore((state) => state.accessToken);
   const repository = shellContext.currentRepository;
+  const scrollRef = useRef<HTMLElement>(null);
+  const activeRef = useRef<HTMLAnchorElement>(null);
+  const [scrollEdges, setScrollEdges] = useState({ left: false, right: false });
   const dashboardQuery = useQuery({
     queryKey: ["dashboard", "projects"],
     queryFn: () => listDashboardProjects(accessToken),
@@ -46,6 +50,37 @@ export function ProjectNavigation({ shellContext }: { shellContext: ShellContext
     queryFn: () => getCurrentRepositoryUpdate(accessToken, shellContext.repositoryId ?? ""),
     enabled: Boolean(accessToken && shellContext.repositoryId)
   });
+
+  const activeSection = activeProjectSection(location.pathname, location.hash);
+
+  useEffect(() => {
+    const navigation = scrollRef.current;
+    if (!navigation) return undefined;
+
+    const updateScrollEdges = () => {
+      const maxScrollLeft = navigation.scrollWidth - navigation.clientWidth;
+      setScrollEdges({
+        left: navigation.scrollLeft > 1,
+        right: navigation.scrollLeft < maxScrollLeft - 1
+      });
+    };
+
+    updateScrollEdges();
+    navigation.addEventListener("scroll", updateScrollEdges, { passive: true });
+    window.addEventListener("resize", updateScrollEdges);
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateScrollEdges);
+    resizeObserver?.observe(navigation);
+    return () => {
+      navigation.removeEventListener("scroll", updateScrollEdges);
+      window.removeEventListener("resize", updateScrollEdges);
+      resizeObserver?.disconnect();
+    };
+  }, [repository?.id]);
+
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [activeSection]);
 
   if (!repository || !shellContext.projectHref) return null;
 
@@ -67,7 +102,6 @@ export function ProjectNavigation({ shellContext }: { shellContext: ShellContext
     knowledge: `${shellContext.projectHref}/knowledge`,
     settings: null
   };
-  const activeSection = activeProjectSection(location.pathname, location.hash);
 
   return (
     <section
@@ -88,40 +122,65 @@ export function ProjectNavigation({ shellContext }: { shellContext: ShellContext
         state={stateQuery.data ?? null}
         updatesHref={`${shellContext.projectHref}#updates`}
       />
-      <nav className="mt-4 overflow-x-auto" aria-label="Project sections">
-        <ul className="flex min-w-max gap-1">
-          {sections.map((section) => {
-            const href = hrefs[section.key];
-            const isActive = activeSection === section.key;
-            const className = cn(
-              "relative inline-flex h-10 items-center rounded-t-md px-3 text-sm font-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70",
-              isActive &&
-                "bg-accent text-foreground after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
-            );
+      <div className="relative mt-4 min-w-0">
+        <p className="sr-only" id="project-navigation-scroll-hint">
+          Project sections may scroll horizontally when space is limited.
+        </p>
+        <nav
+          ref={scrollRef}
+          className="min-w-0 touch-pan-x overflow-x-auto overscroll-x-contain scroll-smooth"
+          aria-describedby="project-navigation-scroll-hint"
+          aria-label="Project sections"
+        >
+          <ul className="flex min-w-max gap-1">
+            {sections.map((section) => {
+              const href = hrefs[section.key];
+              const isActive = activeSection === section.key;
+              const className = cn(
+                "relative inline-flex h-10 items-center rounded-t-md px-3 text-sm font-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70",
+                isActive &&
+                  "bg-accent text-foreground after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary"
+              );
 
-            return (
-              <li key={section.key}>
-                {href ? (
-                  <Link
-                    className={className}
-                    to={href}
-                    aria-current={isActive ? "page" : undefined}
-                  >
-                    {section.label}
-                  </Link>
-                ) : (
-                  <span
-                    className={cn(className, "cursor-not-allowed opacity-45")}
-                    aria-disabled="true"
-                  >
-                    {section.label}
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+              return (
+                <li key={section.key}>
+                  {href ? (
+                    <Link
+                      ref={isActive ? activeRef : undefined}
+                      className={className}
+                      to={href}
+                      aria-current={isActive ? "page" : undefined}
+                    >
+                      {section.label}
+                    </Link>
+                  ) : (
+                    <span
+                      className={cn(className, "cursor-not-allowed opacity-45")}
+                      aria-disabled="true"
+                    >
+                      {section.label}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-card to-transparent transition-opacity",
+            scrollEdges.left ? "opacity-100" : "opacity-0"
+          )}
+        />
+        <div
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card to-transparent transition-opacity",
+            scrollEdges.right ? "opacity-100" : "opacity-0"
+          )}
+        />
+      </div>
     </section>
   );
 }
