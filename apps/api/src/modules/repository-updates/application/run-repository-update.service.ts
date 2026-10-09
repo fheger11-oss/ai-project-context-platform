@@ -101,6 +101,19 @@ export class RunRepositoryUpdateService {
     return this.runUpdate(repositoryId, userId, RepositoryUpdateTriggerType.MANUAL);
   }
 
+  async runManualReprocessing(
+    repositoryId: string,
+    userId: string
+  ): Promise<RunRepositoryUpdateResult> {
+    return this.runUpdate(
+      repositoryId,
+      userId,
+      RepositoryUpdateTriggerType.MANUAL,
+      undefined,
+      true
+    );
+  }
+
   async runWebhookUpdate(
     repositoryId: string,
     userId: string,
@@ -118,7 +131,8 @@ export class RunRepositoryUpdateService {
     repositoryId: string,
     userId: string,
     triggerType: RepositoryUpdateTriggerType,
-    expectedTargetCommitSha?: string
+    expectedTargetCommitSha?: string,
+    forceFullReprocessing = false
   ): Promise<RunRepositoryUpdateResult> {
     return this.repositoryUpdateService.withRepositoryUpdateLock(repositoryId, userId, async () => {
       const initialState = await this.repositoryStateService.getOrInitialize(repositoryId, userId);
@@ -136,7 +150,7 @@ export class RunRepositoryUpdateService {
         throw new RepositoryUpdateTargetSupersededError();
       }
 
-      if (targetCommitSha === baseCommitSha) {
+      if (targetCommitSha === baseCommitSha && !forceFullReprocessing) {
         return {
           noop: true,
           update: null,
@@ -152,7 +166,7 @@ export class RunRepositoryUpdateService {
 
       let changeSet: ChangeSet | null = null;
 
-      if (baseCommitSha) {
+      if (baseCommitSha && !forceFullReprocessing) {
         try {
           changeSet = await this.changeSetService.compare({
             repositoryId,
@@ -190,10 +204,9 @@ export class RunRepositoryUpdateService {
 
       const incrementalProcessingDecision =
         this.incrementalProcessingEligibilityService.evaluate(changeSet);
-      const processingStrategy = this.processingStrategySelector.select(
-        changeSet,
-        incrementalProcessingDecision
-      );
+      const processingStrategy = forceFullReprocessing
+        ? RepositoryProcessingStrategy.FULL
+        : this.processingStrategySelector.select(changeSet, incrementalProcessingDecision);
 
       const execution = await this.createExecutionContext({
         repositoryId,

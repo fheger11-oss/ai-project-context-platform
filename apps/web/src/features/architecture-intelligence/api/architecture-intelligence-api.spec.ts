@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   getArchitectureIntelligence,
-  getArchitectureIntelligenceHistory
+  getArchitectureIntelligenceHistory,
+  reprocessArchitectureIntelligence
 } from "./architecture-intelligence-api";
 
 describe("architecture-intelligence-api", () => {
@@ -40,5 +41,17 @@ describe("architecture-intelligence-api", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "http://localhost:3000/api/v1/repositories/repository_1/architecture-intelligence/history?page=2&pageSize=20"
     );
+  });
+
+  it("uses the explicit authenticated reprocessing endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await reprocessArchitectureIntelligence("token", "owner/repo 1");
+
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "http://localhost:3000/api/v1/repositories/owner%2Frepo%201/updates/reprocess"
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "POST" });
   });
 });

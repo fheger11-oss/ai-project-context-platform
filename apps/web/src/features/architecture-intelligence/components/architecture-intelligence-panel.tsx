@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import type {
   ArchitectureDependency,
@@ -21,7 +21,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import {
   getArchitectureIntelligence,
-  getArchitectureIntelligenceHistory
+  getArchitectureIntelligenceHistory,
+  reprocessArchitectureIntelligence
 } from "@/features/architecture-intelligence/api/architecture-intelligence-api";
 
 const PAGE_SIZE = 20;
@@ -39,6 +40,7 @@ export function ArchitectureIntelligencePanel({
   accessToken: string;
   repositoryId: string;
 }) {
+  const queryClient = useQueryClient();
   const [state, setState] = useState({
     repositoryId,
     page: 1,
@@ -78,6 +80,14 @@ export function ArchitectureIntelligencePanel({
     queryFn: () =>
       getArchitectureIntelligenceHistory(accessToken, repositoryId, current.historyPage, PAGE_SIZE),
     enabled: Boolean(accessToken && repositoryId)
+  });
+  const reprocess = useMutation({
+    mutationFn: () => reprocessArchitectureIntelligence(accessToken, repositoryId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["repositories", repositoryId, "architecture-intelligence"]
+      });
+    }
   });
 
   const update = (values: Partial<typeof state>) => setState({ ...current, ...values });
@@ -137,7 +147,25 @@ export function ArchitectureIntelligencePanel({
                 ? "warning"
                 : "loading"
           }
+          action={
+            data.processing.status === "INCOMPATIBLE" ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={reprocess.isPending}
+                onClick={() => reprocess.mutate()}
+              >
+                <RefreshCw className={reprocess.isPending ? "animate-spin" : undefined} />
+                {reprocess.isPending ? "Reprocessing" : "Reprocess current commit"}
+              </Button>
+            ) : undefined
+          }
         />
+      ) : null}
+      {reprocess.isError ? (
+        <p className="text-sm text-destructive" role="alert">
+          Reprocessing could not be started. No historical result was changed.
+        </p>
       ) : null}
       {data?.intelligence ? (
         <>

@@ -54,13 +54,15 @@ function createUpdate(overrides: Partial<RepositoryUpdateSnapshot> = {}): Reposi
 
 function createController(options: {
   runManualUpdate?: RunRepositoryUpdateService["runManualUpdate"];
+  runManualReprocessing?: RunRepositoryUpdateService["runManualReprocessing"];
   listByRepository?: RepositoryUpdateService["listByRepository"];
   getCurrentByRepository?: RepositoryUpdateService["getCurrentByRepository"];
   getById?: RepositoryUpdateService["getById"];
 }) {
   return new RepositoryUpdatesController(
     {
-      runManualUpdate: options.runManualUpdate ?? vi.fn()
+      runManualUpdate: options.runManualUpdate ?? vi.fn(),
+      runManualReprocessing: options.runManualReprocessing ?? vi.fn()
     } as unknown as RunRepositoryUpdateService,
     {
       listByRepository: options.listByRepository ?? vi.fn(),
@@ -329,5 +331,35 @@ describe("RepositoryUpdatesController", () => {
       freshnessStatus: "FRESH"
     });
     expect(response).not.toHaveProperty("processingResult");
+  });
+
+  it("authorizes explicit reprocessing with the authenticated user and existing response shape", async () => {
+    const runManualReprocessing = vi.fn(async (): Promise<RunRepositoryUpdateResult> => ({
+      noop: false,
+      update: createUpdate({ baseCommitSha: "commit_b", targetCommitSha: "commit_b" }),
+      baseCommitSha: "commit_b",
+      targetCommitSha: "commit_b",
+      scanId: "scan_1",
+      analysisId: "analysis_2",
+      projectContextId: "context_2",
+      freshnessStatus: RepositoryFreshnessStatus.FRESH,
+      processingResult: {
+        mode: RepositoryProcessingMode.FULL,
+        outcome: RepositoryProcessingOutcome.COMPLETED,
+        targetCommitSha: "commit_b"
+      }
+    }));
+    const controller = createController({ runManualReprocessing });
+
+    const response = await controller.reprocessCurrentCommit(user, { id: "repository_1" });
+
+    expect(runManualReprocessing).toHaveBeenCalledWith("repository_1", "user_1");
+    expect(response).toMatchObject({
+      noop: false,
+      baseCommitSha: "commit_b",
+      targetCommitSha: "commit_b",
+      analysisId: "analysis_2",
+      projectContextId: "context_2"
+    });
   });
 });

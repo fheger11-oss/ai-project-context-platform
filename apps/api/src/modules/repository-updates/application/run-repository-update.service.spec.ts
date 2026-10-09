@@ -21,6 +21,7 @@ import type {
 } from "../../repositories/repository-state.service.js";
 import type { ScanService } from "../../scan/application/scan.service.js";
 import type { ScanSnapshot } from "../../scan/domain/contracts/scan-repository.contract.js";
+import { OperationConcurrencyError } from "../../usage/errors/operation-concurrency.error.js";
 import type { RepositoryUpdateSnapshot } from "../domain/contracts/repository-update-repository.contract.js";
 import type { RepositoryUpdateService } from "./repository-update.service.js";
 import type { RepositoryUpdateFinalizationService } from "./repository-update-finalization.service.js";
@@ -664,6 +665,85 @@ describe("RunRepositoryUpdateService", () => {
     expect(harness.run).not.toHaveBeenCalled();
     expect(harness.generate).not.toHaveBeenCalled();
     expect(harness.consumeProcessingResult).not.toHaveBeenCalled();
+  });
+
+  it("explicitly reprocesses an unchanged commit through the full supported pipeline", async () => {
+    const harness = createHarness({
+      initialState: createState({
+        currentProjectContextId: "context_a",
+        currentContextCommitSha: "commit_b"
+      }),
+      refreshedState: createState({
+        currentProjectContextId: "context_a",
+        currentContextCommitSha: "commit_b",
+        remoteHeadCommitSha: "commit_b",
+        freshnessStatus: RepositoryFreshnessStatus.FRESH
+      })
+    });
+
+    await expect(
+      harness.service.runManualReprocessing("repository_1", "user_1")
+    ).resolves.toMatchObject({
+      noop: false,
+      baseCommitSha: "commit_b",
+      targetCommitSha: "commit_b",
+      scanId: "scan_b",
+      analysisId: "analysis_b",
+      projectContextId: "context_b",
+      processingResult: {
+        mode: RepositoryProcessingMode.FULL,
+        outcome: RepositoryProcessingOutcome.COMPLETED
+      }
+    });
+    expect(harness.withRepositoryUpdateLock).toHaveBeenCalledTimes(1);
+    expect(harness.compare).not.toHaveBeenCalled();
+    expect(harness.selectProcessingStrategy).not.toHaveBeenCalled();
+    expect(harness.processIncrementally).not.toHaveBeenCalled();
+    expect(harness.startScan).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      userId: "user_1",
+      reference: "commit_b"
+    });
+    expect(harness.run).toHaveBeenCalledWith({ userId: "user_1", scanId: "scan_b" });
+    expect(harness.generate).toHaveBeenCalledWith({
+      userId: "user_1",
+      analysisId: "analysis_b"
+    });
+    expect(harness.finalize).toHaveBeenCalledWith({
+      repositoryId: "repository_1",
+      userId: "user_1",
+      updateId: "update_1",
+      projectContextId: "context_b",
+      targetCommitSha: "commit_b"
+    });
+  });
+
+  it("enforces repository ownership before explicit reprocessing starts", async () => {
+    const ownershipError = new UnauthorizedException();
+    const harness = createHarness({ ownershipError });
+
+    await expect(harness.service.runManualReprocessing("repository_1", "user_1")).rejects.toBe(
+      ownershipError
+    );
+    expect(harness.createPendingUpdate).not.toHaveBeenCalled();
+    expect(harness.startScan).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate concurrent reprocessing through the repository update lock", async () => {
+    const harness = createHarness();
+    harness.withRepositoryUpdateLock.mockRejectedValue(
+      new OperationConcurrencyError({
+        operationType: "repository.update",
+        lockKey: "repository:repository_1:update",
+        expiresAt: now
+      })
+    );
+
+    await expect(
+      harness.service.runManualReprocessing("repository_1", "user_1")
+    ).rejects.toBeInstanceOf(OperationConcurrencyError);
+    expect(harness.createPendingUpdate).not.toHaveBeenCalled();
+    expect(harness.startScan).not.toHaveBeenCalled();
   });
 
   it("fails before pipeline work when ChangeSet comparison fails", async () => {

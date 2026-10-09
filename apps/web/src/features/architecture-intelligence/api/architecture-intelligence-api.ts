@@ -2,7 +2,8 @@ import type {
   ArchitectureFindingLifecycle,
   ArchitectureIntelligenceConfidence,
   ArchitectureIntelligenceHistoryResponse,
-  ArchitectureIntelligenceResponse
+  ArchitectureIntelligenceResponse,
+  RepositoryUpdateResponse
 } from "@ai-context/contracts";
 
 import { apiRequestErrorFromResponse } from "@/lib/api-error";
@@ -18,8 +19,13 @@ export type ArchitectureIntelligenceOptions = {
   lifecycle?: ArchitectureFindingLifecycle;
 };
 
-async function request<T>(accessToken: string, path: string): Promise<T> {
+async function request<T>(
+  accessToken: string,
+  path: string,
+  init: Pick<RequestInit, "method"> = {}
+): Promise<T> {
   const response = await authenticatedFetch(path, {
+    ...init,
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }
   });
   if (!response.ok) {
@@ -58,5 +64,16 @@ export function getArchitectureIntelligenceHistory(
   return request(
     accessToken,
     `/repositories/${encodeURIComponent(repositoryId)}/architecture-intelligence/history?${query}`
+  );
+}
+
+export function reprocessArchitectureIntelligence(
+  accessToken: string,
+  repositoryId: string
+): Promise<RepositoryUpdateResponse> {
+  return request(
+    accessToken,
+    `/repositories/${encodeURIComponent(repositoryId)}/updates/reprocess`,
+    { method: "POST" }
   );
 }

@@ -108,4 +108,17 @@ export class RepositoryUpdatesController {
 
     return toRepositoryUpdateResponse(result);
   }
+
+  @Post("reprocess")
+  @Throttle(EXPENSIVE_OPERATION_RATE_LIMIT)
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: RepositoryUpdateResponseDto })
+  async reprocessCurrentCommit(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: RepositoryParamsDto
+  ): Promise<RepositoryUpdateResponse> {
+    const result = await this.runRepositoryUpdateService.runManualReprocessing(params.id, user.id);
+
+    return toRepositoryUpdateResponse(result);
+  }
 }

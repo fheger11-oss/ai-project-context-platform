@@ -15,6 +15,8 @@ let current: {
   isFetching: boolean;
 };
 vi.mock("@tanstack/react-query", () => ({
+  useMutation: () => ({ isPending: false, isError: false, mutate: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
   useQuery: (options: { queryKey: readonly unknown[] }) =>
     options.queryKey.includes("history")
       ? { data: undefined, isLoading: false, isError: false, isFetching: false }
@@ -22,7 +24,8 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 vi.mock("../api/architecture-intelligence-api", () => ({
   getArchitectureIntelligence: vi.fn(),
-  getArchitectureIntelligenceHistory: vi.fn()
+  getArchitectureIntelligenceHistory: vi.fn(),
+  reprocessArchitectureIntelligence: vi.fn()
 }));
 
 describe("ArchitectureIntelligencePanel", () => {
@@ -55,6 +58,7 @@ describe("ArchitectureIntelligencePanel", () => {
       isFetching: false
     };
     expect(render()).toContain("Processing incompatible");
+    expect(render()).toContain("Reprocess current commit");
     current = { isLoading: false, isError: true, isFetching: false };
     expect(render()).toContain("Architecture Intelligence unavailable");
   });
