@@ -48,6 +48,33 @@ describe("MarkdownDocumentContent", () => {
     expect(markup).toContain("<hr");
   });
 
+  it("exposes only intentional scroll containers as named keyboard-focusable regions", () => {
+    const markup = renderToStaticMarkup(
+      <MarkdownDocumentContent
+        content={[
+          "A regular paragraph.",
+          "",
+          "| Command | Value |",
+          "| --- | --- |",
+          "| `build` | `vite build` |",
+          "",
+          "```bash",
+          "pnpm build",
+          "```"
+        ].join("\n")}
+      />
+    );
+
+    expect(markup).toContain('role="document"');
+    expect(markup).toContain('aria-label="Generated document content"');
+    expect(markup).toContain('aria-label="Generated document table"');
+    expect(markup).toContain('aria-label="Generated document code block"');
+    expect(markup.match(/tabindex="0"/g)).toHaveLength(3);
+    expect(markup.match(/role="region"/g)).toHaveLength(2);
+    expect(markup).toContain("A regular paragraph.");
+    expect(markup).toContain("pnpm build");
+  });
+
   it("preserves escaped table pipes inside generated Markdown cells", () => {
     const markup = renderToStaticMarkup(
       <MarkdownDocumentContent

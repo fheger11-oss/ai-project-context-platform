@@ -18,8 +18,10 @@ export function MarkdownDocumentContent({ content }: MarkdownDocumentContentProp
 
   return (
     <div
-      className="max-h-[48rem] overflow-auto rounded-md border border-border bg-background px-4 py-6 shadow-[var(--shadow-control)] sm:px-8 lg:px-10"
+      aria-label="Generated document content"
+      className="max-h-[48rem] overflow-auto rounded-md border border-border bg-background px-4 py-6 shadow-[var(--shadow-control)] outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:px-8 lg:px-10"
       role="document"
+      tabIndex={0}
     >
       <div className="mx-auto grid max-w-[46rem] gap-5 text-[15px] leading-7 text-foreground">
         {blocks.map((block) => (
@@ -89,7 +91,12 @@ function MarkdownBlockView({ block }: { block: MarkdownBlock }) {
 
   if (block.type === "table") {
     return (
-      <div className="overflow-x-auto rounded-md border border-border">
+      <div
+        aria-label="Generated document table"
+        className="overflow-x-auto overscroll-x-contain rounded-md border border-border outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        role="region"
+        tabIndex={0}
+      >
         <table className="w-full border-collapse text-left text-sm">
           <thead className="bg-surface">
             <tr>
@@ -124,7 +131,12 @@ function MarkdownBlockView({ block }: { block: MarkdownBlock }) {
 
   if (block.type === "code") {
     return (
-      <pre className="overflow-x-auto rounded-md border border-border bg-muted/40 p-4 text-xs leading-6 text-subtle-foreground">
+      <pre
+        aria-label="Generated document code block"
+        className="overflow-x-auto overscroll-x-contain rounded-md border border-border bg-muted/40 p-4 text-xs leading-6 text-subtle-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        role="region"
+        tabIndex={0}
+      >
         <code>{block.value}</code>
       </pre>
     );
