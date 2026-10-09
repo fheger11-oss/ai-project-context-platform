@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { TabPanel, TabsList, TabTrigger } from "@/components/ui/tabs";
+import { TechnicalText } from "@/components/ui/technical-text";
 import {
   createProjectKnowledge,
   listProjectKnowledge,
@@ -148,18 +149,20 @@ export function ProjectKnowledgePanel({
           />
         ))}
         {query.data && query.data.pagination.total > PAGE_SIZE ? (
-          <div className="flex items-center justify-between">
-            <Button variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-              Previous
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
             <span className="text-sm text-muted-foreground">Page {page}</span>
-            <Button
-              variant="outline"
-              disabled={!query.data.pagination.hasNextPage}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+              <Button variant="outline" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                disabled={!query.data.pagination.hasNextPage}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
           </div>
         ) : null}
       </TabPanel>
@@ -199,8 +202,8 @@ function KnowledgeCard({
 }) {
   return (
     <Card>
-      <CardHeader className="flex-row items-start justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-wrap gap-2">
           <Badge tone={item.status === "ACTIVE" ? "success" : "muted"}>{item.status}</Badge>
           <Badge tone="neutral">
             {item.origin === "USER_AUTHORED"
@@ -212,6 +215,7 @@ function KnowledgeCard({
           {item.confidence ? <Badge tone="neutral">{item.confidence}</Badge> : null}
         </div>
         <Button
+          className="w-full sm:w-auto"
           size="sm"
           variant="ghost"
           onClick={onEdit}
@@ -221,21 +225,27 @@ function KnowledgeCard({
           Edit
         </Button>
       </CardHeader>
-      <CardContent className="grid gap-3">
-        <p className="whitespace-pre-wrap text-sm leading-6">{item.content}</p>
+      <CardContent className="grid min-w-0 gap-3">
+        <p className="whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">
+          {item.content}
+        </p>
         <p className="text-xs text-muted-foreground">
           Updated {new Date(item.updatedAt).toLocaleString()}
         </p>
         {item.sourceType !== "USER" ? (
           <details className="text-xs text-muted-foreground">
             <summary>Source provenance</summary>
-            <div className="mt-2 grid gap-1 font-mono">
-              <span>{item.sourceType}</span>
+            <div className="mt-2 grid min-w-0 gap-1">
+              <TechnicalText>{item.sourceType}</TechnicalText>
               {item.sourceProjectContextId ? (
-                <span>Context: {item.sourceProjectContextId}</span>
+                <TechnicalText title={item.sourceProjectContextId}>
+                  Context: {item.sourceProjectContextId}
+                </TechnicalText>
               ) : null}
               {item.sourceProjectDecisionId ? (
-                <span>Decision: {item.sourceProjectDecisionId}</span>
+                <TechnicalText title={item.sourceProjectDecisionId}>
+                  Decision: {item.sourceProjectDecisionId}
+                </TechnicalText>
               ) : null}
             </div>
           </details>

@@ -421,7 +421,7 @@ function AnalysisHeader({
             </span>
           </div>
           <p className="text-sm font-medium uppercase text-primary">Analysis</p>
-          <h1 className="mt-1 truncate text-3xl font-semibold leading-tight text-foreground">
+          <h1 className="mt-1 break-words text-3xl font-semibold leading-tight text-foreground [overflow-wrap:anywhere]">
             {projectName(repository)}
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
@@ -429,7 +429,7 @@ function AnalysisHeader({
           </p>
           {repository ? (
             <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span>{repository.owner}</span>
+              <span className="break-words [overflow-wrap:anywhere]">{repository.owner}</span>
               <span className="inline-flex items-center gap-1.5">
                 <GitBranch className="size-3.5" />
                 {repository.defaultBranch}

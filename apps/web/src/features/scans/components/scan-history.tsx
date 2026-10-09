@@ -17,6 +17,7 @@ import { StatePanel } from "@/components/shared/state-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TechnicalText } from "@/components/ui/technical-text";
 import { StartAnalysisButton } from "@/features/analysis/components/start-analysis-button";
 import { getScanHistory, getScanLimits, ScanApiRequestError } from "@/features/scans/api/scan-api";
 import { scanStatusLabel, scanStatusTone } from "@/features/scans/utils/scan-status";
@@ -169,7 +170,7 @@ export function ScanHistoryContent({
             <p className="text-sm text-muted-foreground">
               Page {pagination.page} of {pagination.totalPages}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
               <Button
                 type="button"
                 size="sm"
@@ -262,8 +263,14 @@ function ScanHistoryItem({
         <dl className="grid gap-3 border-t p-3 text-xs sm:grid-cols-2">
           <div className="min-w-0">
             <dt className="text-muted-foreground">Commit</dt>
-            <dd className="mt-1 truncate font-mono text-subtle-foreground" title={scan.commitSha}>
-              {scan.commitSha}
+            <dd className="mt-1">
+              <TechnicalText
+                as="code"
+                className="block text-subtle-foreground"
+                title={scan.commitSha}
+              >
+                {scan.commitSha}
+              </TechnicalText>
             </dd>
           </div>
           <div className="min-w-0">
@@ -369,9 +376,9 @@ function AnalysisHistoryRow({ item }: { item: AnalysisHistoryItem }) {
     <div className="grid gap-2 rounded-md border bg-card/60 p-3 sm:grid-cols-[1fr_auto] sm:items-center">
       <div className="min-w-0">
         <p className="text-sm">{displayDate(item.generatedAt)}</p>
-        <p className="mt-1 truncate font-mono text-xs text-muted-foreground" title={item.commitSha}>
+        <TechnicalText className="mt-1 block text-muted-foreground" title={item.commitSha}>
           {item.commitSha}
-        </p>
+        </TechnicalText>
         <p className="mt-1 text-xs text-muted-foreground">{item.analyzerVersion}</p>
       </div>
       <Button asChild size="sm" variant="outline">

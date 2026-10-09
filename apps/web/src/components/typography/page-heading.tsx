@@ -18,11 +18,11 @@ export function PageHeading({ eyebrow, title, description, actions, className }:
         className
       )}
     >
-      <div className="max-w-3xl space-y-2.5">
+      <div className="min-w-0 max-w-3xl space-y-2.5">
         {eyebrow ? (
           <p className="text-xs font-medium uppercase leading-none text-primary">{eyebrow}</p>
         ) : null}
-        <h1 className="text-2xl font-semibold leading-tight tracking-normal text-foreground md:text-3xl">
+        <h1 className="break-words text-2xl font-semibold leading-tight tracking-normal text-foreground [overflow-wrap:anywhere] md:text-3xl">
           {title}
         </h1>
         {description ? (

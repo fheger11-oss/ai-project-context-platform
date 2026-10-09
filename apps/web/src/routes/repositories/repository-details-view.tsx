@@ -24,6 +24,7 @@ import { StatusDot } from "@/components/shared/status-dot";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TechnicalText } from "@/components/ui/technical-text";
 import { getGitHubLoginUrl } from "@/features/auth/api/auth-api";
 import { useAuthSessionStore } from "@/features/auth/stores/auth-session-store";
 import { listDashboardProjects } from "@/features/dashboard/api/dashboard-api";
@@ -391,8 +392,10 @@ function ProjectHeader({ repository }: { repository: RepositorySummary }) {
               {repository.defaultBranch}
             </span>
           </div>
-          <p className="truncate text-sm text-muted-foreground">{repository.owner}</p>
-          <h1 className="mt-1 truncate text-3xl font-semibold leading-tight text-foreground">
+          <p className="break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
+            {repository.owner}
+          </p>
+          <h1 className="mt-1 break-words text-3xl font-semibold leading-tight text-foreground [overflow-wrap:anywhere]">
             {repositoryName(repository.fullName)}
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
@@ -987,9 +990,12 @@ function CurrentState({
         </div>
         <div className="flex items-center justify-between gap-3">
           <span className="text-muted-foreground">Default branch</span>
-          <span className="truncate font-mono text-xs text-subtle-foreground">
+          <TechnicalText
+            className="text-right text-subtle-foreground"
+            title={repository.defaultBranch}
+          >
             {repository.defaultBranch}
-          </span>
+          </TechnicalText>
         </div>
         <div className="flex items-center justify-between gap-3">
           <span className="text-muted-foreground">Latest scan</span>
@@ -1122,8 +1128,10 @@ function ProjectMetadata({ repository }: { repository: RepositorySummary }) {
         {rows.map(([label, value]) => (
           <div key={label} className="min-w-0 bg-card/95 p-4">
             <dt className="text-xs uppercase text-muted-foreground">{label}</dt>
-            <dd className="mt-1 truncate font-mono text-xs text-subtle-foreground" title={value}>
-              {value}
+            <dd className="mt-1">
+              <TechnicalText as="code" className="block text-subtle-foreground" title={value}>
+                {value}
+              </TechnicalText>
             </dd>
           </div>
         ))}
