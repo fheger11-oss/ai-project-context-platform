@@ -96,7 +96,7 @@ export function ProjectDecisionFormDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[70] grid place-items-center overflow-y-auto bg-background/72 px-4 py-6 backdrop-blur-sm"
+      className="fixed inset-0 z-[70] grid place-items-center bg-background/72 p-3 backdrop-blur-sm sm:p-6"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !isPending) onClose();
@@ -106,7 +106,7 @@ export function ProjectDecisionFormDialog({
         aria-describedby={descriptionId}
         aria-labelledby={titleId}
         aria-modal="true"
-        className="my-auto w-full max-w-2xl rounded-md border border-border bg-surface p-5 shadow-xl"
+        className="max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto overscroll-y-contain rounded-md border border-border bg-surface p-4 shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:p-5"
         role="dialog"
       >
         <div className="flex items-start justify-between gap-4">
@@ -132,7 +132,7 @@ export function ProjectDecisionFormDialog({
           </Button>
         </div>
 
-        <form className="mt-5 grid gap-4" onSubmit={handleSubmit}>
+        <form className="mt-5 grid min-w-0 gap-4" onSubmit={handleSubmit}>
           {error ? <ErrorNotice error={error} /> : null}
 
           <FormField label="Title" error={errors.title} htmlFor="project-decision-title">
@@ -172,7 +172,7 @@ export function ProjectDecisionFormDialog({
             />
           </FormField>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid min-w-0 gap-4 sm:grid-cols-2">
             <FormField
               label="Affected area"
               error={errors.affectedArea}
@@ -206,10 +206,21 @@ export function ProjectDecisionFormDialog({
           </div>
 
           <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
-            <Button type="button" variant="outline" disabled={isPending} onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={isPending}
+              onClick={onClose}
+            >
               Cancel
             </Button>
-            <Button type="submit" aria-busy={isPending} disabled={isPending}>
+            <Button
+              type="submit"
+              className="w-full sm:w-auto"
+              aria-busy={isPending}
+              disabled={isPending}
+            >
               {isPending ? <Loader2 className="animate-spin" /> : <Save />}
               {isPending ? "Saving" : isEditing ? "Save corrections" : "Create decision"}
             </Button>
@@ -232,7 +243,7 @@ function FormField({
   label: string;
 }) {
   return (
-    <div className="grid gap-2">
+    <div className="grid min-w-0 gap-2">
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {error ? (

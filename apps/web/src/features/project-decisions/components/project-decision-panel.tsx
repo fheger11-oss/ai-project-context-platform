@@ -509,7 +509,7 @@ function LifecycleConfirmationDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[70] grid place-items-center bg-background/72 px-4 py-6 backdrop-blur-sm"
+      className="fixed inset-0 z-[70] grid place-items-center bg-background/72 p-3 backdrop-blur-sm sm:p-6"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !isPending) onCancel();
@@ -519,7 +519,7 @@ function LifecycleConfirmationDialog({
         aria-describedby={descriptionId}
         aria-labelledby={titleId}
         aria-modal="true"
-        className="w-full max-w-lg rounded-md border border-border bg-surface p-5 shadow-xl"
+        className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto overscroll-y-contain rounded-md border border-border bg-surface p-4 shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:p-5"
         role="dialog"
       >
         <div className="flex items-start justify-between gap-4">
@@ -552,11 +552,18 @@ function LifecycleConfirmationDialog({
         ) : null}
 
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button type="button" variant="outline" disabled={isPending} onClick={onCancel}>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            disabled={isPending}
+            onClick={onCancel}
+          >
             Cancel
           </Button>
           <Button
             type="button"
+            className="w-full sm:w-auto"
             variant={isSuperseding ? "destructive" : "default"}
             aria-busy={isPending}
             disabled={isPending}

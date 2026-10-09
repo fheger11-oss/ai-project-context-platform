@@ -23,6 +23,7 @@ export function ProjectKnowledgeFormDialog({
   onSubmit: (content: string) => void;
 }) {
   const titleId = useId();
+  const descriptionId = useId();
   const [content, setContent] = useState(item?.content ?? "");
   const [validation, setValidation] = useState<string | null>(null);
   useEffect(() => {
@@ -44,7 +45,7 @@ export function ProjectKnowledgeFormDialog({
   }
   return (
     <div
-      className="fixed inset-0 z-[70] grid place-items-center bg-background/72 px-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[70] grid place-items-center bg-background/72 p-3 backdrop-blur-sm sm:p-6"
       role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !isPending) onClose();
@@ -54,14 +55,15 @@ export function ProjectKnowledgeFormDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-2xl rounded-md border border-border bg-surface p-5 shadow-xl"
+        aria-describedby={descriptionId}
+        className="max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto overscroll-y-contain rounded-md border border-border bg-surface p-4 shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:p-5"
       >
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <h2 id={titleId} className="text-lg font-semibold">
               {item ? "Edit knowledge" : "Add project knowledge"}
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p id={descriptionId} className="mt-1 text-sm leading-6 text-muted-foreground">
               Record a durable project fact explicitly provided by you.
             </p>
           </div>
@@ -76,9 +78,9 @@ export function ProjectKnowledgeFormDialog({
             <X />
           </Button>
         </div>
-        <form className="mt-5 grid gap-4" onSubmit={submit}>
+        <form className="mt-5 grid min-w-0 gap-4" onSubmit={submit}>
           {error ? <ErrorNotice error={error} /> : null}
-          <div className="grid gap-2">
+          <div className="grid min-w-0 gap-2">
             <Label htmlFor="project-knowledge-content">Knowledge</Label>
             <Textarea
               id="project-knowledge-content"
@@ -93,11 +95,17 @@ export function ProjectKnowledgeFormDialog({
             />
             {validation ? <p className="text-sm text-destructive">{validation}</p> : null}
           </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" disabled={isPending} onClick={onClose}>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={isPending}
+              onClick={onClose}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={isPending}>
               {isPending ? <Loader2 className="animate-spin" /> : <Save />}
               {isPending ? "Saving" : "Save knowledge"}
             </Button>
