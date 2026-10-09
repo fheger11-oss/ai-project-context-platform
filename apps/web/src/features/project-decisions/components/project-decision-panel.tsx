@@ -10,7 +10,7 @@ import {
   RotateCcw,
   X
 } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   CreateProjectDecisionRequest,
@@ -25,6 +25,7 @@ import { PageHeading } from "@/components/typography/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Modal } from "@/components/ui/modal";
 import { TabPanel, TabsList, TabTrigger } from "@/components/ui/tabs";
 import {
   ApiRequestError,
@@ -492,36 +493,19 @@ function LifecycleConfirmationDialog({
   const titleId = useId();
   const descriptionId = useId();
 
-  useEffect(() => {
-    if (!confirmation) return undefined;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !isPending) onCancel();
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [confirmation, isPending, onCancel]);
-
   if (!confirmation) return null;
 
   const isSuperseding = confirmation.targetStatus === "SUPERSEDED";
 
   return (
-    <div
-      className="fixed inset-0 z-[70] grid place-items-center bg-background/72 p-3 backdrop-blur-sm sm:p-6"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !isPending) onCancel();
-      }}
+    <Modal
+      ariaDescribedBy={descriptionId}
+      ariaLabelledBy={titleId}
+      className="max-w-lg"
+      dismissible={!isPending}
+      onDismiss={onCancel}
     >
-      <section
-        aria-describedby={descriptionId}
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto overscroll-y-contain rounded-md border border-border bg-surface p-4 shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:p-5"
-        role="dialog"
-      >
+      <>
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h2 id={titleId} className="text-lg font-semibold">
@@ -579,8 +563,8 @@ function LifecycleConfirmationDialog({
                 : "Archive decision"}
           </Button>
         </div>
-      </section>
-    </div>
+      </>
+    </Modal>
   );
 }
 

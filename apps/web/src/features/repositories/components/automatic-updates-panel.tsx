@@ -1,10 +1,11 @@
 import { Loader2, RefreshCw, Trash2, X } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 
 import { StatePanel } from "@/components/shared/state-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Modal } from "@/components/ui/modal";
 import type { RepositoryAutomationStatus } from "@ai-context/contracts";
 
 type AutomaticUpdates = RepositoryAutomationStatus["automaticUpdates"];
@@ -207,34 +208,17 @@ export function DisableAutomaticUpdatesDialog({
   const titleId = useId();
   const descriptionId = useId();
 
-  useEffect(() => {
-    if (!open) return undefined;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !isPending) onCancel();
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPending, onCancel, open]);
-
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[70] grid place-items-center bg-background/72 p-3 backdrop-blur-sm sm:p-6"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !isPending) onCancel();
-      }}
+    <Modal
+      ariaDescribedBy={descriptionId}
+      ariaLabelledBy={titleId}
+      className="max-w-lg"
+      dismissible={!isPending}
+      onDismiss={onCancel}
     >
-      <section
-        aria-describedby={descriptionId}
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto overscroll-y-contain rounded-md border border-border bg-surface p-4 shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:p-5"
-        role="dialog"
-      >
+      <>
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="mb-3 grid size-10 place-items-center rounded-md border border-warning/25 bg-warning/10 text-warning">
@@ -289,8 +273,8 @@ export function DisableAutomaticUpdatesDialog({
             {isPending ? "Disabling" : "Disable automatic updates"}
           </Button>
         </div>
-      </section>
-    </div>
+      </>
+    </Modal>
   );
 }
 

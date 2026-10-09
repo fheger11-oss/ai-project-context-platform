@@ -1,11 +1,12 @@
 import { Loader2, Save, X } from "lucide-react";
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
+import { useId, useState, type FormEvent, type ReactNode } from "react";
 import type { CreateProjectDecisionRequest, ProjectDecision } from "@ai-context/contracts";
 
 import { ErrorNotice } from "@/components/shared/error-notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
 import { Textarea } from "@/components/ui/textarea";
 import {
   emptyProjectDecisionFormValues,
@@ -62,17 +63,6 @@ export function ProjectDecisionFormDialog({
   const [errors, setErrors] = useState<ProjectDecisionFormErrors>({});
   const isEditing = Boolean(decision);
 
-  useEffect(() => {
-    if (!open) return undefined;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !isPending) onClose();
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isPending, onClose, open]);
-
   if (!open) return null;
 
   function updateField(field: keyof ProjectDecisionFormValues, value: string) {
@@ -95,20 +85,14 @@ export function ProjectDecisionFormDialog({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[70] grid place-items-center bg-background/72 p-3 backdrop-blur-sm sm:p-6"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !isPending) onClose();
-      }}
+    <Modal
+      ariaDescribedBy={descriptionId}
+      ariaLabelledBy={titleId}
+      className="max-w-2xl"
+      dismissible={!isPending}
+      onDismiss={onClose}
     >
-      <section
-        aria-describedby={descriptionId}
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className="max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl overflow-y-auto overscroll-y-contain rounded-md border border-border bg-surface p-4 shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:p-5"
-        role="dialog"
-      >
+      <>
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <h2 id={titleId} className="text-lg font-semibold">
@@ -226,8 +210,8 @@ export function ProjectDecisionFormDialog({
             </Button>
           </div>
         </form>
-      </section>
-    </div>
+      </>
+    </Modal>
   );
 }
 

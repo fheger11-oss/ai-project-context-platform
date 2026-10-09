@@ -1,9 +1,10 @@
 import { Loader2, MessageSquare, Send, X } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Modal } from "@/components/ui/modal";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { type FeedbackType, submitFeedback } from "@/features/feedback/api/feedback-api";
@@ -62,22 +63,6 @@ export function FeedbackDialog({ accessToken, open, page, onClose }: FeedbackDia
     }
   });
 
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !mutation.isPending) {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [mutation.isPending, onClose, open]);
-
   if (!open) {
     return null;
   }
@@ -98,22 +83,14 @@ export function FeedbackDialog({ accessToken, open, page, onClose }: FeedbackDia
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[70] grid place-items-center bg-background/72 p-3 backdrop-blur-sm sm:p-6"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !mutation.isPending) {
-          onClose();
-        }
-      }}
+    <Modal
+      ariaDescribedBy={descriptionId}
+      ariaLabelledBy={titleId}
+      className="max-w-lg"
+      dismissible={!mutation.isPending}
+      onDismiss={onClose}
     >
-      <section
-        aria-describedby={descriptionId}
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg overflow-y-auto overscroll-y-contain rounded-md border border-border bg-surface p-4 shadow-xl sm:max-h-[calc(100dvh-3rem)] sm:p-5"
-        role="dialog"
-      >
+      <>
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="mb-3 grid size-10 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary">
@@ -213,7 +190,7 @@ export function FeedbackDialog({ accessToken, open, page, onClose }: FeedbackDia
             </Button>
           </div>
         </div>
-      </section>
-    </div>
+      </>
+    </Modal>
   );
 }
