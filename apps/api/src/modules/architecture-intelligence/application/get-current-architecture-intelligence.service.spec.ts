@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { ANALYSIS_ENGINE_VERSION } from "../../analysis/application/analysis-engine-version.js";
+import { CONTEXT_ENGINE_VERSION } from "../../context/application/context-engine-version.js";
 import type { RepositoriesService } from "../../repositories/repositories.service.js";
+import { ARCHITECTURE_PROCESSOR_VERSION } from "./architecture-processor-version.js";
 import type { GetArchitectureHistoryComparisonService } from "./get-architecture-history-comparison.service.js";
 import { GetCurrentArchitectureIntelligenceService } from "./get-current-architecture-intelligence.service.js";
 
@@ -25,6 +28,25 @@ describe("GetCurrentArchitectureIntelligenceService", () => {
       });
     }
   );
+
+  it("does not present a completed legacy result as current canonical intelligence", async () => {
+    const legacy = source("COMPLETED");
+    legacy.contextVersion = "context-engine@5.7.1";
+    legacy.analyzerVersion = "analysis-engine-4.10";
+    legacy.request.processorVersion = "architecture-processor-1.0";
+    const service = createService({ source: legacy });
+
+    await expect(service.execute(query())).resolves.toEqual({
+      processing: expect.objectContaining({
+        status: "INCOMPATIBLE",
+        contextVersion: "context-engine@5.7.1",
+        analyzerVersion: "analysis-engine-4.10",
+        processorVersion: "architecture-processor-1.0",
+        failureCategory: "ARCHITECTURE_VERSION_MISMATCH"
+      }),
+      intelligence: null
+    });
+  });
 
   it("uses Sprint 4 lifecycle, filters findings, and paginates factual measurements", async () => {
     const service = createService({
@@ -141,8 +163,8 @@ function source(status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "INC
     promotedAt: now,
     projectContextId: "context-1",
     commitSha: "abc",
-    contextVersion: "context-1",
-    analyzerVersion: "analyzer-1",
+    contextVersion: CONTEXT_ENGINE_VERSION,
+    analyzerVersion: ANALYSIS_ENGINE_VERSION,
     architectureModel: {
       modules: [
         {
@@ -180,7 +202,7 @@ function source(status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "INC
       id: "request-1",
       repositoryId: "repository-1",
       projectContextId: "context-1",
-      processorVersion: "processor-1",
+      processorVersion: ARCHITECTURE_PROCESSOR_VERSION,
       status,
       attemptCount: 1,
       nextAttemptAt: now,

@@ -5,6 +5,8 @@ import type {
   ArchitectureIntelligenceResponse
 } from "@ai-context/contracts";
 
+import { ANALYSIS_ENGINE_VERSION } from "../../analysis/application/analysis-engine-version.js";
+import { CONTEXT_ENGINE_VERSION } from "../../context/application/context-engine-version.js";
 import { RepositoriesService } from "../../repositories/repositories.service.js";
 import type { ArchitectureHistoryComparison } from "../domain/architecture-history-comparison.js";
 import {
@@ -21,6 +23,7 @@ import {
   ARCHITECTURE_MODULE_MEASUREMENT_REPOSITORY,
   type ArchitectureModuleMeasurementRepository
 } from "../domain/contracts/architecture-module-measurement-repository.contract.js";
+import { ARCHITECTURE_PROCESSOR_VERSION } from "./architecture-processor-version.js";
 import { GetArchitectureHistoryComparisonService } from "./get-architecture-history-comparison.service.js";
 
 export type CurrentArchitectureIntelligenceQuery = {
@@ -57,6 +60,16 @@ export class GetCurrentArchitectureIntelligenceService {
     if (!source?.request) return { processing: null, intelligence: null };
     const processing = processingSummary(source);
     if (source.request.status !== "COMPLETED") return { processing, intelligence: null };
+    if (!isCurrentCanonicalResult(source)) {
+      return {
+        processing: {
+          ...processing,
+          status: "INCOMPATIBLE",
+          failureCategory: "ARCHITECTURE_VERSION_MISMATCH"
+        },
+        intelligence: null
+      };
+    }
 
     const comparison = await this.history.execute(query.repositoryId, source.request.id);
     const current = await this.findings.listByRepositoryAndProcessingRequest(
@@ -151,6 +164,14 @@ export class GetCurrentArchitectureIntelligenceService {
       }
     };
   }
+}
+
+function isCurrentCanonicalResult(source: ArchitectureIntelligenceResultSource): boolean {
+  return (
+    source.request?.processorVersion === ARCHITECTURE_PROCESSOR_VERSION &&
+    source.contextVersion === CONTEXT_ENGINE_VERSION &&
+    source.analyzerVersion === ANALYSIS_ENGINE_VERSION
+  );
 }
 
 export function processingSummary(source: ArchitectureIntelligenceResultSource) {
