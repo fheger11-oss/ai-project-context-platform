@@ -1,6 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../../prisma/prisma.service.js";
+import {
+  architectureModelWithDefaults,
+  type ProjectContextArchitectureModel
+} from "../../context/domain/project-context-architecture.js";
 import type {
   ArchitectureIntelligenceReadRepository,
   ArchitectureIntelligenceResultSource
@@ -21,6 +25,7 @@ export class PrismaArchitectureIntelligenceReadRepository implements Architectur
             repositoryId: true,
             commitSha: true,
             contextVersion: true,
+            snapshot: true,
             analysis: { select: { analyzerVersion: true } },
             repositoryContextHistory: {
               where: { repositoryId },
@@ -47,6 +52,7 @@ export class PrismaArchitectureIntelligenceReadRepository implements Architectur
       commitSha: context.commitSha,
       contextVersion: context.contextVersion,
       analyzerVersion: context.analysis.analyzerVersion,
+      architectureModel: readArchitectureModel(context.snapshot),
       request: context.architectureProcessingRequests[0]
         ? toRequest(context.architectureProcessingRequests[0])
         : null
@@ -95,6 +101,15 @@ export class PrismaArchitectureIntelligenceReadRepository implements Architectur
       }))
     };
   }
+}
+
+function readArchitectureModel(snapshot: unknown): ProjectContextArchitectureModel {
+  if (typeof snapshot !== "object" || snapshot === null || Array.isArray(snapshot)) {
+    return architectureModelWithDefaults(undefined);
+  }
+  return architectureModelWithDefaults(
+    (snapshot as { architectureModel?: ProjectContextArchitectureModel }).architectureModel
+  );
 }
 
 function toRequest(

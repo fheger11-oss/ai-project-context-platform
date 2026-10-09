@@ -13,6 +13,10 @@ describe("PrismaArchitectureIntelligenceReadRepository", () => {
 
     await expect(repository.findCurrent("repository-a")).resolves.toMatchObject({
       projectContextId: "context-1",
+      architectureModel: {
+        modules: [expect.objectContaining({ id: "module:a" })],
+        dependencies: [expect.objectContaining({ id: "dependency:a-b" })]
+      },
       request: { repositoryId: "repository-a" }
     });
     expect(findFirst).toHaveBeenCalledWith(
@@ -23,6 +27,7 @@ describe("PrismaArchitectureIntelligenceReadRepository", () => {
         currentProjectContext: {
           select: {
             repositoryId: true,
+            snapshot: true,
             repositoryContextHistory: { where: { repositoryId: "repository-a" } },
             architectureProcessingRequests: { where: { repositoryId: "repository-a" } }
           }
@@ -75,6 +80,13 @@ function context(repositoryId = "repository-a") {
     repositoryId,
     commitSha: "abc123",
     contextVersion: "context-1",
+    snapshot: {
+      architectureModel: {
+        modules: [architectureModule("module:a")],
+        dependencies: [architectureDependency()],
+        publicSurfaces: []
+      }
+    },
     analysis: { analyzerVersion: "analyzer-1" },
     repositoryContextHistory: [{ id: "history-1", createdAt: now }],
     architectureProcessingRequests: [
@@ -95,5 +107,37 @@ function context(repositoryId = "repository-a") {
         updatedAt: now
       }
     ]
+  };
+}
+
+function architectureModule(id: string) {
+  return {
+    id,
+    kind: "BACKEND_FEATURE" as const,
+    name: "A",
+    rootPath: "apps/api/src/modules/a",
+    packageId: "package:api",
+    parentModuleId: "package:api",
+    fileIds: ["file:a"],
+    layers: [{ kind: "APPLICATION" as const, fileIds: ["file:a"] }],
+    sourceExports: [],
+    frameworkSignals: [],
+    inference: "INFERRED" as const,
+    confidence: "MEDIUM" as const,
+    evidence: []
+  };
+}
+
+function architectureDependency() {
+  return {
+    id: "dependency:a-b",
+    sourceModuleId: "module:a",
+    targetModuleId: "module:b",
+    relationshipCount: 2,
+    sourceFileCount: 1,
+    targetFileCount: 1,
+    relationshipKinds: ["IMPORTS" as const],
+    relationshipIds: ["relationship:1", "relationship:2"],
+    resolution: "RESOLVED" as const
   };
 }

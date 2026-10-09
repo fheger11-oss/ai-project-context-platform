@@ -1,4 +1,5 @@
 import type { AnalysisSourceLocation } from "./analysis.js";
+import type { ProjectContextArchitectureModel } from "./context.js";
 
 export type ArchitectureIntelligenceProcessingStatus =
   "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "INCOMPATIBLE";
@@ -83,6 +84,7 @@ export type ArchitectureIntelligenceResponse = {
   processing: ArchitectureProcessingSummary | null;
   intelligence: null | {
     compatibility: ArchitectureIntelligenceCompatibility;
+    architectureModel: ProjectContextArchitectureModel;
     summary: {
       moduleCount: number;
       relationshipCount: number;

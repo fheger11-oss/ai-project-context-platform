@@ -116,6 +116,11 @@ export class GetCurrentArchitectureIntelligenceService {
       processing,
       intelligence: {
         compatibility: comparison.status,
+        architectureModel: source.architectureModel ?? {
+          modules: [],
+          dependencies: [],
+          publicSurfaces: []
+        },
         summary: {
           moduleCount: modules.length,
           relationshipCount: modules.reduce((total, module) => total + module.fanOut, 0),

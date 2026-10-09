@@ -51,6 +51,10 @@ describe("GetCurrentArchitectureIntelligenceService", () => {
     const result = await service.execute(query({ confidence: "HIGH", lifecycle: "NEW" }));
     expect(result.intelligence).toMatchObject({
       compatibility: "COMPARABLE",
+      architectureModel: {
+        modules: [expect.objectContaining({ id: "module:a" })],
+        dependencies: [expect.objectContaining({ id: "dependency:a-b" })]
+      },
       summary: { moduleCount: 1, relationshipCount: 1, circularDependencyFindingCount: 1 },
       findings: { items: [{ occurrenceId: "occurrence-1", lifecycle: "NEW" }] },
       changes: { addedModules: ["module:a"] }
@@ -139,6 +143,39 @@ function source(status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "INC
     commitSha: "abc",
     contextVersion: "context-1",
     analyzerVersion: "analyzer-1",
+    architectureModel: {
+      modules: [
+        {
+          id: "module:a",
+          kind: "BACKEND_FEATURE" as const,
+          name: "A",
+          rootPath: "apps/api/src/modules/a",
+          packageId: "package:api",
+          parentModuleId: "package:api",
+          fileIds: ["file:a"],
+          layers: [],
+          sourceExports: [],
+          frameworkSignals: [],
+          inference: "INFERRED" as const,
+          confidence: "MEDIUM" as const,
+          evidence: []
+        }
+      ],
+      dependencies: [
+        {
+          id: "dependency:a-b",
+          sourceModuleId: "module:a",
+          targetModuleId: "module:b",
+          relationshipCount: 1,
+          sourceFileCount: 1,
+          targetFileCount: 1,
+          relationshipKinds: ["IMPORTS" as const],
+          relationshipIds: ["relationship:1"],
+          resolution: "RESOLVED" as const
+        }
+      ],
+      publicSurfaces: []
+    },
     request: {
       id: "request-1",
       repositoryId: "repository-1",

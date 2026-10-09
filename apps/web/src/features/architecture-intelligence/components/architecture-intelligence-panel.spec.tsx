@@ -55,21 +55,54 @@ describe("ArchitectureIntelligencePanel", () => {
       isFetching: false
     };
     expect(render()).toContain("Processing incompatible");
+    current = { isLoading: false, isError: true, isFetching: false };
+    expect(render()).toContain("Architecture Intelligence unavailable");
   });
 
-  it("renders findings, evidence, measurements, changes, filters, and history navigation", () => {
+  it("renders the canonical overview, module inventory, dependencies, and finding evidence", () => {
     current = { data: completedResponse(), isLoading: false, isError: false, isFetching: false };
     const markup = render();
+    expect(markup).toContain("Modules</div>");
+    expect(markup).toContain("Dependencies</div>");
+    expect(markup).toContain("Findings</div>");
+    expect(markup).toMatch(/>3<\/div><div[^>]*>Modules<\/div>/);
+    expect(markup).toMatch(/>2<\/div><div[^>]*>Dependencies<\/div>/);
+    expect(markup).toMatch(/>1<\/div><div[^>]*>Findings<\/div>/);
+    expect(markup).toContain("apps/api/src/modules/a");
+    expect(markup).toContain("BACKEND_FEATURE");
+    expect(markup).toContain("APPLICATION");
+    expect(markup).toContain("A (module:a) → B (module:b)");
+    expect(markup).toContain("IMPORTS");
     expect(markup).toContain("Circular dependencies");
     expect(markup).toContain("Modules in cycle");
-    expect(markup).toContain("module:a, module:b, module:c");
-    expect(markup).not.toContain("module:a → module:b → module:c");
-    expect(markup).toContain("module:a → module:b");
+    expect(markup).toContain("A (module:a) → B (module:b) → C (module:c) → A (module:a)");
+    expect(markup).toContain("APPLICABLE");
+    expect(markup).toContain("dependency:a-b");
+    expect(markup).toContain("relationship:1");
     expect(markup).toContain("Inspect evidence");
     expect(markup).toContain("Module measurements");
     expect(markup).toContain("Added modules");
     expect(markup).toContain("Finding filters");
     expect(markup).toContain("/repositories/repository_1/architecture-history");
+  });
+
+  it("shows the factual no-findings state without a health claim", () => {
+    const data = completedResponse();
+    data.intelligence!.summary.circularDependencyFindingCount = 0;
+    data.intelligence!.findings.items = [];
+    current = { data, isLoading: false, isError: false, isFetching: false };
+    const markup = render();
+    expect(markup).toContain("No architecture findings detected.");
+    expect(markup).not.toContain("architecture is healthy");
+  });
+
+  it("preserves partially applicable findings as coverage information", () => {
+    const data = completedResponse();
+    data.intelligence!.findings.items[0]!.applicability = "PARTIALLY_APPLICABLE";
+    current = { data, isLoading: false, isError: false, isFetching: false };
+    const markup = render();
+    expect(markup).toContain("PARTIALLY_APPLICABLE");
+    expect(markup).toContain("unresolved source relationships");
   });
 });
 
@@ -117,6 +150,18 @@ function completedResponse(): ArchitectureIntelligenceResponse {
     },
     intelligence: {
       compatibility: "COMPARABLE",
+      architectureModel: {
+        modules: [
+          architectureModule("module:a", "A", "apps/api/src/modules/a"),
+          architectureModule("module:b", "B", "apps/api/src/modules/b"),
+          architectureModule("module:c", "C", "apps/api/src/modules/c")
+        ],
+        dependencies: [
+          architectureDependency("dependency:a-b", "module:a", "module:b"),
+          architectureDependency("dependency:b-c", "module:b", "module:c")
+        ],
+        publicSurfaces: []
+      },
       summary: {
         moduleCount: 2,
         relationshipCount: 2,
@@ -134,17 +179,15 @@ function completedResponse(): ArchitectureIntelligenceResponse {
             fingerprint: "fingerprint",
             ruleId: "architecture.circular-dependency",
             ruleVersion: "1.0",
-            applicability: null,
+            applicability: "APPLICABLE",
             confidence: "HIGH",
             lifecycle: "NEW",
             subject: { kind: "CYCLE", moduleIds: ["module:a", "module:b", "module:c"] },
             evidence: [
               {
-                kind: "MODULE_RELATIONSHIP",
-                sourceModuleId: "module:a",
-                targetModuleId: "module:b",
-                relationshipCount: 1,
-                confidence: "HIGH"
+                kind: "CANONICAL_ARCHITECTURE_DEPENDENCIES",
+                dependencyIds: ["dependency:a-b", "dependency:b-c"],
+                relationshipIds: ["relationship:1", "relationship:2"]
               }
             ],
             createdAt: "2026-10-05T12:00:00.000Z"
@@ -175,5 +218,37 @@ function completedResponse(): ArchitectureIntelligenceResponse {
         removedRelationships: []
       }
     }
+  };
+}
+
+function architectureModule(id: string, name: string, rootPath: string) {
+  return {
+    id,
+    kind: "BACKEND_FEATURE" as const,
+    name,
+    rootPath,
+    packageId: "package:api",
+    parentModuleId: "package:api",
+    fileIds: [`file:${name.toLowerCase()}`],
+    layers: [{ kind: "APPLICATION" as const, fileIds: [`file:${name.toLowerCase()}`] }],
+    sourceExports: [],
+    frameworkSignals: [],
+    inference: "INFERRED" as const,
+    confidence: "MEDIUM" as const,
+    evidence: []
+  };
+}
+
+function architectureDependency(id: string, sourceModuleId: string, targetModuleId: string) {
+  return {
+    id,
+    sourceModuleId,
+    targetModuleId,
+    relationshipCount: 1,
+    sourceFileCount: 1,
+    targetFileCount: 1,
+    relationshipKinds: ["IMPORTS" as const],
+    relationshipIds: [`relationship:${id}`],
+    resolution: "RESOLVED" as const
   };
 }

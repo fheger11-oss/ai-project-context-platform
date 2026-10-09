@@ -67,6 +67,7 @@ class ArchitectureChangesDto {
 
 class ArchitectureIntelligenceDataDto {
   @ApiProperty({ enum: ["COMPARABLE", "INCOMPATIBLE", "NO_BASELINE"] }) compatibility!: string;
+  @ApiProperty({ type: "object", additionalProperties: true }) architectureModel!: object;
   @ApiProperty({ type: "object", additionalProperties: { type: "number" } }) summary!: object;
   @ApiProperty({ type: "object", additionalProperties: true }) findings!: {
     items: ArchitectureFindingItemDto[];

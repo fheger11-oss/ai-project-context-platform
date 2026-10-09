@@ -1,4 +1,5 @@
 import type { ArchitectureProcessingRequestRecord } from "./architecture-processing-request-repository.contract.js";
+import type { ProjectContextArchitectureModel } from "../../../context/domain/project-context-architecture.js";
 
 export const ARCHITECTURE_INTELLIGENCE_READ_REPOSITORY = Symbol(
   "ARCHITECTURE_INTELLIGENCE_READ_REPOSITORY"
@@ -11,6 +12,7 @@ export type ArchitectureIntelligenceResultSource = {
   commitSha: string;
   contextVersion: string;
   analyzerVersion: string;
+  architectureModel?: ProjectContextArchitectureModel;
   request: ArchitectureProcessingRequestRecord | null;
 };
 

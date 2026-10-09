@@ -3,11 +3,13 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import type {
+  ArchitectureDependency,
   ArchitectureFindingItem,
   ArchitectureFindingLifecycle,
   ArchitectureIntelligenceHistoryItem,
   ArchitectureIntelligenceResponse,
-  ArchitectureIntelligenceConfidence
+  ArchitectureIntelligenceConfidence,
+  ArchitecturalModule
 } from "@ai-context/contracts";
 
 import { StatePanel } from "@/components/shared/state-panel";
@@ -140,11 +142,21 @@ export function ArchitectureIntelligencePanel({
       {data?.intelligence ? (
         <>
           <SummaryCard
-            data={data.intelligence.summary}
+            moduleCount={data.intelligence.architectureModel.modules.length}
+            dependencyCount={data.intelligence.architectureModel.dependencies.length}
+            findingCount={data.intelligence.summary.circularDependencyFindingCount}
             compatibility={data.intelligence.compatibility}
           />
+          <Modules modules={data.intelligence.architectureModel.modules} />
+          <Dependencies
+            dependencies={data.intelligence.architectureModel.dependencies}
+            modules={data.intelligence.architectureModel.modules}
+          />
           <FindingFilters state={current} update={update} />
-          <Findings findings={data.intelligence.findings.items} />
+          <Findings
+            findings={data.intelligence.findings.items}
+            modules={data.intelligence.architectureModel.modules}
+          />
           <Pager
             pagination={data.intelligence.findings.pagination}
             onPage={(page) => update({ page })}
@@ -245,12 +257,21 @@ function ProcessingCard({
 }
 
 function SummaryCard({
-  data,
+  moduleCount,
+  dependencyCount,
+  findingCount,
   compatibility
 }: {
-  data: NonNullable<ArchitectureIntelligenceResponse["intelligence"]>["summary"];
+  moduleCount: number;
+  dependencyCount: number;
+  findingCount: number;
   compatibility: string;
 }) {
+  const values = [
+    ["Modules", moduleCount],
+    ["Dependencies", dependencyCount],
+    ["Findings", findingCount]
+  ] as const;
   return (
     <Card>
       <CardHeader>
@@ -259,13 +280,103 @@ function SummaryCard({
           <Badge>{compatibility}</Badge>
         </div>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {Object.entries(data).map(([key, value]) => (
-          <div key={key} className="rounded border p-3">
+      <CardContent className="grid gap-3 sm:grid-cols-3">
+        {values.map(([title, value]) => (
+          <div key={title} className="rounded border p-3">
             <div className="text-2xl font-semibold">{value}</div>
-            <div className="text-xs text-muted-foreground">{label(key)}</div>
+            <div className="text-xs text-muted-foreground">{title}</div>
           </div>
         ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Modules({ modules }: { modules: readonly ArchitecturalModule[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Modules</CardTitle>
+      </CardHeader>
+      <CardContent className="overflow-x-auto">
+        {modules.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No canonical modules are available.</p>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b">
+                {["Name", "Kind", "Root path", "Layers", "Package", "Files"].map((item) => (
+                  <th key={item} className="p-2">
+                    {item}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {modules.map((module) => (
+                <tr key={module.id} className="border-b align-top">
+                  <td className="p-2 font-medium">{module.name}</td>
+                  <td className="p-2">{module.kind}</td>
+                  <td className="p-2 font-mono text-xs">{module.rootPath}</td>
+                  <td className="p-2">
+                    {module.layers.map((layer) => layer.kind).join(", ") || "UNCLASSIFIED"}
+                  </td>
+                  <td className="p-2 font-mono text-xs">{module.packageId}</td>
+                  <td className="p-2">{module.fileIds.length}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Dependencies({
+  dependencies,
+  modules
+}: {
+  dependencies: readonly ArchitectureDependency[];
+  modules: readonly ArchitecturalModule[];
+}) {
+  const modulesById = new Map(modules.map((module) => [module.id, module]));
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Dependencies</CardTitle>
+      </CardHeader>
+      <CardContent className="overflow-x-auto">
+        {dependencies.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No canonical module dependencies are available.
+          </p>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="p-2">Dependency</th>
+                <th className="p-2">Relationships</th>
+                <th className="p-2">Kinds</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dependencies.map((dependency) => (
+                <tr key={dependency.id} className="border-b align-top">
+                  <td className="p-2">
+                    <span className="font-medium">
+                      {moduleDisplay(dependency.sourceModuleId, modulesById)} →{" "}
+                      {moduleDisplay(dependency.targetModuleId, modulesById)}
+                    </span>
+                    <div className="font-mono text-xs text-muted-foreground">{dependency.id}</div>
+                  </td>
+                  <td className="p-2">{dependency.relationshipCount}</td>
+                  <td className="p-2">{dependency.relationshipKinds.join(", ")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </CardContent>
     </Card>
   );
@@ -340,7 +451,14 @@ function Filter({
   );
 }
 
-function Findings({ findings }: { findings: ArchitectureFindingItem[] }) {
+function Findings({
+  findings,
+  modules
+}: {
+  findings: ArchitectureFindingItem[];
+  modules: readonly ArchitecturalModule[];
+}) {
+  const modulesById = new Map(modules.map((module) => [module.id, module]));
   return (
     <Card>
       <CardHeader>
@@ -348,22 +466,34 @@ function Findings({ findings }: { findings: ArchitectureFindingItem[] }) {
       </CardHeader>
       <CardContent className="grid gap-3">
         {findings.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No findings match the current filters.</p>
+          <p className="text-sm text-muted-foreground">
+            No architecture findings detected. This does not imply complete architecture coverage.
+          </p>
         ) : (
           findings.map((finding) => (
             <article key={finding.occurrenceId} className="rounded border p-4">
               <div className="flex flex-wrap gap-2">
+                <Badge tone="neutral">Circular Dependency</Badge>
                 <Badge>{finding.lifecycle ?? "BOUNDARY"}</Badge>
                 <Badge tone="neutral">{finding.confidence}</Badge>
+                {finding.applicability ? <Badge>{finding.applicability}</Badge> : null}
               </div>
               {finding.subject.kind === "CYCLE" ? (
                 <div className="mt-3 text-sm">
                   <div className="text-xs text-muted-foreground">Modules in cycle</div>
-                  <div className="font-mono">{finding.subject.moduleIds.join(", ")}</div>
+                  <div className="font-mono">
+                    {cyclePath(finding.subject.moduleIds, modulesById)}
+                  </div>
                 </div>
               ) : (
                 <div className="mt-3 font-mono text-sm">{finding.fingerprint}</div>
               )}
+              {finding.applicability === "PARTIALLY_APPLICABLE" ? (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  This cycle is positively detected, but unresolved source relationships mean the
+                  evaluated graph has incomplete coverage.
+                </p>
+              ) : null}
               <details className="mt-3">
                 <summary className="cursor-pointer text-sm font-medium">Inspect evidence</summary>
                 <ul className="mt-2 grid gap-2 text-xs text-muted-foreground">
@@ -563,12 +693,24 @@ function Detail({
     </div>
   );
 }
-function label(value: string) {
-  return value.replace(/([A-Z])/g, " $1").replace(/^./, (item) => item.toUpperCase());
+function moduleDisplay(
+  moduleId: string,
+  modulesById: ReadonlyMap<string, ArchitecturalModule>
+): string {
+  const module = modulesById.get(moduleId);
+  return module ? `${module.name} (${moduleId})` : moduleId;
+}
+function cyclePath(
+  moduleIds: readonly string[],
+  modulesById: ReadonlyMap<string, ArchitecturalModule>
+): string {
+  const firstModuleId = moduleIds[0];
+  if (!firstModuleId) return "";
+  return [...moduleIds, firstModuleId].map((id) => moduleDisplay(id, modulesById)).join(" → ");
 }
 function evidenceText(item: ArchitectureFindingItem["evidence"][number]) {
   if (item.kind === "CANONICAL_ARCHITECTURE_DEPENDENCIES")
-    return `${item.dependencyIds.length} canonical dependency(ies) · ${item.relationshipIds.length} source relationship(s)`;
+    return `Dependencies: ${item.dependencyIds.join(", ") || "none"} · Relationships: ${item.relationshipIds.join(", ") || "none"}`;
   if (item.kind === "MODULE") return `${item.moduleId} · ${item.confidence}`;
   if (item.kind === "MODULE_RELATIONSHIP")
     return `${item.sourceModuleId} → ${item.targetModuleId} · ${item.relationshipCount} relationship(s) · ${item.confidence}`;
