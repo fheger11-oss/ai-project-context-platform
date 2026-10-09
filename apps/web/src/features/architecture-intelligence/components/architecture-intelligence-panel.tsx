@@ -306,8 +306,17 @@ function SummaryCard({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>Current summary</CardTitle>
-          <Badge>{compatibility}</Badge>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">History comparison</span>
+            <Badge>{compatibility}</Badge>
+          </div>
         </div>
+        {compatibility === "INCOMPATIBLE" ? (
+          <p className="text-sm text-muted-foreground">
+            Current processing completed successfully. Changes cannot be compared with the previous
+            promoted result because its engine or rule versions are incompatible.
+          </p>
+        ) : null}
       </CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-3">
         {values.map(([title, value]) => (

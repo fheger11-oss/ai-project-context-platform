@@ -100,6 +100,19 @@ describe("ArchitectureIntelligencePanel", () => {
     expect(markup).not.toContain("architecture is healthy");
   });
 
+  it("labels incompatible history comparison without marking current processing incompatible", () => {
+    const data = completedResponse();
+    data.intelligence!.compatibility = "INCOMPATIBLE";
+    current = { data, isLoading: false, isError: false, isFetching: false };
+
+    const markup = render();
+
+    expect(markup).toContain("History comparison");
+    expect(markup).toContain("Current processing completed successfully.");
+    expect(markup).toContain("previous promoted result");
+    expect(markup).toContain("COMPLETED");
+  });
+
   it("preserves partially applicable findings as coverage information", () => {
     const data = completedResponse();
     data.intelligence!.findings.items[0]!.applicability = "PARTIALLY_APPLICABLE";
